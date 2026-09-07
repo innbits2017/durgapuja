@@ -24,3 +24,219 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes durgaFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes slowFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-12px) rotate(4deg);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(25px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes softGlow {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================================
+   PAGE LOAD ANIMATION
+========================================= */
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pageSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-25px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(35px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pageSlideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-45px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageSlideRight {
+  from {
+    opacity: 0;
+    transform: translateX(45px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.page-load {
+  animation: pageFadeIn 0.8s ease-out both;
+}
+
+.page-load-navbar {
+  animation: pageSlideDown 0.8s ease-out 0.1s both;
+}
+
+.page-load-left {
+  animation: pageSlideLeft 1s ease-out 0.25s both;
+}
+
+.page-load-durga {
+  animation: pageZoomIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+}
+
+.page-load-right {
+  animation: pageSlideRight 1s ease-out 0.35s both;
+}
+
+.page-load-up {
+  animation: pageSlideUp 0.9s ease-out 0.5s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-load,
+  .page-load-navbar,
+  .page-load-left,
+  .page-load-durga,
+  .page-load-right,
+  .page-load-up {
+    animation: none;
+  }
+}
+
+/* =========================================
+   SECTION REVEAL ANIMATIONS
+========================================= */
+
+.reveal {
+  opacity: 0;
+  transition:
+    opacity 800ms ease,
+    transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-up {
+  transform: translateY(45px);
+}
+
+.reveal-left {
+  transform: translateX(-50px);
+}
+
+.reveal-right {
+  transform: translateX(50px);
+}
+
+.reveal-scale {
+  transform: scale(0.92);
+}
+
+.reveal-fade {
+  transform: none;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translate(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-up,
+  .reveal-left,
+  .reveal-right,
+  .reveal-scale,
+  .reveal-fade {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

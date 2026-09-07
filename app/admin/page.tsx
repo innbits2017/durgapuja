@@ -6,19 +6,6 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import DashboardClient from "./DashboardClient";
 
 export default async function DurgaPujaDashboardPage() {
-  /*
-   * ---------------------------------------------------------
-   * ADMIN AUTHENTICATION
-   * ---------------------------------------------------------
-   *
-   * This is an additional server-side protection layer.
-   * Even if someone directly opens:
-   *
-   * /admin/durga-puja
-   *
-   * they must have a valid Supabase session.
-   */
-
   const supabase = await createSupabaseServerClient();
 
   const {
@@ -29,62 +16,54 @@ export default async function DurgaPujaDashboardPage() {
     redirect("/admin/login");
   }
 
-  /*
-   * ---------------------------------------------------------
-   * FETCH RESIDENT CONTRIBUTIONS
-   * ---------------------------------------------------------
-   */
+  const [
+    contributionsResult,
+    donationsResult,
+    expensesResult,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("contributions")
+      .select("*")
+      .order("created_at", { ascending: false }),
 
-  const {
-    data: contributions,
-    error: contributionsError,
-  } = await supabaseAdmin
-    .from("contributions")
-    .select("*")
-    .order("created_at", {
-      ascending: false,
-    });
+    supabaseAdmin
+      .from("donations")
+      .select("*")
+      .order("created_at", { ascending: false }),
 
-  if (contributionsError) {
+    supabaseAdmin
+      .from("expenses")
+      .select("*")
+      .order("expense_date", { ascending: false })
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (contributionsResult.error) {
     console.error(
       "Unable to fetch contributions:",
-      contributionsError
+      contributionsResult.error
     );
   }
 
-  /*
-   * ---------------------------------------------------------
-   * FETCH EXTERNAL DONATIONS / SPONSORSHIPS
-   * ---------------------------------------------------------
-   */
-
-  const {
-    data: donations,
-    error: donationsError,
-  } = await supabaseAdmin
-    .from("donations")
-    .select("*")
-    .order("created_at", {
-      ascending: false,
-    });
-
-  if (donationsError) {
+  if (donationsResult.error) {
     console.error(
       "Unable to fetch donations:",
-      donationsError
+      donationsResult.error
     );
   }
 
-  /*
-   * ---------------------------------------------------------
-   * PASS DATA TO DASHBOARD
-   * ---------------------------------------------------------
-   */
+  if (expensesResult.error) {
+    console.error(
+      "Unable to fetch expenses:",
+      expensesResult.error
+    );
+  }
 
   return (
     <DashboardClient
-      initialContributions={contributions ?? []}
-      initialDonations={donations ?? []}
+      initialContributions={contributionsResult.data ?? []}
+      initialDonations={donationsResult.data ?? []}
+      initialExpenses={expensesResult.data ?? []}
     />
   );
 }
