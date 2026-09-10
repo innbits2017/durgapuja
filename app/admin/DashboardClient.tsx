@@ -1,18 +1,41 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+/* ============================================================
+   TYPES
+============================================================ */
+
+type LastYearPaid = {
+  block: string;
+  flat_no: string;
+  resident_type: string | null;
+  amount: number;
+};
+
+type ComparisonFilter =
+  | "all"
+  | "continued"
+  | "followup"
+  | "new"
+  | "notpaid";
+
 type Contribution = {
   id: string;
   name: string;
+  block: string | null;
   flat_no: string;
+  resident_type: string | null;
   mobile: string;
   amount: number;
+  collection_status: string | null;
+  payment_method: string | null;
   utr: string | null;
+  paid_to: string | null;
   status: string;
   created_at: string;
   verified_at: string | null;
@@ -34,6 +57,28 @@ type Donation = {
   verified_at: string | null;
 };
 
+
+type CulturalProgram = {
+  id: string;
+  registration_no: string;
+  participant_name: string;
+  age: number;
+  block: string;
+  flat_no: string;
+  participant_type: string;
+  mobile: string;
+  email: string | null;
+  performance_type: string;
+  group_name: string | null;
+  category: string;
+  performance_title: string;
+  description: string | null;
+  duration: string;
+  status: string;
+  created_at: string;
+  updated_at?: string | null;
+};
+
 type Expense = {
   id: string;
   title: string;
@@ -48,13 +93,140 @@ type Expense = {
   updated_at: string;
 };
 
+/*
+ * This is the display-level row.
+ *
+ * A row exists for EVERY flat.
+ *
+ * contribution = null means:
+ * the flat has no current-year contribution.
+ */
+type FlatRow = {
+  id: string;
+
+  name: string;
+  block: string;
+  flat_no: string;
+
+  last_year_amount: number | null;
+
+  resident_type: string | null;
+  mobile: string;
+
+  collection_status: string | null;
+  payment_method: string | null;
+
+  amount: number | null;
+
+  utr: string | null;
+  paid_to: string | null;
+
+  created_at: string | null;
+  status: string | null;
+
+  contribution: Contribution | null;
+};
+
 type Section =
   | "overview"
   | "contributions"
+  | "culturalProgram"
   | "donations"
-  | "expenses";
+  | "expenses"
+  | "lastYear";
 
-type Filter = "all" | "pending" | "verified" | "rejected";
+type Filter =
+  | "all"
+  | "pending"
+  | "verified"
+  | "rejected";
+
+type BlockFilter =
+  | "all"
+  | "P1"
+  | "P2"
+  | "Villa";
+
+type CollectionFilter =
+  | "all"
+  | "Pay Now"
+  | "Door Lock"
+  | "Follow-up"
+  | "Not Interested";
+
+type PaymentFilter =
+  | "all"
+  | "upi"
+  | "cash";
+
+type CulturalStatusFilter =
+  | "all"
+  | "pending"
+  | "approved"
+  | "rejected";
+
+type CulturalPerformanceFilter =
+  | "all"
+  | "Individual"
+  | "Group";
+
+/* ============================================================
+   MASTER FLAT LIST
+============================================================ */
+
+/*
+ * Generate flat numbers such as:
+ *
+ * 001, 002, 003...
+ * 101, 102, 103...
+ */
+function generateFlats(
+  start: number,
+  end: number
+) {
+  return Array.from(
+    {
+      length: end - start + 1,
+    },
+    (_, index) =>
+      String(start + index).padStart(3, "0")
+  );
+}
+
+/*
+ * MASTER FLAT LIST
+ *
+ * IMPORTANT:
+ * This is only used to DISPLAY all flats.
+ *
+ * It does NOT insert anything into Supabase.
+ */
+const ALL_FLATS = {
+  P1: [
+    ...generateFlats(101, 112),
+    ...generateFlats(201, 212),
+    ...generateFlats(301, 312),
+    ...generateFlats(401, 412),
+  ],
+
+  P2: [
+    ...generateFlats(101, 167),
+    ...generateFlats(201, 267),
+    ...generateFlats(301, 367),
+    ...generateFlats(401, 467),
+  ],
+
+  Villa: [
+    "001",
+    "002",
+    "003",
+    "004",
+  ],
+};
+
+/* ============================================================
+   CATEGORIES
+============================================================ */
 
 const EXPENSE_CATEGORIES = [
   "Puja & Rituals",
@@ -78,32 +250,68 @@ const PAYMENT_MODES = [
   "cheque",
 ];
 
+
+/* ============================================================
+   MAIN COMPONENT
+============================================================ */
+
 export default function DashboardClient({
   initialContributions,
   initialDonations,
   initialExpenses,
+  initialLastYearPaid,
+  initialCulturalPrograms,
 }: {
   initialContributions: Contribution[];
   initialDonations: Donation[];
   initialExpenses: Expense[];
+  initialLastYearPaid: LastYearPaid[];
+  initialCulturalPrograms: CulturalProgram[];
 }) {
   const router = useRouter();
-  const supabase = createSupabaseBrowserClient();
+
+  const supabase = useMemo(
+    () => createSupabaseBrowserClient(),
+    []
+  );
 
   const [section, setSection] =
     useState<Section>("overview");
 
   const [contributions, setContributions] =
-    useState<Contribution[]>(initialContributions);
+    useState<Contribution[]>(
+      initialContributions
+    );
+
+  const lastYearPaid =
+    initialLastYearPaid;
 
   const [donations, setDonations] =
-    useState<Donation[]>(initialDonations);
+    useState<Donation[]>(
+      initialDonations
+    );
 
   const [expenses, setExpenses] =
-    useState<Expense[]>(initialExpenses);
+    useState<Expense[]>(
+      initialExpenses
+    );
+
+  const [culturalPrograms, setCulturalPrograms] =
+    useState<CulturalProgram[]>(
+      initialCulturalPrograms
+    );
 
   const [contributionFilter, setContributionFilter] =
     useState<Filter>("all");
+
+  const [blockFilter, setBlockFilter] =
+    useState<BlockFilter>("all");
+
+  const [collectionFilter, setCollectionFilter] =
+    useState<CollectionFilter>("all");
+
+  const [paymentFilter, setPaymentFilter] =
+    useState<PaymentFilter>("all");
 
   const [donationFilter, setDonationFilter] =
     useState<Filter>("all");
@@ -116,6 +324,21 @@ export default function DashboardClient({
 
   const [expenseSearch, setExpenseSearch] =
     useState("");
+
+  const [culturalSearch, setCulturalSearch] =
+    useState("");
+
+  const [culturalStatusFilter, setCulturalStatusFilter] =
+    useState<CulturalStatusFilter>("all");
+
+  const [culturalBlockFilter, setCulturalBlockFilter] =
+    useState<BlockFilter>("all");
+
+  const [culturalPerformanceFilter, setCulturalPerformanceFilter] =
+    useState<CulturalPerformanceFilter>("all");
+
+  const [selectedCulturalProgram, setSelectedCulturalProgram] =
+    useState<CulturalProgram | null>(null);
 
   const [loadingId, setLoadingId] =
     useState<string | null>(null);
@@ -132,241 +355,939 @@ export default function DashboardClient({
   const [editingExpense, setEditingExpense] =
     useState<Expense | null>(null);
 
-  const contributionStats = useMemo(() => {
-    const verified = contributions.filter(
-      (item) => item.status === "verified"
+  const [comparisonFilter, setComparisonFilter] =
+  useState<ComparisonFilter>("all");
+
+  /* ==========================================================
+     LIVE 2026 CONTRIBUTION UPDATES
+  ========================================================== */
+
+  // Keep local state in sync when router.refresh() receives fresh
+  // server data after another resident submits a contribution.
+  useEffect(() => {
+    setContributions(initialContributions);
+  }, [initialContributions]);
+
+  useEffect(() => {
+    setCulturalPrograms(initialCulturalPrograms);
+  }, [initialCulturalPrograms]);
+
+  useEffect(() => {
+    const refreshDashboard = () => {
+      router.refresh();
+    };
+
+    // Refresh regularly so a new 2026 payment/submission appears
+    // on the dashboard without the admin needing to reload manually.
+    const interval = window.setInterval(
+      refreshDashboard,
+      10000
     );
 
-    const pending = contributions.filter(
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [router]);
+
+  /* ==========================================================
+     CONTRIBUTION STATS
+  ========================================================== */
+
+  const contributionStats =
+    useMemo(() => {
+      const verified =
+        contributions.filter(
+          (item) =>
+            item.status === "verified"
+        );
+
+      const pending =
+        contributions.filter(
+          (item) =>
+            item.status === "pending"
+        );
+
+      const rejected =
+        contributions.filter(
+          (item) =>
+            item.status === "rejected"
+        );
+
+      const collectionSummary = {
+        payNow: contributions.filter(
+          (item) =>
+            item.collection_status ===
+            "Pay Now"
+        ),
+
+        doorLock: contributions.filter(
+          (item) =>
+            item.collection_status ===
+            "Door Lock"
+        ),
+
+        followUp: contributions.filter(
+          (item) =>
+            item.collection_status ===
+            "Follow-up"
+        ),
+
+        notInterested:
+          contributions.filter(
+            (item) =>
+              item.collection_status ===
+              "Not Interested"
+          ),
+      };
+
+      return {
+        count: contributions.length,
+
+        verifiedCount:
+          verified.length,
+
+        verifiedAmount:
+          verified.reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item.amount || 0
+              ),
+            0
+          ),
+
+        pendingCount:
+          pending.length,
+
+        pendingAmount:
+          pending.reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item.amount || 0
+              ),
+            0
+          ),
+
+        rejectedCount:
+          rejected.length,
+
+        collectionSummary,
+      };
+    }, [contributions]);
+
+  /* ==========================================================
+     DONATION STATS
+  ========================================================== */
+
+  const donationStats =
+    useMemo(() => {
+      const verified =
+        donations.filter(
+          (item) =>
+            item.status === "verified"
+        );
+
+      const pending =
+        donations.filter(
+          (item) =>
+            item.status === "pending"
+        );
+
+      const rejected =
+        donations.filter(
+          (item) =>
+            item.status === "rejected"
+        );
+
+      return {
+        count: donations.length,
+
+        verifiedCount:
+          verified.length,
+
+        verifiedAmount:
+          verified.reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item.amount || 0
+              ),
+            0
+          ),
+
+        pendingCount:
+          pending.length,
+
+        pendingAmount:
+          pending.reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item.amount || 0
+              ),
+            0
+          ),
+
+        rejectedCount:
+          rejected.length,
+      };
+    }, [donations]);
+
+  /* ==========================================================
+     EXPENSE STATS
+  ========================================================== */
+
+  const expenseStats =
+    useMemo(() => {
+      const total =
+        expenses.reduce(
+          (sum, item) =>
+            sum +
+            Number(
+              item.amount || 0
+            ),
+          0
+        );
+
+      return {
+        count: expenses.length,
+        total,
+      };
+    }, [expenses]);
+
+  /* ==========================================================
+     CULTURAL PROGRAM STATS
+  ========================================================== */
+
+  const culturalStats = useMemo(() => {
+    const pending = culturalPrograms.filter(
       (item) => item.status === "pending"
     );
 
-    const rejected = contributions.filter(
+    const approved = culturalPrograms.filter(
+      (item) => item.status === "approved"
+    );
+
+    const rejected = culturalPrograms.filter(
       (item) => item.status === "rejected"
     );
 
     return {
-      count: contributions.length,
-
-      verifiedCount: verified.length,
-
-      verifiedAmount: verified.reduce(
-        (sum, item) =>
-          sum + Number(item.amount || 0),
-        0
-      ),
-
-      pendingCount: pending.length,
-
-      pendingAmount: pending.reduce(
-        (sum, item) =>
-          sum + Number(item.amount || 0),
-        0
-      ),
-
-      rejectedCount: rejected.length,
+      total: culturalPrograms.length,
+      pending: pending.length,
+      approved: approved.length,
+      rejected: rejected.length,
     };
-  }, [contributions]);
+  }, [culturalPrograms]);
 
-  const donationStats = useMemo(() => {
-    const verified = donations.filter(
-      (item) => item.status === "verified"
-    );
+  /* ==========================================================
+     FINANCIAL STATS
+  ========================================================== */
 
-    const pending = donations.filter(
-      (item) => item.status === "pending"
-    );
+  const financialStats =
+    useMemo(() => {
+      const verifiedFunds =
+        contributionStats.verifiedAmount +
+        donationStats.verifiedAmount;
 
-    const rejected = donations.filter(
-      (item) => item.status === "rejected"
-    );
+      const remaining =
+        verifiedFunds -
+        expenseStats.total;
 
-    return {
-      count: donations.length,
+      return {
+        verifiedFunds,
+        remaining,
+      };
+    }, [
+      contributionStats.verifiedAmount,
+      donationStats.verifiedAmount,
+      expenseStats.total,
+    ]);
 
-      verifiedCount: verified.length,
+  /* ==========================================================
+     CREATE MASTER LIST OF ALL FLATS
+  ========================================================== */
 
-      verifiedAmount: verified.reduce(
-        (sum, item) =>
-          sum + Number(item.amount || 0),
-        0
-      ),
+  const allFlatRows =
+    useMemo<FlatRow[]>(() => {
+      const rows: FlatRow[] = [];
 
-      pendingCount: pending.length,
+      const blocks: Array<
+        keyof typeof ALL_FLATS
+      > = [
+        "P1",
+        "P2",
+        "Villa",
+      ];
 
-      pendingAmount: pending.reduce(
-        (sum, item) =>
-          sum + Number(item.amount || 0),
-        0
-      ),
+      blocks.forEach((block) => {
+        ALL_FLATS[block].forEach(
+          (flat) => {
+            /*
+             * Find current-year contribution.
+             *
+             * If none exists, contribution = null.
+             */
+            const matchingContributions =
+              contributions.filter(
+                (item) =>
+                  item.block === block &&
+                  String(
+                    item.flat_no
+                  ).padStart(
+                    3,
+                    "0"
+                  ) === flat
+              );
 
-      rejectedCount: rejected.length,
-    };
-  }, [donations]);
+            /*
+             * Keep latest current-year
+             * contribution.
+             */
+            const contribution =
+              matchingContributions.sort(
+                (a, b) =>
+                  new Date(
+                    b.created_at
+                  ).getTime() -
+                  new Date(
+                    a.created_at
+                  ).getTime()
+              )[0] || null;
 
-  const expenseStats = useMemo(() => {
-    const total = expenses.reduce(
-      (sum, item) =>
-        sum + Number(item.amount || 0),
-      0
-    );
+            /*
+             * Find last-year record.
+             */
+            const lastYearRecords =
+              lastYearPaid.filter(
+                (item) =>
+                  item.block ===
+                    block &&
+                  String(
+                    item.flat_no
+                  ).padStart(
+                    3,
+                    "0"
+                  ) === flat
+              );
 
-    return {
-      count: expenses.length,
-      total,
-    };
-  }, [expenses]);
+            let lastYearRecord =
+              lastYearRecords[0] ||
+              null;
 
-  const financialStats = useMemo(() => {
-    const verifiedFunds =
-      contributionStats.verifiedAmount +
-      donationStats.verifiedAmount;
+            /*
+             * Prefer matching resident type
+             * when available.
+             */
+            if (
+              contribution?.resident_type &&
+              lastYearRecords.length
+            ) {
+              const exactMatch =
+                lastYearRecords.find(
+                  (item) =>
+                    item.resident_type ===
+                    contribution.resident_type
+                );
 
-    const remaining =
-      verifiedFunds - expenseStats.total;
+              if (exactMatch) {
+                lastYearRecord =
+                  exactMatch;
+              }
+            }
 
-    return {
-      verifiedFunds,
-      remaining,
-    };
-  }, [
-    contributionStats.verifiedAmount,
-    donationStats.verifiedAmount,
-    expenseStats.total,
-  ]);
+            rows.push({
+              id:
+                contribution?.id ||
+                `flat-${block}-${flat}`,
 
-  const filteredContributions = useMemo(() => {
-    const term =
-      contributionSearch.trim().toLowerCase();
+              name:
+                contribution?.name ||
+                "—",
 
-    return contributions.filter((item) => {
-      const matchesFilter =
-        contributionFilter === "all" ||
-        item.status === contributionFilter;
+              block,
 
-      if (!matchesFilter) return false;
+              flat_no: flat,
+
+              last_year_amount:
+                lastYearRecord
+                  ? Number(
+                      lastYearRecord.amount
+                    )
+                  : null,
+
+              resident_type:
+                contribution?.resident_type ||
+                lastYearRecord?.resident_type ||
+                null,
+
+              mobile:
+                contribution?.mobile ||
+                "",
+
+              collection_status:
+                contribution?.collection_status ||
+                null,
+
+              payment_method:
+                contribution?.payment_method ||
+                null,
+
+              amount:
+                contribution
+                  ? Number(
+                      contribution.amount
+                    )
+                  : null,
+
+              utr:
+                contribution?.utr ||
+                null,
+
+              paid_to:
+                contribution?.paid_to ||
+                null,
+
+              created_at:
+                contribution?.created_at ||
+                null,
+
+              status:
+                contribution?.status ||
+                null,
+
+              contribution,
+            });
+          }
+        );
+      });
+
+      return rows;
+    }, [
+      contributions,
+      lastYearPaid,
+    ]);
+
+  /* ==========================================================
+     FILTERED CONTRIBUTIONS
+  ========================================================== */
+
+  const filteredContributions =
+    useMemo(() => {
+      const search =
+        contributionSearch
+          .trim()
+          .toLowerCase();
+
+      return allFlatRows.filter(
+        (item) => {
+          /*
+           * Search
+           */
+          if (search) {
+            const searchable = [
+              item.name,
+              item.block,
+              item.flat_no,
+              item.resident_type ||
+                "",
+              item.mobile,
+              item.collection_status ||
+                "",
+              item.payment_method ||
+                "",
+              item.utr || "",
+              item.paid_to || "",
+              item.status || "",
+            ]
+              .join(" ")
+              .toLowerCase();
+
+            if (
+              !searchable.includes(
+                search
+              )
+            ) {
+              return false;
+            }
+          }
+
+          /*
+           * Block
+           */
+          if (
+            blockFilter !== "all" &&
+            item.block !== blockFilter
+          ) {
+            return false;
+          }
+
+          /*
+           * Status
+           *
+           * When All is selected:
+           * every flat remains visible.
+           *
+           * When Pending / Verified /
+           * Rejected is selected:
+           * only actual contribution
+           * records matching that status
+           * are shown.
+           */
+          if (
+            contributionFilter !==
+            "all"
+          ) {
+            if (
+              item.status !==
+              contributionFilter
+            ) {
+              return false;
+            }
+          }
+
+          /*
+           * Collection
+           */
+          if (
+            collectionFilter !==
+            "all"
+          ) {
+            if (
+              item.collection_status !==
+              collectionFilter
+            ) {
+              return false;
+            }
+          }
+
+          /*
+           * Payment
+           */
+          if (
+            paymentFilter !==
+            "all"
+          ) {
+            if (
+              item.payment_method !==
+              paymentFilter
+            ) {
+              return false;
+            }
+          }
+
+          return true;
+        }
+      );
+    }, [
+      allFlatRows,
+      contributionSearch,
+      blockFilter,
+      contributionFilter,
+      collectionFilter,
+      paymentFilter,
+    ]);
+
+  /* ==========================================================
+     DONATION FILTER
+  ========================================================== */
+
+  const filteredDonations =
+    useMemo(() => {
+      const term =
+        donationSearch
+          .trim()
+          .toLowerCase();
+
+      return donations.filter(
+        (item) => {
+          const matchesFilter =
+            donationFilter ===
+              "all" ||
+            item.status ===
+              donationFilter;
+
+          if (!matchesFilter) {
+            return false;
+          }
+
+          if (!term) {
+            return true;
+          }
+
+          return [
+            item.donor_name,
+            item.organisation_name ||
+              "",
+            item.donor_type,
+            item.mobile,
+            item.utr || "",
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(term);
+        }
+      );
+    }, [
+      donations,
+      donationFilter,
+      donationSearch,
+    ]);
+
+  /* ==========================================================
+     EXPENSE FILTER
+  ========================================================== */
+
+  const filteredExpenses =
+    useMemo(() => {
+      const term =
+        expenseSearch
+          .trim()
+          .toLowerCase();
+
+      if (!term) {
+        return expenses;
+      }
+
+      return expenses.filter(
+        (item) =>
+          [
+            item.title,
+            item.category,
+            item.paid_to || "",
+            item.payment_mode,
+            item.reference_no ||
+              "",
+            item.notes || "",
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(term)
+      );
+    }, [
+      expenses,
+      expenseSearch,
+    ]);
+
+  /* ==========================================================
+     CULTURAL PROGRAM FILTER
+  ========================================================== */
+
+  const filteredCulturalPrograms = useMemo(() => {
+    const term = culturalSearch.trim().toLowerCase();
+
+    return culturalPrograms.filter((item) => {
+      const matchesStatus =
+        culturalStatusFilter === "all" ||
+        item.status === culturalStatusFilter;
+
+      const matchesBlock =
+        culturalBlockFilter === "all" ||
+        item.block === culturalBlockFilter;
+
+      const matchesPerformance =
+        culturalPerformanceFilter === "all" ||
+        item.performance_type === culturalPerformanceFilter;
+
+      if (
+        !matchesStatus ||
+        !matchesBlock ||
+        !matchesPerformance
+      ) {
+        return false;
+      }
 
       if (!term) return true;
 
       return [
-        item.name,
+        item.registration_no,
+        item.participant_name,
+        item.age,
+        item.block,
         item.flat_no,
+        item.participant_type,
         item.mobile,
-        item.utr ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term);
-    });
-  }, [
-    contributions,
-    contributionFilter,
-    contributionSearch,
-  ]);
-
-  const filteredDonations = useMemo(() => {
-    const term =
-      donationSearch.trim().toLowerCase();
-
-    return donations.filter((item) => {
-      const matchesFilter =
-        donationFilter === "all" ||
-        item.status === donationFilter;
-
-      if (!matchesFilter) return false;
-
-      if (!term) return true;
-
-      return [
-        item.donor_name,
-        item.organisation_name ?? "",
-        item.donor_type,
-        item.mobile,
-        item.utr ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term);
-    });
-  }, [
-    donations,
-    donationFilter,
-    donationSearch,
-  ]);
-
-  const filteredExpenses = useMemo(() => {
-    const term =
-      expenseSearch.trim().toLowerCase();
-
-    if (!term) return expenses;
-
-    return expenses.filter((item) =>
-      [
-        item.title,
+        item.email ?? "",
+        item.performance_type,
+        item.group_name ?? "",
         item.category,
-        item.paid_to ?? "",
-        item.payment_mode,
-        item.reference_no ?? "",
-        item.notes ?? "",
+        item.performance_title,
+        item.description ?? "",
+        item.duration,
+        item.status,
       ]
         .join(" ")
         .toLowerCase()
-        .includes(term)
-    );
-  }, [expenses, expenseSearch]);
+        .includes(term);
+    });
+  }, [
+    culturalPrograms,
+    culturalSearch,
+    culturalStatusFilter,
+    culturalBlockFilter,
+    culturalPerformanceFilter,
+  ]);
 
-  const money = (value: number) =>
-    `₹${Number(value).toLocaleString("en-IN")}`;
+  /* ==========================================================
+     LAST YEAR VS 2026 COMPARISON
+  ========================================================== */
+
+  const collectionComparison = useMemo(() => {
+    type ComparisonRow = {
+      key: string;
+      block: string;
+      flat_no: string;
+      resident_type: string | null;
+      lastYearAmount: number | null;
+      currentAmount: number | null;
+      currentStatus: string | null;
+      category: "continued" | "followup" | "new" | "notpaid";
+    };
+
+    const normalizeFlat = (value: string | number | null | undefined) => {
+      const text = String(value ?? "").trim();
+      const match = text.match(/\d+/);
+      if (!match) return "";
+      return match[0].padStart(3, "0");
+    };
+
+    // Current-year records: latest non-rejected contribution per flat.
+    const currentByFlat = new Map<string, Contribution>();
+
+    contributions.forEach((item) => {
+      if (
+        item.status === "rejected" ||
+        !item.block ||
+        !item.flat_no
+      ) {
+        return;
+      }
+
+      const flat = normalizeFlat(item.flat_no);
+      if (!flat) return;
+
+      const key = `${item.block}-${flat}`;
+      const existing = currentByFlat.get(key);
+
+      if (
+        !existing ||
+        new Date(item.created_at).getTime() >
+          new Date(existing.created_at).getTime()
+      ) {
+        currentByFlat.set(key, item);
+      }
+    });
+
+    // Historical records are stored only for flats that paid in 2025.
+    // If there are multiple historical entries for the same flat,
+    // combine them so one flat still produces one comparison row.
+    const historicalByFlat = new Map<
+      string,
+      {
+        block: string;
+        flat_no: string;
+        resident_type: string | null;
+        amount: number;
+      }
+    >();
+
+    lastYearPaid.forEach((item) => {
+      const flat = normalizeFlat(item.flat_no);
+      if (!item.block || !flat) return;
+
+      const key = `${item.block}-${flat}`;
+      const existing = historicalByFlat.get(key);
+
+      if (existing) {
+        existing.amount += Number(item.amount || 0);
+        if (!existing.resident_type && item.resident_type) {
+          existing.resident_type = item.resident_type;
+        }
+      } else {
+        historicalByFlat.set(key, {
+          block: item.block,
+          flat_no: flat,
+          resident_type: item.resident_type || null,
+          amount: Number(item.amount || 0),
+        });
+      }
+    });
+
+    const rows: ComparisonRow[] = [];
+
+    // IMPORTANT: start from ALL_FLATS, not lastYearPaid.
+    // This guarantees every flat appears even when there is no
+    // 2025 record and no 2026 contribution.
+    (Object.keys(ALL_FLATS) as Array<keyof typeof ALL_FLATS>).forEach(
+      (block) => {
+        ALL_FLATS[block].forEach((flat) => {
+          const key = `${block}-${flat}`;
+          const history = historicalByFlat.get(key);
+          const current = currentByFlat.get(key);
+
+          const lastYearAmount = history
+            ? Number(history.amount || 0)
+            : null;
+
+          const currentAmount = current
+            ? Number(current.amount || 0)
+            : null;
+
+          let category: ComparisonRow["category"];
+
+          if (history && current) {
+            category = "continued";
+          } else if (history && !current) {
+            category = "followup";
+          } else if (!history && current) {
+            category = "new";
+          } else {
+            category = "notpaid";
+          }
+
+          rows.push({
+            key,
+            block,
+            flat_no: flat,
+            resident_type:
+              current?.resident_type ||
+              history?.resident_type ||
+              null,
+            lastYearAmount,
+            currentAmount,
+            currentStatus: current?.status || null,
+            category,
+          });
+        });
+      }
+    );
+
+    const continued = rows.filter(
+      (row) => row.category === "continued"
+    );
+
+    const followup = rows.filter(
+      (row) => row.category === "followup"
+    );
+
+    const newContributors = rows.filter(
+      (row) => row.category === "new"
+    );
+
+    const notPaid = rows.filter(
+      (row) => row.category === "notpaid"
+    );
+
+    return {
+      rows,
+      filteredRows: rows.filter(
+        (row) =>
+          comparisonFilter === "all" ||
+          row.category === comparisonFilter
+      ),
+      continued,
+      followup,
+      newContributors,
+      notPaid,
+      paidLastYearCount: historicalByFlat.size,
+      paidLastYearAmount: Array.from(
+        historicalByFlat.values()
+      ).reduce(
+        (sum, item) => sum + Number(item.amount || 0),
+        0
+      ),
+      followupAmount: followup.reduce(
+        (sum, row) => sum + Number(row.lastYearAmount || 0),
+        0
+      ),
+      continuedAmount: continued.reduce(
+        (sum, row) => sum + Number(row.currentAmount || 0),
+        0
+      ),
+      newAmount: newContributors.reduce(
+        (sum, row) => sum + Number(row.currentAmount || 0),
+        0
+      ),
+    };
+  }, [lastYearPaid, contributions, comparisonFilter]);
+
+  /* ==========================================================
+     HELPERS
+  ========================================================== */
+
+  const money = (
+    value: number
+  ) =>
+    `₹${Number(
+      value
+    ).toLocaleString(
+      "en-IN"
+    )}`;
+
+  /* ==========================================================
+     UPDATE CONTRIBUTION
+  ========================================================== */
 
   async function updateContributionStatus(
     id: string,
-    status: "verified" | "rejected"
+    status:
+      | "verified"
+      | "rejected"
   ) {
     setLoadingId(id);
     setMessage("");
 
     try {
-      const response = await fetch(
-        "/api/admin/contributions/verify",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id,
-            status,
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          "/api/admin/contributions/verify",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              id,
+              status,
+            }),
+          }
+        );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       if (!response.ok) {
         setMessage(
           result.error ||
             "Unable to update contribution."
         );
+
         return;
       }
 
-      setContributions((current) =>
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                status,
-                verified_at:
-                  status === "verified"
-                    ? new Date().toISOString()
-                    : null,
-              }
-            : item
-        )
+      setContributions(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    status,
+                    verified_at:
+                      status ===
+                      "verified"
+                        ? new Date().toISOString()
+                        : null,
+                  }
+                : item
+          )
       );
 
       setMessage(
-        status === "verified"
+        status ===
+          "verified"
           ? "Contribution verified successfully."
           : "Contribution rejected."
       );
@@ -379,16 +1300,95 @@ export default function DashboardClient({
     }
   }
 
+  /* ==========================================================
+     UPDATE DONATION
+  ========================================================== */
+
   async function updateDonationStatus(
     id: string,
-    status: "verified" | "rejected"
+    status:
+      | "verified"
+      | "rejected"
+  ) {
+    setLoadingId(id);
+    setMessage("");
+
+    try {
+      const response =
+        await fetch(
+          "/api/admin/donations/verify",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              id,
+              status,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        setMessage(
+          result.error ||
+            "Unable to update donation."
+        );
+
+        return;
+      }
+
+      setDonations(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    status,
+                    verified_at:
+                      status ===
+                      "verified"
+                        ? new Date().toISOString()
+                        : null,
+                  }
+                : item
+          )
+      );
+
+      setMessage(
+        status ===
+          "verified"
+          ? "External support verified successfully."
+          : "External support rejected."
+      );
+    } catch {
+      setMessage(
+        "Something went wrong. Please try again."
+      );
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  /* ==========================================================
+     UPDATE CULTURAL PROGRAM
+  ========================================================== */
+
+  async function updateCulturalProgramStatus(
+    id: string,
+    status: "approved" | "rejected"
   ) {
     setLoadingId(id);
     setMessage("");
 
     try {
       const response = await fetch(
-        "/api/admin/donations/verify",
+        "/api/admin/cultural-program/verify",
         {
           method: "POST",
           headers: {
@@ -406,30 +1406,37 @@ export default function DashboardClient({
       if (!response.ok) {
         setMessage(
           result.error ||
-            "Unable to update donation."
+            "Unable to update cultural program."
         );
         return;
       }
 
-      setDonations((current) =>
+      setCulturalPrograms((current) =>
         current.map((item) =>
           item.id === id
             ? {
                 ...item,
                 status,
-                verified_at:
-                  status === "verified"
-                    ? new Date().toISOString()
-                    : null,
+                updated_at: new Date().toISOString(),
               }
             : item
         )
       );
 
+      setSelectedCulturalProgram((current) =>
+        current?.id === id
+          ? {
+              ...current,
+              status,
+              updated_at: new Date().toISOString(),
+            }
+          : current
+      );
+
       setMessage(
-        status === "verified"
-          ? "External support verified successfully."
-          : "External support rejected."
+        status === "approved"
+          ? "Cultural program approved successfully."
+          : "Cultural program rejected."
       );
     } catch {
       setMessage(
@@ -440,43 +1447,120 @@ export default function DashboardClient({
     }
   }
 
-  async function deleteExpense(id: string) {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this expense?"
+  function exportCulturalPrograms() {
+    const rows = filteredCulturalPrograms.map((item) => ({
+      "Registration ID": item.registration_no,
+      Participant: item.participant_name,
+      Age: item.age,
+      Block: item.block,
+      "Flat No.": item.flat_no,
+      "Participant Type": item.participant_type,
+      Mobile: item.mobile,
+      Email: item.email || "",
+      "Performance Type": item.performance_type,
+      "Group Name": item.group_name || "",
+      Category: item.category,
+      "Performance Title": item.performance_title,
+      Duration: item.duration,
+      Description: item.description || "",
+      Status: item.status,
+      "Registered On": formatDateTime(item.created_at),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [
+      { wch: 20 },
+      { wch: 24 },
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 20 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 40 },
+      { wch: 12 },
+      { wch: 22 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Cultural Programs"
     );
 
-    if (!confirmed) return;
+    XLSX.writeFile(
+      workbook,
+      `BUH-Cultural-Programs-${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`
+    );
+  }
+
+  /* ==========================================================
+     DELETE EXPENSE
+  ========================================================== */
+
+  async function deleteExpense(
+    id: string
+  ) {
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this expense?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
 
     setLoadingId(id);
     setMessage("");
 
     try {
-      const response = await fetch(
-        "/api/expenses",
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ id }),
-        }
-      );
+      const response =
+        await fetch(
+          "/api/expenses",
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              id,
+            }),
+          }
+        );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       if (!response.ok) {
         setMessage(
           result.error ||
             "Unable to delete expense."
         );
+
         return;
       }
 
-      setExpenses((current) =>
-        current.filter((item) => item.id !== id)
+      setExpenses(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !== id
+          )
       );
 
-      setMessage("Expense deleted successfully.");
+      setMessage(
+        "Expense deleted successfully."
+      );
     } catch {
       setMessage(
         "Something went wrong. Please try again."
@@ -485,6 +1569,10 @@ export default function DashboardClient({
       setLoadingId(null);
     }
   }
+
+  /* ==========================================================
+     LOGOUT
+  ========================================================== */
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -497,37 +1585,146 @@ export default function DashboardClient({
       setMessage(
         "Unable to logout. Please try again."
       );
+
       setLoggingOut(false);
+
       return;
     }
 
-    router.replace("/admin/login");
+    router.replace(
+      "/admin/login"
+    );
+
     router.refresh();
   }
 
+  /* ==========================================================
+     LAST YEAR AMOUNT
+  ========================================================== */
+
+  function getLastYearPaid(
+    item: FlatRow
+  ) {
+    if (
+      item.last_year_amount !==
+      null
+    ) {
+      return item.last_year_amount;
+    }
+
+    return null;
+  }
+
+  /* ==========================================================
+     EXPORT CONTRIBUTIONS
+  ========================================================== */
+
   function exportContributions() {
-    const rows = filteredContributions.map(
-      (item) => ({
-        Name: item.name,
-        "Flat No.": item.flat_no,
-        Mobile: item.mobile,
-        Amount: Number(item.amount),
-        UTR: item.utr || "",
-        Status: item.status,
-        "Submitted On":
-          new Date(
+    const rows =
+      filteredContributions.map(
+        (item) => ({
+          Block: item.block,
+
+          "Flat No.":
+            item.flat_no,
+
+          Resident:
+            item.name === "—"
+              ? ""
+              : item.name,
+
+          "Last Year Paid":
+            item.last_year_amount ===
+            null
+              ? "Not Paid"
+              : Number(
+                  item.last_year_amount
+                ),
+
+          "Resident Type":
+            item.resident_type ||
+            "",
+
+          Mobile:
+            item.mobile,
+
+          "Collection Status":
+            item.collection_status ||
+            "",
+
+          "Payment Method":
+            item.payment_method ===
+            "upi"
+              ? "UPI / Online"
+              : item.payment_method ===
+                  "cash"
+                ? "Cash"
+                : "",
+
+          Amount:
+            item.amount === null
+              ? ""
+              : Number(
+                  item.amount
+                ),
+
+          UTR:
+            item.payment_method ===
+            "upi"
+              ? item.utr || ""
+              : "",
+
+          "Paid To":
+            item.payment_method ===
+            "cash"
+              ? item.paid_to || ""
+              : "",
+
+          Status:
+            item.status ||
+            "Not Paid",
+
+          "Submitted On":
             item.created_at
-          ).toLocaleString("en-IN"),
-        "Verified On": item.verified_at
-          ? new Date(
-              item.verified_at
-            ).toLocaleString("en-IN")
-          : "",
-      })
-    );
+              ? new Date(
+                  item.created_at
+                ).toLocaleString(
+                  "en-IN"
+                )
+              : "",
+
+          "Verified On":
+            item.contribution?.verified_at
+              ? new Date(
+                  item.contribution.verified_at
+                ).toLocaleString(
+                  "en-IN"
+                )
+              : "",
+        })
+      );
 
     const worksheet =
-      XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.json_to_sheet(
+        rows
+      );
+
+    worksheet["!cols"] = [
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 22 },
+      { wch: 22 },
+    ];
 
     const workbook =
       XLSX.utils.book_new();
@@ -546,34 +1743,67 @@ export default function DashboardClient({
     );
   }
 
+  /* ==========================================================
+     EXPORT DONATIONS
+  ========================================================== */
+
   function exportDonations() {
-    const rows = filteredDonations.map(
-      (item) => ({
-        Donor: item.donor_name,
-        Organisation:
-          item.organisation_name || "",
-        "Donor Type": item.donor_type,
-        Mobile: item.mobile,
-        Email: item.email || "",
-        Location: item.location || "",
-        Amount: Number(item.amount),
-        Type: item.donation_type,
-        UTR: item.utr || "",
-        Status: item.status,
-        "Submitted On":
-          new Date(
-            item.created_at
-          ).toLocaleString("en-IN"),
-        "Verified On": item.verified_at
-          ? new Date(
-              item.verified_at
-            ).toLocaleString("en-IN")
-          : "",
-      })
-    );
+    const rows =
+      filteredDonations.map(
+        (item) => ({
+          Donor:
+            item.donor_name,
+
+          Organisation:
+            item.organisation_name ||
+            "",
+
+          "Donor Type":
+            item.donor_type,
+
+          Mobile:
+            item.mobile,
+
+          Email:
+            item.email || "",
+
+          Location:
+            item.location || "",
+
+          Amount:
+            Number(item.amount),
+
+          Type:
+            item.donation_type,
+
+          UTR:
+            item.utr || "",
+
+          Status:
+            item.status,
+
+          "Submitted On":
+            new Date(
+              item.created_at
+            ).toLocaleString(
+              "en-IN"
+            ),
+
+          "Verified On":
+            item.verified_at
+              ? new Date(
+                  item.verified_at
+                ).toLocaleString(
+                  "en-IN"
+                )
+              : "",
+        })
+      );
 
     const worksheet =
-      XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.json_to_sheet(
+        rows
+      );
 
     const workbook =
       XLSX.utils.book_new();
@@ -592,22 +1822,45 @@ export default function DashboardClient({
     );
   }
 
+  /* ==========================================================
+     EXPORT EXPENSES
+  ========================================================== */
+
   function exportExpenses() {
-    const rows = filteredExpenses.map(
-      (item) => ({
-        Expense: item.title,
-        Category: item.category,
-        "Paid To": item.paid_to || "",
-        Amount: Number(item.amount),
-        Date: item.expense_date,
-        "Payment Mode": item.payment_mode,
-        "Reference No.": item.reference_no || "",
-        Notes: item.notes || "",
-      })
-    );
+    const rows =
+      filteredExpenses.map(
+        (item) => ({
+          Expense:
+            item.title,
+
+          Category:
+            item.category,
+
+          "Paid To":
+            item.paid_to || "",
+
+          Amount:
+            Number(item.amount),
+
+          Date:
+            item.expense_date,
+
+          "Payment Mode":
+            item.payment_mode,
+
+          "Reference No.":
+            item.reference_no ||
+            "",
+
+          Notes:
+            item.notes || "",
+        })
+      );
 
     const worksheet =
-      XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.json_to_sheet(
+        rows
+      );
 
     const workbook =
       XLSX.utils.book_new();
@@ -626,83 +1879,198 @@ export default function DashboardClient({
     );
   }
 
+  /* ==========================================================
+     EXPORT FINANCIAL REPORT
+  ========================================================== */
+
   function exportFinancialReport() {
     const workbook =
       XLSX.utils.book_new();
 
     const summary = [
       {
-        Particular: "Verified Resident Contributions",
+        Particular:
+          "Verified Resident Contributions",
+
         Amount:
           contributionStats.verifiedAmount,
       },
+
       {
-        Particular: "Verified External Support",
+        Particular:
+          "Verified External Support",
+
         Amount:
           donationStats.verifiedAmount,
       },
+
       {
-        Particular: "Total Verified Funds",
+        Particular:
+          "Total Verified Funds",
+
         Amount:
           financialStats.verifiedFunds,
       },
+
       {
-        Particular: "Total Expenses",
+        Particular:
+          "Total Expenses",
+
         Amount:
           expenseStats.total,
       },
+
       {
-        Particular: "Remaining Balance",
+        Particular:
+          "Remaining Balance",
+
         Amount:
           financialStats.remaining,
       },
     ];
 
     const contributionRows =
-      contributions.map((item) => ({
-        Name: item.name,
-        "Flat No.": item.flat_no,
-        Mobile: item.mobile,
-        Amount: Number(item.amount),
-        UTR: item.utr || "",
-        Status: item.status,
-        Date: new Date(
-          item.created_at
-        ).toLocaleString("en-IN"),
-      }));
+      allFlatRows.map(
+        (item) => ({
+          Block:
+            item.block,
+
+          "Flat No.":
+            item.flat_no,
+
+          Name:
+            item.name === "—"
+              ? ""
+              : item.name,
+
+          "Last Year Paid":
+            item.last_year_amount ===
+            null
+              ? "Not Paid"
+              : Number(
+                  item.last_year_amount
+                ),
+
+          "Resident Type":
+            item.resident_type ||
+            "",
+
+          Mobile:
+            item.mobile,
+
+          "Collection Status":
+            item.collection_status ||
+            "",
+
+          "Payment Method":
+            item.payment_method ===
+            "upi"
+              ? "UPI / Online"
+              : item.payment_method ===
+                  "cash"
+                ? "Cash"
+                : "",
+
+          Amount:
+            item.amount === null
+              ? ""
+              : Number(
+                  item.amount
+                ),
+
+          UTR:
+            item.utr || "",
+
+          "Paid To":
+            item.paid_to || "",
+
+          Status:
+            item.status ||
+            "Not Paid",
+
+          Date:
+            item.created_at
+              ? new Date(
+                  item.created_at
+                ).toLocaleString(
+                  "en-IN"
+                )
+              : "",
+        })
+      );
 
     const donationRows =
-      donations.map((item) => ({
-        Donor: item.donor_name,
-        Organisation:
-          item.organisation_name || "",
-        "Donor Type": item.donor_type,
-        Mobile: item.mobile,
-        Amount: Number(item.amount),
-        Type: item.donation_type,
-        UTR: item.utr || "",
-        Status: item.status,
-        Date: new Date(
-          item.created_at
-        ).toLocaleString("en-IN"),
-      }));
+      donations.map(
+        (item) => ({
+          Donor:
+            item.donor_name,
+
+          Organisation:
+            item.organisation_name ||
+            "",
+
+          "Donor Type":
+            item.donor_type,
+
+          Mobile:
+            item.mobile,
+
+          Amount:
+            Number(item.amount),
+
+          Type:
+            item.donation_type,
+
+          UTR:
+            item.utr || "",
+
+          Status:
+            item.status,
+
+          Date:
+            new Date(
+              item.created_at
+            ).toLocaleString(
+              "en-IN"
+            ),
+        })
+      );
 
     const expenseRows =
-      expenses.map((item) => ({
-        Expense: item.title,
-        Category: item.category,
-        "Paid To": item.paid_to || "",
-        Amount: Number(item.amount),
-        Date: item.expense_date,
-        "Payment Mode": item.payment_mode,
-        "Reference No.":
-          item.reference_no || "",
-        Notes: item.notes || "",
-      }));
+      expenses.map(
+        (item) => ({
+          Expense:
+            item.title,
+
+          Category:
+            item.category,
+
+          "Paid To":
+            item.paid_to || "",
+
+          Amount:
+            Number(item.amount),
+
+          Date:
+            item.expense_date,
+
+          "Payment Mode":
+            item.payment_mode,
+
+          "Reference No.":
+            item.reference_no ||
+            "",
+
+          Notes:
+            item.notes || "",
+        })
+      );
 
     XLSX.utils.book_append_sheet(
       workbook,
-      XLSX.utils.json_to_sheet(summary),
+      XLSX.utils.json_to_sheet(
+        summary
+      ),
       "Financial Summary"
     );
 
@@ -711,18 +2079,22 @@ export default function DashboardClient({
       XLSX.utils.json_to_sheet(
         contributionRows
       ),
-      "Contributions"
+      "All Flats"
     );
 
     XLSX.utils.book_append_sheet(
       workbook,
-      XLSX.utils.json_to_sheet(donationRows),
+      XLSX.utils.json_to_sheet(
+        donationRows
+      ),
       "External Support"
     );
 
     XLSX.utils.book_append_sheet(
       workbook,
-      XLSX.utils.json_to_sheet(expenseRows),
+      XLSX.utils.json_to_sheet(
+        expenseRows
+      ),
       "Expenses"
     );
 
@@ -734,12 +2106,20 @@ export default function DashboardClient({
     );
   }
 
+  /* ==========================================================
+     UI
+  ========================================================== */
+
   return (
     <main className="min-h-screen bg-[#f8f1e7] text-[#292929]">
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
 
-        {/* HEADER */}
+        {/* ====================================================
+            HEADER
+        ==================================================== */}
+
         <header className="mb-5 flex flex-col gap-4 rounded-2xl border border-[#ead9c7] bg-white px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+
           <div>
             <div className="flex items-center gap-2 text-xs font-bold tracking-[3px] text-[#a70e18]">
               <i className="fa-solid fa-spa" />
@@ -751,11 +2131,14 @@ export default function DashboardClient({
             </h1>
 
             <p className="mt-1 text-sm text-[#737373]">
-              Manage contributions, external support and expenses.
+              Manage contributions,
+              external support and
+              expenses.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
+
             <a
               href="/contribute"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#ead9c7] bg-white px-4 py-2.5 text-sm font-semibold text-[#a70e18] no-underline"
@@ -779,60 +2162,124 @@ export default function DashboardClient({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#ddd] bg-white px-4 py-2.5 text-sm font-semibold text-[#666] disabled:opacity-50"
             >
               <i className="fa-solid fa-right-from-bracket" />
-              {loggingOut ? "Logging out..." : "Logout"}
+
+              {loggingOut
+                ? "Logging out..."
+                : "Logout"}
             </button>
+
           </div>
         </header>
 
-        {/* NAVIGATION */}
+        {/* ====================================================
+            NAVIGATION
+        ==================================================== */}
+
         <nav className="mb-5 overflow-x-auto rounded-xl border border-[#eadfd2] bg-white p-1.5 shadow-sm">
+
           <div className="flex min-w-max gap-1">
+
             <NavButton
-              active={section === "overview"}
-              onClick={() => setSection("overview")}
+              active={
+                section ===
+                "overview"
+              }
+              onClick={() =>
+                setSection(
+                  "overview"
+                )
+              }
               icon="fa-chart-pie"
               label="Overview"
             />
 
             <NavButton
-              active={section === "contributions"}
+              active={
+                section ===
+                "contributions"
+              }
               onClick={() =>
-                setSection("contributions")
+                setSection(
+                  "contributions"
+                )
               }
               icon="fa-house-user"
               label="Contributions"
             />
 
             <NavButton
-              active={section === "donations"}
+              active={
+                section ===
+                "lastYear"
+              }
               onClick={() =>
-                setSection("donations")
+                setSection(
+                  "lastYear"
+                )
+              }
+              icon="fa-clock-rotate-left"
+              label="Last Year Paid"
+            />
+
+            <NavButton
+              active={
+                section ===
+                "culturalProgram"
+              }
+              onClick={() =>
+                setSection(
+                  "culturalProgram"
+                )
+              }
+              icon="fa-masks-theater"
+              label="Cultural Program"
+            />
+
+            <NavButton
+              active={
+                section ===
+                "donations"
+              }
+              onClick={() =>
+                setSection(
+                  "donations"
+                )
               }
               icon="fa-hand-holding-heart"
               label="External Support"
             />
 
             <NavButton
-              active={section === "expenses"}
+              active={
+                section ===
+                "expenses"
+              }
               onClick={() =>
-                setSection("expenses")
+                setSection(
+                  "expenses"
+                )
               }
               icon="fa-receipt"
               label="Expenses"
             />
+
           </div>
         </nav>
 
-        {/* MESSAGE */}
+        {/* ====================================================
+            MESSAGE
+        ==================================================== */}
+
         {message && (
           <div className="mb-5 rounded-xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#725e3a] shadow-sm">
             {message}
           </div>
         )}
 
-        {/* =====================================================
+        {/* ====================================================
             OVERVIEW
-        ===================================================== */}
+        ==================================================== */}
+
         {section === "overview" && (
           <>
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -873,11 +2320,15 @@ export default function DashboardClient({
                 sub="Verified funds minus expenses"
                 highlight
               />
+
             </section>
 
-            {/* FINANCIAL BREAKDOWN */}
+            {/* FINANCIAL SUMMARY */}
+
             <section className="mt-5 rounded-2xl border border-[#eadfd2] bg-white p-5 shadow-sm">
+
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
                 <div>
                   <h2 className="font-serif text-xl font-bold">
                     Financial Summary
@@ -890,12 +2341,15 @@ export default function DashboardClient({
 
                 <button
                   type="button"
-                  onClick={exportFinancialReport}
+                  onClick={
+                    exportFinancialReport
+                  }
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 py-2.5 text-sm font-semibold text-white"
                 >
                   <i className="fa-solid fa-file-excel" />
                   Financial Report
                 </button>
+
               </div>
 
               <div className="mt-5 space-y-3">
@@ -917,6 +2371,7 @@ export default function DashboardClient({
                 />
 
                 <div className="border-t border-[#eee5db] pt-3">
+
                   <SummaryRow
                     label="Total Verified Funds"
                     amount={
@@ -924,6 +2379,7 @@ export default function DashboardClient({
                     }
                     bold
                   />
+
                 </div>
 
                 <SummaryRow
@@ -935,8 +2391,11 @@ export default function DashboardClient({
                 />
 
                 <div className="mt-4 rounded-xl bg-[#fcf8f1] p-4">
+
                   <div className="flex items-center justify-between gap-4">
+
                     <div>
+
                       <div className="text-xs font-semibold uppercase tracking-wide text-[#8b8178]">
                         Remaining Balance
                       </div>
@@ -946,15 +2405,20 @@ export default function DashboardClient({
                           financialStats.remaining
                         )}
                       </div>
+
                     </div>
 
                     <i className="fa-solid fa-wallet text-3xl text-[#d09a32]" />
+
                   </div>
+
                 </div>
+
               </div>
             </section>
 
             {/* QUICK STATUS */}
+
             <section className="mt-5 grid gap-3 md:grid-cols-3">
 
               <SmallSummary
@@ -976,6 +2440,15 @@ export default function DashboardClient({
               />
 
               <SmallSummary
+                icon="fa-masks-theater"
+                title="Cultural Programs"
+                value={String(
+                  culturalStats.total
+                )}
+                sub={`${culturalStats.pending} pending · ${culturalStats.approved} approved`}
+              />
+
+              <SmallSummary
                 icon="fa-file-invoice-dollar"
                 title="Expenses Recorded"
                 value={String(
@@ -985,85 +2458,576 @@ export default function DashboardClient({
               />
 
             </section>
+
+            {/* COLLECTION SUMMARY */}
+
+            <section className="mt-5">
+
+              <div className="mb-3">
+
+                <h2 className="font-serif text-xl font-bold text-[#292929]">
+                  Collection Summary
+                </h2>
+
+                <p className="mt-1 text-xs text-[#858585]">
+                  Resident collection status overview
+                </p>
+
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+                <CollectionSummaryCard
+                  icon="fa-credit-card"
+                  label="Pay Now"
+                  count={
+                    contributionStats.collectionSummary.payNow.length
+                  }
+                  amount={contributionStats.collectionSummary.payNow.reduce(
+                    (sum, item) =>
+                      sum +
+                      Number(
+                        item.amount ||
+                          0
+                      ),
+                    0
+                  )}
+                  description="Residents ready to pay"
+                  onClick={() => {
+                    setSection(
+                      "contributions"
+                    );
+
+                    setCollectionFilter(
+                      "Pay Now"
+                    );
+                  }}
+                />
+
+                <CollectionSummaryCard
+                  icon="fa-door-closed"
+                  label="Door Lock"
+                  count={
+                    contributionStats.collectionSummary.doorLock.length
+                  }
+                  amount={contributionStats.collectionSummary.doorLock.reduce(
+                    (sum, item) =>
+                      sum +
+                      Number(
+                        item.amount ||
+                          0
+                      ),
+                    0
+                  )}
+                  description="Residents unavailable"
+                  onClick={() => {
+                    setSection(
+                      "contributions"
+                    );
+
+                    setCollectionFilter(
+                      "Door Lock"
+                    );
+                  }}
+                />
+
+                <CollectionSummaryCard
+                  icon="fa-phone"
+                  label="Follow-up"
+                  count={
+                    contributionStats.collectionSummary.followUp.length
+                  }
+                  amount={contributionStats.collectionSummary.followUp.reduce(
+                    (sum, item) =>
+                      sum +
+                      Number(
+                        item.amount ||
+                          0
+                      ),
+                    0
+                  )}
+                  description="Requires follow-up"
+                  onClick={() => {
+                    setSection(
+                      "contributions"
+                    );
+
+                    setCollectionFilter(
+                      "Follow-up"
+                    );
+                  }}
+                />
+
+                <CollectionSummaryCard
+                  icon="fa-circle-xmark"
+                  label="Not Interested"
+                  count={
+                    contributionStats.collectionSummary.notInterested.length
+                  }
+                  amount={contributionStats.collectionSummary.notInterested.reduce(
+                    (sum, item) =>
+                      sum +
+                      Number(
+                        item.amount ||
+                          0
+                      ),
+                    0
+                  )}
+                  description="Residents not participating"
+                  onClick={() => {
+                    setSection(
+                      "contributions"
+                    );
+
+                    setCollectionFilter(
+                      "Not Interested"
+                    );
+                  }}
+                />
+
+              </div>
+            </section>
           </>
         )}
 
-        {/* =====================================================
+        {/* ====================================================
             CONTRIBUTIONS
-        ===================================================== */}
-        {section === "contributions" && (
+        ==================================================== */}
+
+        {section ===
+          "contributions" && (
           <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
 
-            <SectionHeader
-              title="Resident Contributions"
-              subtitle={`${filteredContributions.length} record${filteredContributions.length === 1 ? "" : "s"} shown`}
-              search={contributionSearch}
-              setSearch={setContributionSearch}
-              placeholder="Search name, flat, mobile or UTR"
-              filter={contributionFilter}
-              setFilter={setContributionFilter}
-              onExport={exportContributions}
-            />
+            <div className="border-b border-[#eee5db] px-4 py-4 sm:px-5">
+
+              <div className="flex flex-col gap-3">
+
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+                  <div>
+
+                    <h2 className="font-serif text-xl font-bold">
+                      Resident Contributions
+                    </h2>
+
+                    <p className="mt-1 text-xs text-[#858585]">
+                      Showing{" "}
+                      <strong>
+                        {filteredContributions.length}
+                      </strong>{" "}
+                      of{" "}
+                      <strong>
+                        {allFlatRows.length}
+                      </strong>{" "}
+                      flats
+                    </p>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      exportContributions
+                    }
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white"
+                  >
+                    <i className="fa-solid fa-file-excel" />
+                    Export
+                  </button>
+
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+
+                  <div className="relative lg:col-span-2">
+
+                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#999]" />
+
+                    <input
+                      value={
+                        contributionSearch
+                      }
+                      onChange={(e) =>
+                        setContributionSearch(
+                          e.target.value
+                        )
+                      }
+                      placeholder="Search name, flat, mobile, UTR..."
+                      className="h-10 w-full rounded-lg border border-[#ddd6cd] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#a70e18]"
+                    />
+
+                  </div>
+
+                  <select
+                    value={
+                      contributionFilter
+                    }
+                    onChange={(e) =>
+                      setContributionFilter(
+                        e.target.value as Filter
+                      )
+                    }
+                    className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                  >
+                    <option value="all">
+                      All Status
+                    </option>
+
+                    <option value="pending">
+                      Pending
+                    </option>
+
+                    <option value="verified">
+                      Verified
+                    </option>
+
+                    <option value="rejected">
+                      Rejected
+                    </option>
+                  </select>
+
+                  <select
+                    value={
+                      blockFilter
+                    }
+                    onChange={(e) =>
+                      setBlockFilter(
+                        e.target.value as BlockFilter
+                      )
+                    }
+                    className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                  >
+                    <option value="all">
+                      All Blocks
+                    </option>
+
+                    <option value="P1">
+                      P1
+                    </option>
+
+                    <option value="P2">
+                      P2
+                    </option>
+
+                    <option value="Villa">
+                      Villa
+                    </option>
+                  </select>
+
+                  <select
+                    value={
+                      collectionFilter
+                    }
+                    onChange={(e) =>
+                      setCollectionFilter(
+                        e.target.value as CollectionFilter
+                      )
+                    }
+                    className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                  >
+                    <option value="all">
+                      All Collection
+                    </option>
+
+                    <option value="Pay Now">
+                      Pay Now
+                    </option>
+
+                    <option value="Door Lock">
+                      Door Lock
+                    </option>
+
+                    <option value="Follow-up">
+                      Follow-up
+                    </option>
+
+                    <option value="Not Interested">
+                      Not Interested
+                    </option>
+                  </select>
+
+                  <select
+                    value={
+                      paymentFilter
+                    }
+                    onChange={(e) =>
+                      setPaymentFilter(
+                        e.target.value as PaymentFilter
+                      )
+                    }
+                    className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                  >
+                    <option value="all">
+                      All Payments
+                    </option>
+
+                    <option value="upi">
+                      UPI / Online
+                    </option>
+
+                    <option value="cash">
+                      Cash
+                    </option>
+                  </select>
+
+                </div>
+              </div>
+            </div>
+
+            {/* DESKTOP TABLE */}
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[950px] text-left">
+
+              <table className="w-full min-w-[1500px] text-left">
+
                 <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
+
                   <tr>
-                    <th className="px-5 py-3">Resident</th>
-                    <th className="px-4 py-3">Flat</th>
-                    <th className="px-4 py-3">Mobile</th>
-                    <th className="px-4 py-3">Amount</th>
-                    <th className="px-4 py-3">UTR</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-5 py-3 text-right">Action</th>
+
+                    <th className="px-5 py-3">
+                      Resident
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Block
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Flat
+                    </th>
+
+                    <th className="whitespace-nowrap px-4 py-3">
+                      Last Year Paid
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Type
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Mobile
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Collection
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Payment
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Amount
+                    </th>
+
+                    <th className="px-4 py-3">
+                      UTR / Paid To
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Date
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Status
+                    </th>
+
+                    <th className="px-5 py-3 text-right">
+                      Action
+                    </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody className="divide-y divide-[#f0ebe5]">
+
                   {filteredContributions.map(
                     (item) => (
                       <tr
                         key={item.id}
                         className="hover:bg-[#fffdf9]"
                       >
+
+                        {/* RESIDENT */}
+
                         <td className="px-5 py-4">
+
                           <div className="text-sm font-semibold">
                             {item.name}
                           </div>
+
+                          {!item.contribution && (
+                            <div className="mt-1 text-[10px] font-medium text-[#aaa]">
+                              No 2026 contribution
+                            </div>
+                          )}
+
                         </td>
 
-                        <td className="px-4 py-4 text-sm">
+                        {/* BLOCK */}
+
+                        <td className="px-4 py-4 text-sm font-semibold">
+                          {item.block}
+                        </td>
+
+                        {/* FLAT */}
+
+                        <td className="px-4 py-4 text-sm font-semibold">
                           {item.flat_no}
                         </td>
 
-                        <td className="px-4 py-4 text-sm text-[#666]">
-                          {item.mobile}
-                        </td>
+                        {/* LAST YEAR */}
 
-                        <td className="px-4 py-4 text-sm font-bold">
-                          {money(item.amount)}
-                        </td>
+                        <td className="whitespace-nowrap px-4 py-4">
 
-                        <td className="px-4 py-4 text-xs text-[#666]">
-                          {item.utr || "—"}
-                        </td>
-
-                        <td className="px-4 py-4 text-xs text-[#666]">
-                          {formatDate(
-                            item.created_at
+                          {getLastYearPaid(
+                            item
+                          ) !== null ? (
+                            <span className="text-sm font-bold text-[#23753b]">
+                              {money(
+                                getLastYearPaid(
+                                  item
+                                ) as number
+                              )}
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-[#fff1f1] px-3 py-1.5 text-xs font-semibold text-[#a70e18]">
+                              Not Paid
+                            </span>
                           )}
+
                         </td>
+
+                        {/* TYPE */}
+
+                        <td className="px-4 py-4 text-xs">
+                          {item.resident_type ||
+                            "—"}
+                        </td>
+
+                        {/* MOBILE */}
+
+                        <td className="px-4 py-4 text-sm text-[#666]">
+                          {item.mobile ||
+                            "—"}
+                        </td>
+
+                        {/* COLLECTION */}
 
                         <td className="px-4 py-4">
-                          <StatusBadge
-                            status={item.status}
-                          />
+
+                          {item.contribution ? (
+                            <CollectionBadge
+                              status={
+                                item.collection_status
+                              }
+                            />
+                          ) : (
+                            <span className="inline-flex rounded-full bg-[#fff1f1] px-3 py-1.5 text-[11px] font-semibold text-[#a70e18]">
+                              Not Paid
+                            </span>
+                          )}
+
                         </td>
 
+                        {/* PAYMENT */}
+
+                        <td className="px-4 py-4">
+
+                          {item.contribution ? (
+                            <PaymentBadge
+                              method={
+                                item.payment_method
+                              }
+                            />
+                          ) : (
+                            <span className="text-xs text-[#999]">
+                              —
+                            </span>
+                          )}
+
+                        </td>
+
+                        {/* AMOUNT */}
+
+                        <td className="whitespace-nowrap px-4 py-4 text-sm font-bold">
+
+                          {item.amount !==
+                          null
+                            ? money(
+                                item.amount
+                              )
+                            : "—"}
+
+                        </td>
+
+                        {/* UTR / PAID TO */}
+
+                        <td className="max-w-[220px] px-4 py-4 text-xs text-[#666]">
+
+                          {item.contribution ? (
+                            <>
+                              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#aaa]">
+                                {item.payment_method ===
+                                "cash"
+                                  ? "Paid To"
+                                  : "UTR"}
+                              </div>
+
+                              <div className="break-all">
+                                {item.payment_method ===
+                                "cash"
+                                  ? item.paid_to ||
+                                    "—"
+                                  : item.utr ||
+                                    "—"}
+                              </div>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+
+                        </td>
+
+                        {/* DATE */}
+
+                        <td className="px-4 py-4 text-xs text-[#666]">
+
+                          {item.created_at
+                            ? formatDate(
+                                item.created_at
+                              )
+                            : "—"}
+
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td className="px-4 py-4">
+
+                          {item.contribution ? (
+                            <StatusBadge
+                              status={
+                                item.status ||
+                                "pending"
+                              }
+                            />
+                          ) : (
+                            <span className="inline-flex rounded-full bg-[#fff1f1] px-3 py-1.5 text-[11px] font-semibold text-[#a70e18]">
+                              Not Paid
+                            </span>
+                          )}
+
+                        </td>
+
+                        {/* ACTION */}
+
                         <td className="px-5 py-4 text-right">
-                          {item.status ===
-                          "pending" ? (
+
+                          {item.contribution &&
+                          item.status ===
+                            "pending" ? (
                             <ActionButtons
                               loading={
                                 loadingId ===
@@ -1082,152 +3046,962 @@ export default function DashboardClient({
                                 )
                               }
                             />
-                          ) : (
+                          ) : item.contribution ? (
                             <span className="text-xs text-[#999]">
                               No action
                             </span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-[#fff7e8] px-3 py-1.5 text-[11px] font-semibold text-[#9a6a16]">
+                              Follow-up
+                            </span>
                           )}
+
                         </td>
+
                       </tr>
                     )
                   )}
+
                 </tbody>
               </table>
+
             </div>
 
+            {/* MOBILE */}
+
             <div className="divide-y divide-[#eee5db] md:hidden">
+
               {filteredContributions.map(
                 (item) => (
                   <div
                     key={item.id}
                     className="p-4"
                   >
+
                     <div className="flex items-start justify-between gap-3">
+
                       <div>
+
                         <div className="font-semibold">
                           {item.name}
                         </div>
 
                         <div className="mt-1 text-xs text-[#777]">
-                          Flat {item.flat_no} ·{" "}
-                          {item.mobile}
+                          {item.block} · Flat{" "}
+                          {item.flat_no}
                         </div>
+
+                        {!item.contribution && (
+                          <div className="mt-1 text-[10px] text-[#a70e18]">
+                            No 2026 contribution
+                          </div>
+                        )}
+
                       </div>
 
-                      <StatusBadge
-                        status={item.status}
-                      />
+                      {item.contribution ? (
+                        <StatusBadge
+                          status={
+                            item.status ||
+                            "pending"
+                          }
+                        />
+                      ) : (
+                        <span className="inline-flex rounded-full bg-[#fff1f1] px-2.5 py-1 text-[10px] font-semibold text-[#a70e18]">
+                          Not Paid
+                        </span>
+                      )}
+
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-[#fcf8f1] p-3 text-xs">
+
                       <div>
+
+                        <span className="text-[#888]">
+                          Last Year Paid
+                        </span>
+
+                        <strong
+                          className={`mt-1 block text-sm ${
+                            item.last_year_amount ===
+                            null
+                              ? "text-[#a70e18]"
+                              : "text-[#23753b]"
+                          }`}
+                        >
+                          {item.last_year_amount ===
+                          null
+                            ? "Not Paid"
+                            : money(
+                                item.last_year_amount
+                              )}
+                        </strong>
+
+                      </div>
+
+                      <div>
+
+                        <span className="text-[#888]">
+                          Type
+                        </span>
+
+                        <strong className="mt-1 block font-medium">
+                          {item.resident_type ||
+                            "—"}
+                        </strong>
+
+                      </div>
+
+                      <div>
+
+                        <span className="text-[#888]">
+                          Mobile
+                        </span>
+
+                        <strong className="mt-1 block font-medium">
+                          {item.mobile ||
+                            "—"}
+                        </strong>
+
+                      </div>
+
+                      <div>
+
                         <span className="text-[#888]">
                           Amount
                         </span>
 
                         <strong className="mt-1 block text-sm">
-                          {money(item.amount)}
+                          {item.amount !==
+                          null
+                            ? money(
+                                item.amount
+                              )
+                            : "—"}
                         </strong>
+
                       </div>
 
                       <div>
+
+                        <span className="text-[#888]">
+                          Collection
+                        </span>
+
+                        <strong className="mt-1 block font-medium">
+                          {item.collection_status ||
+                            "Not Paid"}
+                        </strong>
+
+                      </div>
+
+                      <div>
+
+                        <span className="text-[#888]">
+                          Payment
+                        </span>
+
+                        <strong className="mt-1 block font-medium">
+                          {item.payment_method ===
+                          "cash"
+                            ? "Cash"
+                            : item.payment_method ===
+                                "upi"
+                              ? "UPI / Online"
+                              : "—"}
+                        </strong>
+
+                      </div>
+
+                      <div>
+
                         <span className="text-[#888]">
                           Date
                         </span>
 
                         <strong className="mt-1 block font-medium">
-                          {formatDate(
-                            item.created_at
-                          )}
+                          {item.created_at
+                            ? formatDate(
+                                item.created_at
+                              )
+                            : "—"}
                         </strong>
+
                       </div>
 
                       <div className="col-span-2">
+
                         <span className="text-[#888]">
-                          UTR
+                          {item.payment_method ===
+                          "cash"
+                            ? "Paid To"
+                            : "UTR"}
                         </span>
 
                         <strong className="mt-1 block break-all font-medium">
-                          {item.utr || "—"}
+                          {item.contribution
+                            ? item.payment_method ===
+                              "cash"
+                              ? item.paid_to ||
+                                "—"
+                              : item.utr ||
+                                "—"
+                            : "—"}
                         </strong>
+
                       </div>
+
                     </div>
 
-                    {item.status ===
-                      "pending" && (
-                      <div className="mt-3">
-                        <ActionButtons
-                          loading={
-                            loadingId ===
-                            item.id
-                          }
-                          onVerify={() =>
-                            updateContributionStatus(
-                              item.id,
-                              "verified"
-                            )
-                          }
-                          onReject={() =>
-                            updateContributionStatus(
-                              item.id,
-                              "rejected"
-                            )
-                          }
-                        />
-                      </div>
-                    )}
+                    {item.contribution &&
+                      item.status ===
+                        "pending" && (
+                        <div className="mt-3">
+
+                          <ActionButtons
+                            loading={
+                              loadingId ===
+                              item.id
+                            }
+                            onVerify={() =>
+                              updateContributionStatus(
+                                item.id,
+                                "verified"
+                              )
+                            }
+                            onReject={() =>
+                              updateContributionStatus(
+                                item.id,
+                                "rejected"
+                              )
+                            }
+                          />
+
+                        </div>
+                      )}
+
                   </div>
                 )
               )}
+
             </div>
 
             {filteredContributions.length ===
               0 && (
-              <EmptyState label="No contributions found." />
+              <EmptyState
+                label="No flats found."
+              />
+            )}
+
+          </section>
+        )}
+
+        {/* ====================================================
+            LAST YEAR VS 2026
+        ==================================================== */}
+
+        {section === "lastYear" && (
+          <section className="rounded-2xl border border-[#eadfd2] bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-serif text-xl font-bold">
+                  Last Year vs 2026 Collection
+                </h2>
+                <p className="mt-1 text-xs text-[#858585]">
+                  Complete flat-wise comparison of Durga Puja 2025 and 2026.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const rows = collectionComparison.rows.map((item) => ({
+                    Block: item.block,
+                    "Flat No.": item.flat_no,
+                    "Resident Type": item.resident_type || "",
+                    "2025 Paid":
+                      item.lastYearAmount === null
+                        ? "Not Paid"
+                        : item.lastYearAmount,
+                    "2026 Amount":
+                      item.currentAmount === null
+                        ? "Not Paid"
+                        : item.currentAmount,
+                    "2026 Status":
+                      item.currentAmount === null
+                        ? "Not Paid"
+                        : item.currentStatus === "verified"
+                          ? "Paid / Verified"
+                          : item.currentStatus === "pending"
+                            ? "Pending Verification"
+                            : item.currentStatus || "Submitted",
+                    Category:
+                      item.category === "continued"
+                        ? "Continued Contributor"
+                        : item.category === "followup"
+                          ? "Follow-up"
+                          : item.category === "new"
+                            ? "New Contributor"
+                            : "Not Paid",
+                  }));
+
+                  const worksheet = XLSX.utils.json_to_sheet(rows);
+                  worksheet["!cols"] = [
+                    { wch: 10 },
+                    { wch: 12 },
+                    { wch: 18 },
+                    { wch: 16 },
+                    { wch: 16 },
+                    { wch: 22 },
+                    { wch: 24 },
+                  ];
+
+                  const workbook = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(
+                    workbook,
+                    worksheet,
+                    "2025 vs 2026"
+                  );
+
+                  XLSX.writeFile(
+                    workbook,
+                    `BUH-2025-vs-2026-Collection-${new Date()
+                      .toISOString()
+                      .slice(0, 10)}.xlsx`
+                  );
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                <i className="fa-solid fa-file-excel" />
+                Export Comparison
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-[#eadfd2] bg-[#fcf8f1] px-4 py-3 text-xs text-[#6f665d]">
+              <i className="fa-solid fa-rotate mr-2 text-[#a70e18]" />
+              The comparison refreshes automatically. When a new 2026 contribution is submitted, the flat moves from <strong>Follow-up</strong> or <strong>Not Paid</strong> to <strong>Continued Contributor</strong> or <strong>New Contributor</strong>.
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <ComparisonStat
+                label="Continued Contributor"
+                value={String(collectionComparison.continued.length)}
+                sub={money(collectionComparison.continuedAmount)}
+                icon="fa-circle-check"
+              />
+
+              <ComparisonStat
+                label="Follow-up"
+                value={String(collectionComparison.followup.length)}
+                sub={money(collectionComparison.followupAmount)}
+                icon="fa-user-clock"
+                highlight
+              />
+
+              <ComparisonStat
+                label="New Contributor"
+                value={String(collectionComparison.newContributors.length)}
+                sub={money(collectionComparison.newAmount)}
+                icon="fa-user-plus"
+              />
+
+              <ComparisonStat
+                label="Not Paid"
+                value={String(collectionComparison.notPaid.length)}
+                sub="No payment record"
+                icon="fa-circle-xmark"
+              />
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {[
+                { value: "all", label: "All Flats" },
+                { value: "continued", label: "Continued Contributor" },
+                { value: "followup", label: "Follow-up" },
+                { value: "new", label: "New Contributor" },
+                { value: "notpaid", label: "Not Paid" },
+              ].map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  onClick={() =>
+                    setComparisonFilter(
+                      filter.value as ComparisonFilter
+                    )
+                  }
+                  className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                    comparisonFilter === filter.value
+                      ? "border-[#a70e18] bg-[#a70e18] text-white"
+                      : "border-[#ddd6cd] bg-white text-[#666] hover:border-[#a70e18] hover:text-[#a70e18]"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 overflow-x-auto rounded-xl border border-[#eee5db]">
+              <table className="w-full min-w-[950px] text-left text-sm">
+                <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
+                  <tr>
+                    <th className="px-4 py-3">Block</th>
+                    <th className="px-4 py-3">Flat</th>
+                    <th className="px-4 py-3">Resident Type</th>
+                    <th className="px-4 py-3">2025 Paid</th>
+                    <th className="px-4 py-3">2026 Amount</th>
+                    <th className="px-4 py-3">2026 Status</th>
+                    <th className="px-4 py-3">Category</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-[#f0ebe5]">
+                  {collectionComparison.filteredRows.map((item) => {
+                    const categoryLabel =
+                      item.category === "continued"
+                        ? "Continued Contributor"
+                        : item.category === "followup"
+                          ? "Follow-up"
+                          : item.category === "new"
+                            ? "New Contributor"
+                            : "Not Paid";
+
+                    const categoryClass =
+                      item.category === "continued"
+                        ? "bg-[#edf8ef] text-[#23753b]"
+                        : item.category === "followup"
+                          ? "bg-[#fff1f1] text-[#a70e18]"
+                          : item.category === "new"
+                            ? "bg-[#eef5ff] text-[#245a9b]"
+                            : "bg-[#f1f1f1] text-[#777]";
+
+                    return (
+                      <tr
+                        key={item.key}
+                        className="hover:bg-[#fffdf9]"
+                      >
+                        <td className="px-4 py-3 font-semibold">
+                          {item.block}
+                        </td>
+
+                        <td className="px-4 py-3 font-semibold">
+                          {item.flat_no}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs">
+                          {item.resident_type || "—"}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {item.lastYearAmount === null ? (
+                            <span className="text-[#a70e18]">
+                              Not Paid
+                            </span>
+                          ) : (
+                            <span className="font-bold text-[#23753b]">
+                              {money(item.lastYearAmount)}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {item.currentAmount === null ? (
+                            <span className="text-[#a70e18]">
+                              Not Paid
+                            </span>
+                          ) : (
+                            <span className="font-bold text-[#23753b]">
+                              {money(item.currentAmount)}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {item.currentAmount === null ? (
+                            <span className="inline-flex rounded-full bg-[#fff1f1] px-2.5 py-1 text-xs font-semibold text-[#a70e18]">
+                              Not Paid
+                            </span>
+                          ) : item.currentStatus === "verified" ? (
+                            <span className="inline-flex rounded-full bg-[#edf8ef] px-2.5 py-1 text-xs font-semibold text-[#23753b]">
+                              Paid / Verified
+                            </span>
+                          ) : item.currentStatus === "pending" ? (
+                            <span className="inline-flex rounded-full bg-[#fff8e7] px-2.5 py-1 text-xs font-semibold text-[#a56b00]">
+                              Pending Verification
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-[#f3f3f3] px-2.5 py-1 text-xs font-semibold text-[#666]">
+                              Submitted
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${categoryClass}`}
+                          >
+                            {categoryLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {collectionComparison.filteredRows.length === 0 && (
+              <div className="mt-4 rounded-xl border border-[#eee5db] bg-[#fcf8f1] px-4 py-6 text-center text-sm text-[#777]">
+                No flats found for this category.
+              </div>
             )}
           </section>
         )}
 
-        {/* =====================================================
-            DONATIONS
-        ===================================================== */}
-        {section === "donations" && (
+        {/* ====================================================
+            CULTURAL PROGRAM
+        ==================================================== */}
+
+        {section === "culturalProgram" && (
           <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
 
-            <SectionHeader
-              title="External Support"
-              subtitle={`${filteredDonations.length} record${filteredDonations.length === 1 ? "" : "s"} shown`}
-              search={donationSearch}
-              setSearch={setDonationSearch}
-              placeholder="Search donor, organisation, mobile or UTR"
-              filter={donationFilter}
-              setFilter={setDonationFilter}
-              onExport={exportDonations}
-            />
+            <div className="border-b border-[#eee5db] px-4 py-4 sm:px-5">
+
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+                <div>
+                  <h2 className="font-serif text-xl font-bold">
+                    Cultural Program Registrations
+                  </h2>
+
+                  <p className="mt-1 text-xs text-[#858585]">
+                    {filteredCulturalPrograms.length} shown · {culturalStats.total} total registrations
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={exportCulturalPrograms}
+                  disabled={filteredCulturalPrograms.length === 0}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  <i className="fa-solid fa-file-excel" />
+                  Export
+                </button>
+
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+
+                <div className="relative lg:col-span-2">
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#999]" />
+
+                  <input
+                    value={culturalSearch}
+                    onChange={(e) =>
+                      setCulturalSearch(e.target.value)
+                    }
+                    placeholder="Search participant, flat, performance..."
+                    className="h-10 w-full rounded-lg border border-[#ddd6cd] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#a70e18]"
+                  />
+                </div>
+
+                <select
+                  value={culturalStatusFilter}
+                  onChange={(e) =>
+                    setCulturalStatusFilter(
+                      e.target.value as CulturalStatusFilter
+                    )
+                  }
+                  className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+
+                <select
+                  value={culturalBlockFilter}
+                  onChange={(e) =>
+                    setCulturalBlockFilter(
+                      e.target.value as BlockFilter
+                    )
+                  }
+                  className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                >
+                  <option value="all">All Blocks</option>
+                  <option value="P1">P1</option>
+                  <option value="P2">P2</option>
+                  <option value="Villa">Villa</option>
+                </select>
+
+                <select
+                  value={culturalPerformanceFilter}
+                  onChange={(e) =>
+                    setCulturalPerformanceFilter(
+                      e.target.value as CulturalPerformanceFilter
+                    )
+                  }
+                  className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                >
+                  <option value="all">All Performance</option>
+                  <option value="Individual">Individual</option>
+                  <option value="Group">Group</option>
+                </select>
+
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg bg-[#fcf8f1] px-3 py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-[#999]">Total</div>
+                  <div className="mt-1 text-lg font-bold">{culturalStats.total}</div>
+                </div>
+
+                <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-[#999]">Pending</div>
+                  <div className="mt-1 text-lg font-bold text-[#a56b00]">{culturalStats.pending}</div>
+                </div>
+
+                <div className="rounded-lg bg-[#edf8ef] px-3 py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-[#999]">Approved</div>
+                  <div className="mt-1 text-lg font-bold text-[#23753b]">{culturalStats.approved}</div>
+                </div>
+
+                <div className="rounded-lg bg-[#fff0f0] px-3 py-2.5">
+                  <div className="text-[10px] uppercase tracking-wide text-[#999]">Rejected</div>
+                  <div className="mt-1 text-lg font-bold text-[#a70e18]">{culturalStats.rejected}</div>
+                </div>
+              </div>
+
+            </div>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[1100px] text-left">
+              <table className="w-full min-w-[1250px] text-left">
                 <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
                   <tr>
-                    <th className="px-5 py-3">Donor</th>
-                    <th className="px-4 py-3">Organisation</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Amount</th>
-                    <th className="px-4 py-3">UTR</th>
-                    <th className="px-4 py-3">Date</th>
+                    <th className="px-5 py-3">Registration</th>
+                    <th className="px-4 py-3">Participant</th>
+                    <th className="px-4 py-3">Flat</th>
+                    <th className="px-4 py-3">Performance</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Duration</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-5 py-3 text-right">Action</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-[#f0ebe5]">
+                  {filteredCulturalPrograms.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-[#fffdf9]"
+                    >
+                      <td className="px-5 py-4">
+                        <div className="text-sm font-semibold text-[#a70e18]">
+                          {item.registration_no}
+                        </div>
+                        <div className="mt-1 text-xs text-[#888]">
+                          {formatDateTime(item.created_at)}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-semibold">
+                          {item.participant_name}
+                        </div>
+                        <div className="mt-1 text-xs text-[#777]">
+                          Age {item.age} · {item.participant_type}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-semibold">
+                          {item.block}-{item.flat_no}
+                        </div>
+                        <div className="mt-1 text-xs text-[#777]">
+                          {item.mobile}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-semibold">
+                          {item.performance_title}
+                        </div>
+                        <div className="mt-1 text-xs text-[#777]">
+                          {item.performance_type}
+                          {item.group_name
+                            ? ` · ${item.group_name}`
+                            : ""}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-4 text-sm">
+                        {item.category}
+                      </td>
+
+                      <td className="px-4 py-4 text-sm">
+                        {item.duration}
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <CulturalStatusBadge
+                          status={item.status}
+                        />
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedCulturalProgram(item)
+                            }
+                            className="rounded-lg border border-[#ddd] bg-white px-3 py-2 text-xs font-semibold text-[#666]"
+                          >
+                            <i className="fa-solid fa-eye mr-1" />
+                            View
+                          </button>
+
+                          {item.status === "pending" && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={
+                                  loadingId === item.id
+                                }
+                                onClick={() =>
+                                  updateCulturalProgramStatus(
+                                    item.id,
+                                    "approved"
+                                  )
+                                }
+                                className="rounded-lg bg-[#23753b] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                              >
+                                <i className="fa-solid fa-check mr-1" />
+                                Approve
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  loadingId === item.id
+                                }
+                                onClick={() =>
+                                  updateCulturalProgramStatus(
+                                    item.id,
+                                    "rejected"
+                                  )
+                                }
+                                className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="divide-y divide-[#eee5db] md:hidden">
+              {filteredCulturalPrograms.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">
+                        {item.participant_name}
+                      </div>
+                      <div className="mt-1 text-xs text-[#777]">
+                        {item.block}-{item.flat_no} · Age {item.age}
+                      </div>
+                    </div>
+
+                    <CulturalStatusBadge
+                      status={item.status}
+                    />
+                  </div>
+
+                  <div className="mt-3 rounded-lg bg-[#fcf8f1] p-3 text-xs">
+                    <div className="font-semibold text-[#a70e18]">
+                      {item.registration_no}
+                    </div>
+
+                    <div className="mt-2 font-semibold">
+                      {item.performance_title}
+                    </div>
+
+                    <div className="mt-1 text-[#777]">
+                      {item.category} · {item.performance_type} · {item.duration}
+                    </div>
+
+                    {item.group_name && (
+                      <div className="mt-1 text-[#777]">
+                        Group: {item.group_name}
+                      </div>
+                    )}
+
+                    <div className="mt-2 text-[#777]">
+                      {item.mobile}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedCulturalProgram(item)
+                      }
+                      className="flex-1 rounded-lg border border-[#ddd] bg-white py-2.5 text-xs font-semibold text-[#666]"
+                    >
+                      <i className="fa-solid fa-eye mr-1" />
+                      View
+                    </button>
+
+                    {item.status === "pending" && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={
+                            loadingId === item.id
+                          }
+                          onClick={() =>
+                            updateCulturalProgramStatus(
+                              item.id,
+                              "approved"
+                            )
+                          }
+                          className="rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          <i className="fa-solid fa-check" />
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            loadingId === item.id
+                          }
+                          onClick={() =>
+                            updateCulturalProgramStatus(
+                              item.id,
+                              "rejected"
+                            )
+                          }
+                          className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
+                        >
+                          <i className="fa-solid fa-xmark" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredCulturalPrograms.length === 0 && (
+              <EmptyState
+                label="No cultural program registrations found."
+              />
+            )}
+
+          </section>
+        )}
+
+        {/* ====================================================
+            DONATIONS
+        ==================================================== */}
+
+        {section ===
+          "donations" && (
+          <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
+
+            <SectionHeader
+              title="External Support"
+              subtitle={`${filteredDonations.length} record${
+                filteredDonations.length ===
+                1
+                  ? ""
+                  : "s"
+              } shown`}
+              search={
+                donationSearch
+              }
+              setSearch={
+                setDonationSearch
+              }
+              placeholder="Search donor, organisation, mobile or UTR"
+              filter={
+                donationFilter
+              }
+              setFilter={
+                setDonationFilter
+              }
+              onExport={
+                exportDonations
+              }
+            />
+
+            <div className="hidden overflow-x-auto md:block">
+
+              <table className="w-full min-w-[1100px] text-left">
+
+                <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
+
+                  <tr>
+
+                    <th className="px-5 py-3">
+                      Donor
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Organisation
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Type
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Amount
+                    </th>
+
+                    <th className="px-4 py-3">
+                      UTR
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Date
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Status
+                    </th>
+
+                    <th className="px-5 py-3 text-right">
+                      Action
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody className="divide-y divide-[#f0ebe5]">
+
                   {filteredDonations.map(
                     (item) => (
                       <tr
                         key={item.id}
                         className="hover:bg-[#fffdf9]"
                       >
+
                         <td className="px-5 py-4">
+
                           <div className="text-sm font-semibold">
                             {item.donor_name}
                           </div>
@@ -1235,6 +4009,7 @@ export default function DashboardClient({
                           <div className="mt-1 text-xs text-[#888]">
                             {item.mobile}
                           </div>
+
                         </td>
 
                         <td className="px-4 py-4 text-sm">
@@ -1243,6 +4018,7 @@ export default function DashboardClient({
                         </td>
 
                         <td className="px-4 py-4 text-sm">
+
                           <div>
                             {item.donor_type}
                           </div>
@@ -1250,14 +4026,18 @@ export default function DashboardClient({
                           <div className="mt-1 text-xs capitalize text-[#888]">
                             {item.donation_type}
                           </div>
+
                         </td>
 
                         <td className="px-4 py-4 text-sm font-bold">
-                          {money(item.amount)}
+                          {money(
+                            item.amount
+                          )}
                         </td>
 
                         <td className="px-4 py-4 text-xs text-[#666]">
-                          {item.utr || "—"}
+                          {item.utr ||
+                            "—"}
                         </td>
 
                         <td className="px-4 py-4 text-xs text-[#666]">
@@ -1268,11 +4048,14 @@ export default function DashboardClient({
 
                         <td className="px-4 py-4">
                           <StatusBadge
-                            status={item.status}
+                            status={
+                              item.status
+                            }
                           />
                         </td>
 
                         <td className="px-5 py-4 text-right">
+
                           {item.status ===
                           "pending" ? (
                             <ActionButtons
@@ -1298,23 +4081,31 @@ export default function DashboardClient({
                               No action
                             </span>
                           )}
+
                         </td>
+
                       </tr>
                     )
                   )}
+
                 </tbody>
               </table>
+
             </div>
 
             <div className="divide-y divide-[#eee5db] md:hidden">
+
               {filteredDonations.map(
                 (item) => (
                   <div
                     key={item.id}
                     className="p-4"
                   >
+
                     <div className="flex items-start justify-between gap-3">
+
                       <div>
+
                         <div className="font-semibold">
                           {item.donor_name}
                         </div>
@@ -1323,25 +4114,35 @@ export default function DashboardClient({
                           {item.organisation_name ||
                             item.donor_type}
                         </div>
+
                       </div>
 
                       <StatusBadge
-                        status={item.status}
+                        status={
+                          item.status
+                        }
                       />
+
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-[#fcf8f1] p-3 text-xs">
+
                       <div>
+
                         <span className="text-[#888]">
                           Amount
                         </span>
 
                         <strong className="mt-1 block text-sm">
-                          {money(item.amount)}
+                          {money(
+                            item.amount
+                          )}
                         </strong>
+
                       </div>
 
                       <div>
+
                         <span className="text-[#888]">
                           Date
                         </span>
@@ -1351,22 +4152,28 @@ export default function DashboardClient({
                             item.created_at
                           )}
                         </strong>
+
                       </div>
 
                       <div className="col-span-2">
+
                         <span className="text-[#888]">
                           UTR
                         </span>
 
                         <strong className="mt-1 block break-all font-medium">
-                          {item.utr || "—"}
+                          {item.utr ||
+                            "—"}
                         </strong>
+
                       </div>
+
                     </div>
 
                     {item.status ===
                       "pending" && (
                       <div className="mt-3">
+
                         <ActionButtons
                           loading={
                             loadingId ===
@@ -1385,30 +4192,40 @@ export default function DashboardClient({
                             )
                           }
                         />
+
                       </div>
                     )}
+
                   </div>
                 )
               )}
+
             </div>
 
             {filteredDonations.length ===
               0 && (
-              <EmptyState label="No external support found." />
+              <EmptyState
+                label="No external support found."
+              />
             )}
+
           </section>
         )}
 
-        {/* =====================================================
+        {/* ====================================================
             EXPENSES
-        ===================================================== */}
-        {section === "expenses" && (
+        ==================================================== */}
+
+        {section ===
+          "expenses" && (
           <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
 
             <div className="border-b border-[#eee5db] px-4 py-4 sm:px-5">
+
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
                 <div>
+
                   <h2 className="font-serif text-xl font-bold">
                     Expenses
                   </h2>
@@ -1420,17 +4237,23 @@ export default function DashboardClient({
                       ? ""
                       : "s"}{" "}
                     shown · Total{" "}
-                    {money(expenseStats.total)}
+                    {money(
+                      expenseStats.total
+                    )}
                   </p>
+
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row">
 
                   <div className="relative">
+
                     <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#999]" />
 
                     <input
-                      value={expenseSearch}
+                      value={
+                        expenseSearch
+                      }
                       onChange={(e) =>
                         setExpenseSearch(
                           e.target.value
@@ -1439,13 +4262,19 @@ export default function DashboardClient({
                       placeholder="Search expenses..."
                       className="h-10 w-full rounded-lg border border-[#ddd6cd] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#a70e18] sm:w-[250px]"
                     />
+
                   </div>
 
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingExpense(null);
-                      setShowExpenseForm(true);
+                      setEditingExpense(
+                        null
+                      );
+
+                      setShowExpenseForm(
+                        true
+                      );
                     }}
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#a70e18] px-4 text-sm font-semibold text-white"
                   >
@@ -1455,7 +4284,9 @@ export default function DashboardClient({
 
                   <button
                     type="button"
-                    onClick={exportExpenses}
+                    onClick={
+                      exportExpenses
+                    }
                     disabled={
                       filteredExpenses.length ===
                       0
@@ -1471,27 +4302,56 @@ export default function DashboardClient({
             </div>
 
             <div className="hidden overflow-x-auto md:block">
+
               <table className="w-full min-w-[950px] text-left">
+
                 <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
+
                   <tr>
-                    <th className="px-5 py-3">Expense</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3">Paid To</th>
-                    <th className="px-4 py-3">Amount</th>
-                    <th className="px-4 py-3">Payment</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-5 py-3 text-right">Action</th>
+
+                    <th className="px-5 py-3">
+                      Expense
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Category
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Paid To
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Amount
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Payment
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Date
+                    </th>
+
+                    <th className="px-5 py-3 text-right">
+                      Action
+                    </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody className="divide-y divide-[#f0ebe5]">
+
                   {filteredExpenses.map(
                     (item) => (
                       <tr
                         key={item.id}
                         className="hover:bg-[#fffdf9]"
                       >
+
                         <td className="px-5 py-4">
+
                           <div className="text-sm font-semibold">
                             {item.title}
                           </div>
@@ -1499,9 +4359,12 @@ export default function DashboardClient({
                           {item.reference_no && (
                             <div className="mt-1 text-xs text-[#888]">
                               Ref:{" "}
-                              {item.reference_no}
+                              {
+                                item.reference_no
+                              }
                             </div>
                           )}
+
                         </td>
 
                         <td className="px-4 py-4 text-sm">
@@ -1509,11 +4372,14 @@ export default function DashboardClient({
                         </td>
 
                         <td className="px-4 py-4 text-sm">
-                          {item.paid_to || "—"}
+                          {item.paid_to ||
+                            "—"}
                         </td>
 
                         <td className="px-4 py-4 text-sm font-bold text-[#a70e18]">
-                          {money(item.amount)}
+                          {money(
+                            item.amount
+                          )}
                         </td>
 
                         <td className="px-4 py-4 text-sm capitalize">
@@ -1527,13 +4393,16 @@ export default function DashboardClient({
                         </td>
 
                         <td className="px-5 py-4 text-right">
+
                           <div className="flex justify-end gap-2">
+
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingExpense(
                                   item
                                 );
+
                                 setShowExpenseForm(
                                   true
                                 );
@@ -1560,24 +4429,33 @@ export default function DashboardClient({
                               <i className="fa-solid fa-trash mr-1" />
                               Delete
                             </button>
+
                           </div>
+
                         </td>
+
                       </tr>
                     )
                   )}
+
                 </tbody>
               </table>
+
             </div>
 
             <div className="divide-y divide-[#eee5db] md:hidden">
+
               {filteredExpenses.map(
                 (item) => (
                   <div
                     key={item.id}
                     className="p-4"
                   >
+
                     <div className="flex items-start justify-between gap-3">
+
                       <div>
+
                         <div className="font-semibold">
                           {item.title}
                         </div>
@@ -1585,25 +4463,34 @@ export default function DashboardClient({
                         <div className="mt-1 text-xs text-[#777]">
                           {item.category}
                         </div>
+
                       </div>
 
                       <div className="font-bold text-[#a70e18]">
-                        {money(item.amount)}
+                        {money(
+                          item.amount
+                        )}
                       </div>
+
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-[#fcf8f1] p-3 text-xs">
+
                       <div>
+
                         <span className="text-[#888]">
                           Paid To
                         </span>
 
                         <strong className="mt-1 block font-medium">
-                          {item.paid_to || "—"}
+                          {item.paid_to ||
+                            "—"}
                         </strong>
+
                       </div>
 
                       <div>
+
                         <span className="text-[#888]">
                           Date
                         </span>
@@ -1613,9 +4500,11 @@ export default function DashboardClient({
                             item.expense_date
                           )}
                         </strong>
+
                       </div>
 
                       <div>
+
                         <span className="text-[#888]">
                           Payment
                         </span>
@@ -1623,9 +4512,11 @@ export default function DashboardClient({
                         <strong className="mt-1 block capitalize font-medium">
                           {item.payment_mode}
                         </strong>
+
                       </div>
 
                       <div>
+
                         <span className="text-[#888]">
                           Reference
                         </span>
@@ -1634,16 +4525,20 @@ export default function DashboardClient({
                           {item.reference_no ||
                             "—"}
                         </strong>
+
                       </div>
+
                     </div>
 
                     <div className="mt-3 flex gap-2">
+
                       <button
                         type="button"
                         onClick={() => {
                           setEditingExpense(
                             item
                           );
+
                           setShowExpenseForm(
                             true
                           );
@@ -1670,49 +4565,109 @@ export default function DashboardClient({
                         <i className="fa-solid fa-trash mr-1" />
                         Delete
                       </button>
+
                     </div>
+
                   </div>
                 )
               )}
+
             </div>
 
             {filteredExpenses.length ===
               0 && (
-              <EmptyState label="No expenses found." />
+              <EmptyState
+                label="No expenses found."
+              />
             )}
+
           </section>
         )}
 
-        {/* EXPENSE MODAL */}
+        {/* ====================================================
+            EXPENSE MODAL
+        ==================================================== */}
+
+        {selectedCulturalProgram && (
+          <CulturalProgramModal
+            program={selectedCulturalProgram}
+            loading={
+              loadingId ===
+              selectedCulturalProgram.id
+            }
+            onClose={() =>
+              setSelectedCulturalProgram(null)
+            }
+            onApprove={() =>
+              updateCulturalProgramStatus(
+                selectedCulturalProgram.id,
+                "approved"
+              )
+            }
+            onReject={() =>
+              updateCulturalProgramStatus(
+                selectedCulturalProgram.id,
+                "rejected"
+              )
+            }
+          />
+        )}
+
         {showExpenseForm && (
           <ExpenseModal
-            expense={editingExpense}
-            categories={EXPENSE_CATEGORIES}
-            paymentModes={PAYMENT_MODES}
+            expense={
+              editingExpense
+            }
+            categories={
+              EXPENSE_CATEGORIES
+            }
+            paymentModes={
+              PAYMENT_MODES
+            }
             onClose={() => {
-              setShowExpenseForm(false);
-              setEditingExpense(null);
+              setShowExpenseForm(
+                false
+              );
+
+              setEditingExpense(
+                null
+              );
             }}
             onSaved={(expense) => {
-              setExpenses((current) => {
-                const exists = current.some(
-                  (item) =>
-                    item.id === expense.id
-                );
+              setExpenses(
+                (current) => {
+                  const exists =
+                    current.some(
+                      (item) =>
+                        item.id ===
+                        expense.id
+                    );
 
-                if (exists) {
-                  return current.map((item) =>
-                    item.id === expense.id
-                      ? expense
-                      : item
-                  );
+                  if (exists) {
+                    return current.map(
+                      (item) =>
+                        item.id ===
+                        expense.id
+                          ? expense
+                          : item
+                    );
+                  }
+
+                  return [
+                    expense,
+                    ...current,
+                  ];
                 }
+              );
 
-                return [expense, ...current];
-              });
+              setShowExpenseForm(
+                false
+              );
 
-              setShowExpenseForm(false);
-              setEditingExpense(null);
+              setEditingExpense(
+                null
+              );
+
               setMessage(
                 editingExpense
                   ? "Expense updated successfully."
@@ -1721,13 +4676,14 @@ export default function DashboardClient({
             }}
           />
         )}
+
       </div>
     </main>
   );
 }
 
 /* ============================================================
-   COMPONENTS
+   NAV BUTTON
 ============================================================ */
 
 function NavButton({
@@ -1751,11 +4707,18 @@ function NavButton({
           : "text-[#666] hover:bg-[#fcf8f1]"
       }`}
     >
-      <i className={`fa-solid ${icon}`} />
+      <i
+        className={`fa-solid ${icon}`}
+      />
+
       {label}
     </button>
   );
 }
+
+/* ============================================================
+   FINANCIAL CARD
+============================================================ */
 
 function FinancialCard({
   icon,
@@ -1778,7 +4741,9 @@ function FinancialCard({
           : "border-[#eadfd2] bg-white"
       }`}
     >
+
       <div className="flex items-center gap-2 text-xs font-medium text-[#777]">
+
         <i
           className={`fa-solid ${icon} ${
             highlight
@@ -1788,6 +4753,7 @@ function FinancialCard({
         />
 
         {label}
+
       </div>
 
       <div
@@ -1805,9 +4771,237 @@ function FinancialCard({
           {sub}
         </div>
       )}
+
     </div>
   );
 }
+
+/* ============================================================
+   COMPARISON STAT
+============================================================ */
+
+function ComparisonStat({
+  label,
+  value,
+  sub,
+  icon,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  icon: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-4 ${
+        highlight
+          ? "border-[#f0d4d4] bg-[#fff8f8]"
+          : "border-[#eee5db] bg-[#fcf8f1]"
+      }`}
+    >
+
+      <div className="flex items-start justify-between gap-3">
+
+        <div>
+
+          <div className="text-xs font-semibold text-[#777]">
+            {label}
+          </div>
+
+          <div
+            className={`mt-1 text-2xl font-bold ${
+              highlight
+                ? "text-[#a70e18]"
+                : "text-[#292929]"
+            }`}
+          >
+            {value}
+          </div>
+
+          <div className="mt-1 text-xs text-[#858585]">
+            {sub}
+          </div>
+
+        </div>
+
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+            highlight
+              ? "bg-[#f8e6e6] text-[#a70e18]"
+              : "bg-white text-[#c8952e]"
+          }`}
+        >
+          <i
+            className={`fa-solid ${icon}`}
+          />
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+/* ============================================================
+   COLLECTION SUMMARY
+============================================================ */
+
+function CollectionSummaryCard({
+  icon,
+  label,
+  count,
+  amount,
+  description,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  count: number;
+  amount: number;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-xl border border-[#eadfd2] bg-white p-4 text-left shadow-sm transition hover:shadow-md"
+    >
+
+      <div className="flex items-center justify-between gap-3">
+
+        <div className="flex items-center gap-2">
+
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fff7ed] text-[#a70e18]">
+            <i
+              className={`fa-solid ${icon}`}
+            />
+          </div>
+
+          <div>
+
+            <h3 className="text-sm font-semibold text-[#292929]">
+              {label}
+            </h3>
+
+            <p className="text-[11px] text-[#999]">
+              {description}
+            </p>
+
+          </div>
+
+        </div>
+
+        <div className="text-right">
+
+          <div className="text-lg font-bold text-[#292929]">
+            {count}
+          </div>
+
+          <div className="text-[10px] text-[#999]">
+            residents
+          </div>
+
+        </div>
+
+      </div>
+
+      <div className="mt-4 border-t border-[#f0ebe5] pt-3">
+
+        <span className="text-[11px] text-[#888]">
+          Expected collection
+        </span>
+
+        <div className="mt-1 text-base font-bold text-[#a70e18]">
+          ₹
+          {Number(
+            amount
+          ).toLocaleString(
+            "en-IN"
+          )}
+        </div>
+
+      </div>
+
+    </button>
+  );
+}
+
+/* ============================================================
+   COLLECTION BADGE
+============================================================ */
+
+function CollectionBadge({
+  status,
+}: {
+  status: string | null;
+}) {
+  if (!status) {
+    return (
+      <span className="text-xs text-[#999]">
+        —
+      </span>
+    );
+  }
+
+  const styles =
+    status === "Pay Now"
+      ? "bg-[#fff0f0] text-[#a70e18]"
+      : status === "Door Lock"
+        ? "bg-[#fff7e8] text-[#9a6a16]"
+        : status ===
+            "Follow-up"
+          ? "bg-[#eef5ff] text-[#3166a8]"
+          : "bg-[#f3f3f3] text-[#666]";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${styles}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+/* ============================================================
+   PAYMENT BADGE
+============================================================ */
+
+function PaymentBadge({
+  method,
+}: {
+  method: string | null;
+}) {
+  if (!method) {
+    return (
+      <span className="text-xs text-[#999]">
+        —
+      </span>
+    );
+  }
+
+  if (method === "cash") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-[#fff7e8] px-2.5 py-1 text-[11px] font-semibold text-[#9a6a16]">
+        <i className="fa-solid fa-money-bill-wave" />
+        Cash
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#eef7ff] px-2.5 py-1 text-[11px] font-semibold text-[#28699b]">
+      <i className="fa-solid fa-mobile-screen-button" />
+      UPI
+    </span>
+  );
+}
+
+/* ============================================================
+   SMALL SUMMARY
+============================================================ */
 
 function SmallSummary({
   icon,
@@ -1822,9 +5016,15 @@ function SmallSummary({
 }) {
   return (
     <div className="rounded-xl border border-[#eadfd2] bg-white p-4 shadow-sm">
+
       <div className="flex items-center gap-2 text-xs font-semibold text-[#777]">
-        <i className={`fa-solid ${icon} text-[#a70e18]`} />
+
+        <i
+          className={`fa-solid ${icon} text-[#a70e18]`}
+        />
+
         {title}
+
       </div>
 
       <div className="mt-2 text-lg font-bold">
@@ -1834,9 +5034,14 @@ function SmallSummary({
       <div className="mt-1 text-xs text-[#999]">
         {sub}
       </div>
+
     </div>
   );
 }
+
+/* ============================================================
+   SUMMARY ROW
+============================================================ */
 
 function SummaryRow({
   label,
@@ -1854,9 +5059,12 @@ function SummaryRow({
   return (
     <div
       className={`flex items-center justify-between gap-4 ${
-        bold ? "font-bold" : ""
+        bold
+          ? "font-bold"
+          : ""
       }`}
     >
+
       <span
         className={
           bold
@@ -1876,12 +5084,25 @@ function SummaryRow({
               : "text-[#292929]"
         }`}
       >
-        {negative ? "− " : ""}
-        ₹{Number(amount).toLocaleString("en-IN")}
+        {negative
+          ? "− "
+          : ""}
+
+        ₹
+        {Number(
+          amount
+        ).toLocaleString(
+          "en-IN"
+        )}
       </span>
+
     </div>
   );
 }
+
+/* ============================================================
+   SECTION HEADER
+============================================================ */
 
 function SectionHeader({
   title,
@@ -1896,16 +5117,23 @@ function SectionHeader({
   title: string;
   subtitle: string;
   search: string;
-  setSearch: (value: string) => void;
+  setSearch: (
+    value: string
+  ) => void;
   placeholder: string;
   filter: Filter;
-  setFilter: (value: Filter) => void;
+  setFilter: (
+    value: Filter
+  ) => void;
   onExport: () => void;
 }) {
   return (
     <div className="border-b border-[#eee5db] px-4 py-4 sm:px-5">
+
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
         <div>
+
           <h2 className="font-serif text-xl font-bold">
             {title}
           </h2>
@@ -1913,56 +5141,81 @@ function SectionHeader({
           <p className="mt-1 text-xs text-[#858585]">
             {subtitle}
           </p>
+
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
+
           <div className="relative">
+
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#999]" />
 
             <input
               value={search}
               onChange={(e) =>
-                setSearch(e.target.value)
+                setSearch(
+                  e.target.value
+                )
               }
-              placeholder={placeholder}
+              placeholder={
+                placeholder
+              }
               className="h-10 w-full rounded-lg border border-[#ddd6cd] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#a70e18] sm:w-[280px]"
             />
+
           </div>
 
           <select
             value={filter}
             onChange={(e) =>
               setFilter(
-                e.target.value as Filter
+                e.target
+                  .value as Filter
               )
             }
             className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
           >
-            <option value="all">All</option>
+
+            <option value="all">
+              All
+            </option>
+
             <option value="pending">
               Pending
             </option>
+
             <option value="verified">
               Verified
             </option>
+
             <option value="rejected">
               Rejected
             </option>
+
           </select>
 
           <button
             type="button"
-            onClick={onExport}
+            onClick={
+              onExport
+            }
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white"
           >
             <i className="fa-solid fa-file-excel" />
             Export
           </button>
+
         </div>
+
       </div>
+
     </div>
   );
 }
+
+/* ============================================================
+   ACTION BUTTONS
+============================================================ */
 
 function ActionButtons({
   loading,
@@ -1975,6 +5228,7 @@ function ActionButtons({
 }) {
   return (
     <div className="flex gap-2">
+
       <button
         type="button"
         disabled={loading}
@@ -1993,9 +5247,14 @@ function ActionButtons({
       >
         Reject
       </button>
+
     </div>
   );
 }
+
+/* ============================================================
+   STATUS BADGE
+============================================================ */
 
 function StatusBadge({
   status,
@@ -2013,20 +5272,28 @@ function StatusBadge({
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${styles}`}
     >
+
       <i
         className={`fa-solid ${
-          status === "verified"
+          status ===
+          "verified"
             ? "fa-circle-check"
-            : status === "rejected"
+            : status ===
+                "rejected"
               ? "fa-circle-xmark"
               : "fa-clock"
         }`}
       />
 
       {status}
+
     </span>
   );
 }
+
+/* ============================================================
+   EMPTY STATE
+============================================================ */
 
 function EmptyState({
   label,
@@ -2035,17 +5302,27 @@ function EmptyState({
 }) {
   return (
     <div className="px-5 py-16 text-center">
+
       <i className="fa-solid fa-inbox text-3xl text-[#c9b8a6]" />
 
       <p className="mt-3 font-semibold">
         {label}
       </p>
+
     </div>
   );
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(
+/* ============================================================
+   DATE
+============================================================ */
+
+function formatDate(
+  value: string
+) {
+  return new Date(
+    value
+  ).toLocaleDateString(
     "en-IN",
     {
       day: "2-digit",
@@ -2055,19 +5332,274 @@ function formatDate(value: string) {
   );
 }
 
-function formatDateOnly(value: string) {
+function formatDateOnly(
+  value: string
+) {
   return new Date(
     `${value}T00:00:00`
-  ).toLocaleDateString("en-IN", {
+  ).toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
+}
+
+/* ============================================================
+   CULTURAL PROGRAM STATUS BADGE
+============================================================ */
+
+function CulturalStatusBadge({
+  status,
+}: {
+  status: string;
+}) {
+  const styles =
+    status === "approved"
+      ? "bg-[#edf8f0] text-[#23753b]"
+      : status === "rejected"
+        ? "bg-[#fff0f0] text-[#a70e18]"
+        : "bg-[#fff7e8] text-[#9a6a16]";
+
+  const label =
+    status === "approved"
+      ? "Approved"
+      : status === "rejected"
+        ? "Rejected"
+        : "Pending";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${styles}`}
+    >
+      <i
+        className={`fa-solid ${
+          status === "approved"
+            ? "fa-circle-check"
+            : status === "rejected"
+              ? "fa-circle-xmark"
+              : "fa-clock"
+        }`}
+      />
+      {label}
+    </span>
+  );
+}
+
+/* ============================================================
+   CULTURAL PROGRAM DETAILS MODAL
+============================================================ */
+
+function CulturalProgramModal({
+  program,
+  loading,
+  onClose,
+  onApprove,
+  onReject,
+}: {
+  program: CulturalProgram;
+  loading: boolean;
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+
+        <div className="sticky top-0 flex items-center justify-between border-b border-[#eee5db] bg-white px-5 py-4">
+          <div>
+            <div className="text-[10px] font-bold tracking-[2px] text-[#a70e18]">
+              CULTURAL PROGRAM
+            </div>
+
+            <h2 className="mt-1 font-serif text-xl font-bold">
+              Registration Details
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f2eb] text-[#666]"
+          >
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+
+          <div className="flex items-start justify-between gap-4 rounded-xl bg-[#fcf8f1] p-4">
+            <div>
+              <div className="text-xs text-[#888]">
+                Registration ID
+              </div>
+
+              <div className="mt-1 font-bold text-[#a70e18]">
+                {program.registration_no}
+              </div>
+            </div>
+
+            <CulturalStatusBadge
+              status={program.status}
+            />
+          </div>
+
+          <div>
+            <h3 className="font-serif text-lg font-bold">
+              Participant Details
+            </h3>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <DetailItem
+                label="Participant"
+                value={program.participant_name}
+              />
+
+              <DetailItem
+                label="Age"
+                value={`${program.age} years`}
+              />
+
+              <DetailItem
+                label="Participant Type"
+                value={program.participant_type}
+              />
+
+              <DetailItem
+                label="Block / Flat"
+                value={`${program.block}-${program.flat_no}`}
+              />
+
+              <DetailItem
+                label="Mobile"
+                value={program.mobile}
+              />
+
+              <DetailItem
+                label="Email"
+                value={program.email || "—"}
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-[#eee5db] pt-5">
+            <h3 className="font-serif text-lg font-bold">
+              Performance Details
+            </h3>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <DetailItem
+                label="Performance Type"
+                value={program.performance_type}
+              />
+
+              <DetailItem
+                label="Group Name"
+                value={program.group_name || "—"}
+              />
+
+              <DetailItem
+                label="Category"
+                value={program.category}
+              />
+
+              <DetailItem
+                label="Performance Title"
+                value={program.performance_title}
+              />
+
+              <DetailItem
+                label="Expected Duration"
+                value={program.duration}
+              />
+            </div>
+
+            <div className="mt-3 rounded-xl bg-[#fcf8f1] p-4">
+              <div className="text-xs font-semibold text-[#888]">
+                Description
+              </div>
+
+              <div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#444]">
+                {program.description || "No description provided."}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[#eee5db] pt-5 text-xs text-[#888]">
+            Registered on {formatDateTime(program.created_at)}
+          </div>
+
+          {program.status === "pending" && (
+            <div className="flex gap-3 border-t border-[#eee5db] pt-4">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={onReject}
+                className="flex-1 rounded-lg border border-[#f0cccc] bg-[#fff6f6] py-3 text-sm font-semibold text-[#a70e18] disabled:opacity-50"
+              >
+                Reject
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={onApprove}
+                className="flex-1 rounded-lg bg-[#23753b] py-3 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {loading
+                  ? "Updating..."
+                  : "Approve Registration"}
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   DETAIL ITEM
+============================================================ */
+
+function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-[#eee5db] bg-white px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-[#999]">
+        {label}
+      </div>
+
+      <div className="mt-1 break-words text-sm font-semibold text-[#333]">
+        {value}
+      </div>
+    </div>
+  );
 }
 
 /* ============================================================
    EXPENSE MODAL
 ============================================================ */
+
 
 function ExpenseModal({
   expense,
@@ -2080,10 +5612,15 @@ function ExpenseModal({
   categories: string[];
   paymentModes: string[];
   onClose: () => void;
-  onSaved: (expense: Expense) => void;
+  onSaved: (
+    expense: Expense
+  ) => void;
 }) {
   const [title, setTitle] =
-    useState(expense?.title || "");
+    useState(
+      expense?.title ||
+        ""
+    );
 
   const [category, setCategory] =
     useState(
@@ -2092,12 +5629,17 @@ function ExpenseModal({
     );
 
   const [paidTo, setPaidTo] =
-    useState(expense?.paid_to || "");
+    useState(
+      expense?.paid_to ||
+        ""
+    );
 
   const [amount, setAmount] =
     useState(
       expense
-        ? String(expense.amount)
+        ? String(
+            expense.amount
+          )
         : ""
     );
 
@@ -2106,7 +5648,10 @@ function ExpenseModal({
       expense?.expense_date ||
         new Date()
           .toISOString()
-          .slice(0, 10)
+          .slice(
+            0,
+            10
+          )
     );
 
   const [paymentMode, setPaymentMode] =
@@ -2117,12 +5662,14 @@ function ExpenseModal({
 
   const [referenceNo, setReferenceNo] =
     useState(
-      expense?.reference_no || ""
+      expense?.reference_no ||
+        ""
     );
 
   const [notes, setNotes] =
     useState(
-      expense?.notes || ""
+      expense?.notes ||
+        ""
     );
 
   const [loading, setLoading] =
@@ -2143,6 +5690,7 @@ function ExpenseModal({
       setError(
         "Please fill all required fields."
       );
+
       return;
     }
 
@@ -2153,43 +5701,51 @@ function ExpenseModal({
       !Number.isFinite(
         numericAmount
       ) ||
-      numericAmount <= 0
+      numericAmount <=
+        0
     ) {
       setError(
         "Please enter a valid amount."
       );
+
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "/api/expenses",
-        {
-          method: expense
-            ? "PATCH"
-            : "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            ...(expense
-              ? { id: expense.id }
-              : {}),
-            title,
-            category,
-            paidTo,
-            amount:
-              numericAmount,
-            expenseDate,
-            paymentMode,
-            referenceNo,
-            notes,
-          }),
-        }
-      );
+      const response =
+        await fetch(
+          "/api/expenses",
+          {
+            method: expense
+              ? "PATCH"
+              : "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              ...(expense
+                ? {
+                    id: expense.id,
+                  }
+                : {}),
+
+              title,
+              category,
+              paidTo,
+              amount:
+                numericAmount,
+              expenseDate,
+              paymentMode,
+              referenceNo,
+              notes,
+            }),
+          }
+        );
 
       const result =
         await response.json();
@@ -2199,10 +5755,13 @@ function ExpenseModal({
           result.error ||
             "Unable to save expense."
         );
+
         return;
       }
 
-      onSaved(result.expense);
+      onSaved(
+        result.expense
+      );
     } catch {
       setError(
         "Something went wrong. Please try again."
@@ -2214,10 +5773,13 @@ function ExpenseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+
       <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
 
         <div className="sticky top-0 flex items-center justify-between border-b border-[#eee5db] bg-white px-5 py-4">
+
           <div>
+
             <h2 className="font-serif text-xl font-bold">
               {expense
                 ? "Edit Expense"
@@ -2227,15 +5789,19 @@ function ExpenseModal({
             <p className="mt-1 text-xs text-[#888]">
               Record a Durga Puja expense.
             </p>
+
           </div>
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={
+              onClose
+            }
             className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f2eb] text-[#666]"
           >
             <i className="fa-solid fa-xmark" />
           </button>
+
         </div>
 
         <div className="space-y-4 p-5">
@@ -2253,7 +5819,9 @@ function ExpenseModal({
             <input
               value={title}
               onChange={(e) =>
-                setTitle(e.target.value)
+                setTitle(
+                  e.target.value
+                )
               }
               placeholder="e.g. Pandal Decoration"
               className="form-input"
@@ -2275,6 +5843,7 @@ function ExpenseModal({
                 }
                 className="form-input"
               >
+
                 {categories.map(
                   (item) => (
                     <option
@@ -2285,6 +5854,7 @@ function ExpenseModal({
                     </option>
                   )
                 )}
+
               </select>
             </FormField>
 
@@ -2312,6 +5882,7 @@ function ExpenseModal({
           <div className="grid gap-4 sm:grid-cols-2">
 
             <FormField label="Paid To / Vendor">
+
               <input
                 value={paidTo}
                 onChange={(e) =>
@@ -2322,15 +5893,19 @@ function ExpenseModal({
                 placeholder="Vendor / Person"
                 className="form-input"
               />
+
             </FormField>
 
             <FormField
               label="Expense Date"
               required
             >
+
               <input
                 type="date"
-                value={expenseDate}
+                value={
+                  expenseDate
+                }
                 onChange={(e) =>
                   setExpenseDate(
                     e.target.value
@@ -2338,6 +5913,7 @@ function ExpenseModal({
                 }
                 className="form-input"
               />
+
             </FormField>
 
           </div>
@@ -2345,8 +5921,11 @@ function ExpenseModal({
           <div className="grid gap-4 sm:grid-cols-2">
 
             <FormField label="Payment Mode">
+
               <select
-                value={paymentMode}
+                value={
+                  paymentMode
+                }
                 onChange={(e) =>
                   setPaymentMode(
                     e.target.value
@@ -2354,6 +5933,7 @@ function ExpenseModal({
                 }
                 className="form-input capitalize"
               >
+
                 {paymentModes.map(
                   (item) => (
                     <option
@@ -2364,12 +5944,17 @@ function ExpenseModal({
                     </option>
                   )
                 )}
+
               </select>
+
             </FormField>
 
             <FormField label="Reference No.">
+
               <input
-                value={referenceNo}
+                value={
+                  referenceNo
+                }
                 onChange={(e) =>
                   setReferenceNo(
                     e.target.value
@@ -2378,11 +5963,13 @@ function ExpenseModal({
                 placeholder="Transaction / receipt no."
                 className="form-input"
               />
+
             </FormField>
 
           </div>
 
           <FormField label="Notes">
+
             <textarea
               value={notes}
               onChange={(e) =>
@@ -2394,12 +5981,16 @@ function ExpenseModal({
               placeholder="Additional details..."
               className="form-input resize-none"
             />
+
           </FormField>
 
           <div className="flex gap-3 border-t border-[#eee5db] pt-4">
+
             <button
               type="button"
-              onClick={onClose}
+              onClick={
+                onClose
+              }
               className="flex-1 rounded-lg border border-[#ddd] bg-white py-3 text-sm font-semibold text-[#666]"
             >
               Cancel
@@ -2407,8 +5998,12 @@ function ExpenseModal({
 
             <button
               type="button"
-              disabled={loading}
-              onClick={submit}
+              disabled={
+                loading
+              }
+              onClick={
+                submit
+              }
               className="flex-1 rounded-lg bg-[#a70e18] py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               {loading
@@ -2417,12 +6012,18 @@ function ExpenseModal({
                   ? "Update Expense"
                   : "Add Expense"}
             </button>
+
           </div>
+
         </div>
       </div>
     </div>
   );
 }
+
+/* ============================================================
+   FORM FIELD
+============================================================ */
 
 function FormField({
   label,
@@ -2435,16 +6036,21 @@ function FormField({
 }) {
   return (
     <label className="block">
+
       <span className="mb-1.5 block text-xs font-semibold text-[#666]">
+
         {label}
+
         {required && (
           <span className="ml-1 text-[#a70e18]">
             *
           </span>
         )}
+
       </span>
 
       {children}
+
     </label>
   );
 }

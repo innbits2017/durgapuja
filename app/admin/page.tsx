@@ -1,69 +1,109 @@
-import { redirect } from "next/navigation";
-
 import { supabaseAdmin } from "@/lib/supabase";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
-
 import DashboardClient from "./DashboardClient";
 
-export default async function DurgaPujaDashboardPage() {
-  const supabase = await createSupabaseServerClient();
+export const dynamic = "force-dynamic";
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/admin/login");
-  }
-
+export default async function DurgaPujaDashboard() {
   const [
-    contributionsResult,
-    donationsResult,
-    expensesResult,
+    { data: contributions, error: contributionsError },
+    { data: donations, error: donationsError },
+    { data: expenses, error: expensesError },
+    { data: lastYearPaid, error: lastYearPaidError },
+    { data: culturalPrograms, error: culturalProgramsError },
   ] = await Promise.all([
     supabaseAdmin
       .from("contributions")
-      .select("*")
+      .select(
+        "id, name, block, flat_no, resident_type, mobile, amount, collection_status, payment_method, utr, paid_to, status, created_at, verified_at, receipt_token"
+      )
       .order("created_at", { ascending: false }),
-
     supabaseAdmin
       .from("donations")
-      .select("*")
+      .select(
+        "id, donor_name, organisation_name, donor_type, mobile, email, location, amount, utr, donation_type, status, created_at, verified_at"
+      )
       .order("created_at", { ascending: false }),
-
     supabaseAdmin
       .from("expenses")
-      .select("*")
-      .order("expense_date", { ascending: false })
+      .select(
+        "id, title, category, paid_to, amount, expense_date, payment_mode, reference_no, notes, created_at, updated_at"
+      )
+      .order("expense_date", { ascending: false }),
+    supabaseAdmin
+      .from("last_year_paid")
+      .select("block, flat_no, resident_type, amount")
+      .order("block", { ascending: true })
+      .order("flat_no", { ascending: true }),
+    supabaseAdmin
+      .from("cultural_program_registrations")
+      .select(
+        "id, registration_no, participant_name, age, block, flat_no, participant_type, mobile, email, performance_type, group_name, category, performance_title, description, duration, status, created_at, updated_at"
+      )
       .order("created_at", { ascending: false }),
   ]);
 
-  if (contributionsResult.error) {
-    console.error(
-      "Unable to fetch contributions:",
-      contributionsResult.error
-    );
-  }
+  const error =
+    contributionsError ||
+    donationsError ||
+    expensesError ||
+    lastYearPaidError ||
+    culturalProgramsError;
 
-  if (donationsResult.error) {
-    console.error(
-      "Unable to fetch donations:",
-      donationsResult.error
-    );
-  }
+  if (error) {
+    console.error("Dashboard data fetch error:", error);
 
-  if (expensesResult.error) {
-    console.error(
-      "Unable to fetch expenses:",
-      expensesResult.error
+    return (
+      <main className="min-h-screen bg-[#f8f1e7] p-5">
+        <div className="mx-auto max-w-7xl rounded-2xl bg-white p-8 text-center shadow-sm">
+          <i className="fa-solid fa-circle-exclamation mb-3 text-3xl text-[#a70e18]" />
+          <h1 className="text-xl font-semibold text-[#292929]">
+            Unable to load dashboard
+          </h1>
+          <p className="mt-2 text-sm text-[#737373]">
+            Please check your Supabase configuration and database tables.
+          </p>
+        </div>
+      </main>
     );
   }
 
   return (
-    <DashboardClient
-      initialContributions={contributionsResult.data ?? []}
-      initialDonations={donationsResult.data ?? []}
-      initialExpenses={expensesResult.data ?? []}
-    />
+    <>
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      />
+      <DashboardClient
+        initialContributions={contributions ?? []}
+        initialDonations={donations ?? []}
+        initialExpenses={expenses ?? []}
+        initialLastYearPaid={(lastYearPaid ?? []).map((item) => ({
+          block: item.block,
+          flat_no: String(item.flat_no).padStart(3, "0"),
+          resident_type: item.resident_type ?? null,
+          amount: Number(item.amount),
+        }))}
+        initialCulturalPrograms={(culturalPrograms ?? []).map((item) => ({
+          id: item.id,
+          registration_no: item.registration_no,
+          participant_name: item.participant_name,
+          age: Number(item.age),
+          block: item.block,
+          flat_no: String(item.flat_no),
+          participant_type: item.participant_type,
+          mobile: item.mobile,
+          email: item.email ?? null,
+          performance_type: item.performance_type,
+          group_name: item.group_name ?? null,
+          category: item.category,
+          performance_title: item.performance_title,
+          description: item.description ?? null,
+          duration: item.duration,
+          status: item.status,
+          created_at: item.created_at,
+          updated_at: item.updated_at ?? null,
+        }))}
+      />
+    </>
   );
 }
