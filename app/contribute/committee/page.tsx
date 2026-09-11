@@ -8,6 +8,13 @@ type Block = "P1" | "P2" | "Villa";
 
 type ResidentType = "Owner" | "Tenant";
 
+type CollectionStatus =
+  | "Pay Now"
+  | "Door Lock"
+  | "Follow-up"
+  | "Not Interested";
+
+type PaymentMethod = "upi" | "cash";
 
 type LastYearPaidRecord = {
   block: string;
@@ -21,6 +28,20 @@ const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 const BLOCKS: Block[] = ["P1", "P2", "Villa"];
 
 const RESIDENT_TYPES: ResidentType[] = ["Owner", "Tenant"];
+
+const COLLECTION_STATUSES: CollectionStatus[] = [
+  "Pay Now",
+  "Door Lock",
+  "Follow-up",
+  "Not Interested",
+];
+
+const CASH_RECEIVERS = [
+  "Shakti Swaro",
+  "Rahul Kumar",
+  "Vivek Sharma",
+  "Govind Choudhary",
+];
 
 function generateFlats(
   start: number,
@@ -37,17 +58,17 @@ function generateFlats(
 
 const FLATS: Record<Block, string[]> = {
   P1: [
+    ...generateFlats(1, 12),
     ...generateFlats(101, 112),
     ...generateFlats(201, 212),
     ...generateFlats(301, 312),
-    ...generateFlats(401, 412),
   ],
 
   P2: [
+    ...generateFlats(1, 67),
     ...generateFlats(101, 167),
     ...generateFlats(201, 267),
     ...generateFlats(301, 367),
-    ...generateFlats(401, 467),
   ],
 
   Villa: [
@@ -58,7 +79,7 @@ const FLATS: Record<Block, string[]> = {
   ],
 };
 
-export default function ContributePage() {
+export default function CommitteeContributePage() {
   const [step, setStep] = useState<Step>(1);
 
   const [name, setName] = useState("");
@@ -69,9 +90,16 @@ export default function ContributePage() {
   const [mobile, setMobile] = useState("");
   const [amount, setAmount] = useState("");
 
-  const paymentMethod = "upi" as const;
+  const [collectionStatus] =
+    useState<CollectionStatus>("Pay Now");
+
+  const [collectedBy, setCollectedBy] = useState("");
+
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("upi");
 
   const [utr, setUtr] = useState("");
+  const [paidTo, setPaidTo] = useState("");
 
   const [flatSearch, setFlatSearch] = useState("");
   const [showFlatDropdown, setShowFlatDropdown] =
@@ -87,6 +115,7 @@ export default function ContributePage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentId, setPaymentId] = useState("");
 
   const flatDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -383,10 +412,32 @@ export default function ContributePage() {
       return;
     }
 
-    if (!utr.trim()) {
-      setError("Please enter the UTR / Transaction ID.");
+    if (
+      paymentMethod === "upi" &&
+      !utr.trim()
+    ) {
+      setError(
+        "Please enter the UTR / Transaction ID."
+      );
       return;
     }
+
+    if (
+      paymentMethod === "cash" &&
+      !paidTo
+    ) {
+      setError(
+        "Please select who received the cash."
+      );
+      return;
+    }
+
+    if (!collectedBy) {
+      setError("Please select the committee member collecting the contribution.");
+      setStep(1);
+      return;
+    }
+
 
     try {
       setLoading(true);
@@ -405,12 +456,18 @@ export default function ContributePage() {
             residentType,
             mobile,
             amount: numericAmount,
-            collectionChannel: "online",
-            paymentMethod: "upi",
+            collectionStatus,
+            paymentMethod,
             utr:
               paymentMethod === "upi"
                 ? utr.trim()
                 : null,
+            paidTo:
+              paymentMethod === "cash"
+                ? paidTo
+                : null,
+            collectionChannel: "committee",
+            collectedBy,
           }),
         }
       );
@@ -424,6 +481,14 @@ export default function ContributePage() {
         );
         return;
       }
+
+      const generatedPaymentId =
+        data?.contribution?.payment_id ||
+        data?.contribution?.paymentId ||
+        data?.contribution?.id ||
+        "";
+
+      setPaymentId(String(generatedPaymentId));
 
       /*
        * Immediately grey out this flat locally.
@@ -515,7 +580,7 @@ export default function ContributePage() {
             <div className="relative z-[6] pt-[215px] text-center max-[600px]:pt-[145px]">
 
               <div className="text-[10px] font-bold tracking-[5px] text-[#795044] max-[600px]:text-[7px] max-[600px]:tracking-[2px]">
-                COMMUNITY CONTRIBUTION
+                COMMITTEE COLLECTION
               </div>
 
               <h1 className="mt-2 text-[30px] font-bold leading-[1.02] text-[#a80d17] font-open-sans max-[600px]:text-[27px]">
@@ -593,8 +658,7 @@ export default function ContributePage() {
                   </h2>
 
                   <p className="mt-2 text-[13px] text-[#737983] max-[600px]:text-[9px] max-[600px]:leading-[1.4]">
-                    Please share your details to proceed
-                    with the payment.
+                    Please enter the resident details and record the contribution.
                   </p>
 
                 </div>
@@ -820,6 +884,7 @@ export default function ContributePage() {
                     </div>
 
                   </div>
+
                   {/* AMOUNT */}
 
                   <div className="flex flex-col gap-1">
@@ -882,6 +947,17 @@ export default function ContributePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* COLLECTED BY */}
+
+                  <SelectField
+                    icon="fa-user-check"
+                    label="Collected By"
+                    value={collectedBy}
+                    placeholder="Select committee member"
+                    options={CASH_RECEIVERS}
+                    onChange={setCollectedBy}
+                  />
 
                   {/* ERROR */}
 
@@ -970,19 +1046,58 @@ export default function ContributePage() {
                   />
 
                 </div>
+
                 {/* PAYMENT METHOD */}
 
                 <div className="mb-5">
+
                   <label className="mb-2 block text-[13px] font-semibold text-[#333]">
                     Payment Method
                   </label>
 
-                  <div className="flex min-h-[58px] items-center justify-center gap-3 rounded-[11px] border border-[#a70e18] bg-[#fff1f1] text-[13px] font-bold text-[#a70e18]">
-                    <i className="fa-solid fa-qrcode" />
-                    UPI / Online
+                  <div className="grid grid-cols-2 gap-3">
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod(
+                          "upi"
+                        );
+                        setPaidTo("");
+                        setError("");
+                      }}
+                      className={`flex min-h-[58px] items-center justify-center gap-3 rounded-[11px] border text-[13px] font-bold transition ${
+                        paymentMethod === "upi"
+                          ? "border-[#a70e18] bg-[#fff1f1] text-[#a70e18]"
+                          : "border-[#ddd] bg-white text-[#555]"
+                      }`}
+                    >
+                      <i className="fa-solid fa-qrcode" />
+                      UPI / Online
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod(
+                          "cash"
+                        );
+                        setPaidTo(collectedBy);
+                        setUtr("");
+                        setError("");
+                      }}
+                      className={`flex min-h-[58px] items-center justify-center gap-3 rounded-[11px] border text-[13px] font-bold transition ${
+                        paymentMethod === "cash"
+                          ? "border-[#a70e18] bg-[#fff1f1] text-[#a70e18]"
+                          : "border-[#ddd] bg-white text-[#555]"
+                      }`}
+                    >
+                      <i className="fa-solid fa-money-bill-wave" />
+                      Cash
+                    </button>
+
                   </div>
                 </div>
-
 
                 {/* UPI */}
 
@@ -1093,6 +1208,45 @@ export default function ContributePage() {
                   </>
                 )}
 
+                {/* CASH */}
+
+                {paymentMethod === "cash" && (
+                  <>
+
+                    <div className="rounded-[13px] border border-[#f0dfbd] bg-[#fff8eb] p-[18px]">
+
+                      <div className="mb-4 flex items-center gap-3">
+
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f8e9d1] text-[#a70e18]">
+                          <i className="fa-solid fa-money-bill-wave" />
+                        </div>
+
+                        <div>
+                          <h3 className="text-[15px] font-bold text-[#333]">
+                            Cash Payment
+                          </h3>
+
+                          <p className="text-[12px] text-[#777]">
+                            Select the committee member who
+                            received the cash.
+                          </p>
+                        </div>
+
+                      </div>
+
+                      <SelectField
+                        icon="fa-user-check"
+                        label="Paid To"
+                        value={paidTo}
+                        placeholder="Select committee member"
+                        options={CASH_RECEIVERS}
+                        onChange={setPaidTo}
+                      />
+
+                    </div>
+
+                  </>
+                )}
 
                 {/* ERROR */}
 
@@ -1108,7 +1262,13 @@ export default function ContributePage() {
 
                 <button
                   type="button"
-                    disabled={loading || !utr.trim()}
+                  disabled={
+                    loading ||
+                    (paymentMethod === "upi" &&
+                      !utr.trim()) ||
+                    (paymentMethod === "cash" &&
+                      !paidTo)
+                  }
                   onClick={
                     submitContribution
                   }
@@ -1163,7 +1323,7 @@ export default function ContributePage() {
                 </div>
 
                 <h2 className="m-0 font-serif text-[30px] text-[#292929] max-[600px]:text-[26px]">
-                  Contribution Submitted
+                  Contribution Recorded
                 </h2>
 
                 <p className="mt-2">
@@ -1171,8 +1331,7 @@ export default function ContributePage() {
                 </p>
 
                 <p className="mt-2 text-[13px] text-[#707070]">
-                  Your contribution details have been
-                  successfully submitted.
+                  Your contribution has been successfully recorded by the committee.
                 </p>
 
                 <div className="mx-auto my-[25px] max-w-[350px] rounded-[13px] bg-[#fcf7ed] p-[17px]">
@@ -1183,6 +1342,15 @@ export default function ContributePage() {
                       {block}
                     </strong>
                   </div>
+
+                  {paymentId && (
+                    <div className="flex justify-between text-[12px] text-[#666]">
+                      <span>Payment ID</span>
+                      <strong className="max-w-[210px] truncate text-[#a70e18]">
+                        {paymentId}
+                      </strong>
+                    </div>
+                  )}
 
                   <div className="mt-2 flex justify-between text-[12px] text-[#666]">
                     <span>Flat</span>
@@ -1204,7 +1372,10 @@ export default function ContributePage() {
                   <div className="mt-2 flex justify-between text-[12px] text-[#666]">
                     <span>Payment</span>
                     <strong>
-                      UPI / Online
+                      {paymentMethod ===
+                      "upi"
+                        ? "UPI / Online"
+                        : "Cash"}
                     </strong>
                   </div>
 
@@ -1217,12 +1388,15 @@ export default function ContributePage() {
                   <div>
 
                     <strong>
-                      Submitted for Verification
+                      Payment Recorded
                     </strong>
 
                     <p className="mt-1 text-[12px] leading-[1.5] text-[#666]">
 
-                      The Durga Puja committee will verify the payment using the UTR provided.
+                      {paymentMethod ===
+                      "upi"
+                        ? "The UPI payment has been recorded with the UTR provided."
+                        : "The cash payment has been recorded by the committee member selected above."}
 
                     </p>
 
