@@ -92,6 +92,10 @@ const VOLUNTEER_ROLES = [
   { id: "cultural_program", title: "Cultural Program", icon: "fa-music" },
   { id: "devotee_management", title: "Devotee Management", icon: "fa-people-group" },
   { id: "cleanliness", title: "Cleanliness Management", icon: "fa-broom" },
+  { id: "plates_spoon", title: "Plates, Cups & Spoon", icon: "fa-plate-utensils" },
+  { id: "water_management", title: "Water Management", icon: "fa-water" },
+
+
 ] as const;
 
 type MaterialSelection = {
