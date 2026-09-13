@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+import {
+  sendContributionSubmittedWhatsApp,
+  sendCommitteeContributionConfirmedWhatsApp,
+} from "@/lib/whatsapp";
 
 type CollectionChannel = "committee" | "online";
 type PaymentMethod = "upi" | "cash";
 
 export async function POST(request: Request) {
   try {
+    // =========================================================
+    // READ REQUEST
+    // =========================================================
+
     const body = await request.json();
 
     const {
@@ -28,56 +36,114 @@ export async function POST(request: Request) {
     // BASIC VALIDATION
     // =========================================================
 
-    if (!name || !name.trim()) {
+    if (
+      typeof name !== "string" ||
+      !name.trim()
+    ) {
       return NextResponse.json(
-        { error: "Name is required." },
-        { status: 400 }
+        {
+          error: "Name is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    if (!block) {
+    if (
+      typeof block !== "string" ||
+      !block.trim()
+    ) {
       return NextResponse.json(
-        { error: "Block is required." },
-        { status: 400 }
+        {
+          error: "Block is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    if (!flatNo) {
+    if (
+      typeof flatNo !== "string" ||
+      !flatNo.trim()
+    ) {
       return NextResponse.json(
-        { error: "Flat number is required." },
-        { status: 400 }
+        {
+          error: "Flat number is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
+
+    // =========================================================
+    // RESIDENT TYPE
+    // =========================================================
 
     if (
       residentType !== "Owner" &&
       residentType !== "Tenant"
     ) {
       return NextResponse.json(
-        { error: "Please select Owner or Tenant." },
-        { status: 400 }
+        {
+          error:
+            "Please select Owner or Tenant.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
+    // =========================================================
+    // MOBILE
+    // =========================================================
+
+    const cleanMobile =
+      typeof mobile === "string"
+        ? mobile.trim()
+        : "";
+
     if (
-      typeof mobile !== "string" ||
-      !/^[6-9]\d{9}$/.test(mobile)
+      !/^[6-9]\d{9}$/.test(
+        cleanMobile
+      )
     ) {
       return NextResponse.json(
-        { error: "Please enter a valid 10-digit mobile number." },
-        { status: 400 }
+        {
+          error:
+            "Please enter a valid 10-digit mobile number.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const numericAmount = Number(amount);
+    // =========================================================
+    // AMOUNT
+    // =========================================================
+
+    const numericAmount = Number(
+      amount
+    );
 
     if (
-      !Number.isFinite(numericAmount) ||
+      !Number.isFinite(
+        numericAmount
+      ) ||
       numericAmount <= 0
     ) {
       return NextResponse.json(
-        { error: "Please enter a valid contribution amount." },
-        { status: 400 }
+        {
+          error:
+            "Please enter a valid contribution amount.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
@@ -86,70 +152,116 @@ export async function POST(request: Request) {
     // =========================================================
 
     if (
-      collectionChannel !== "committee" &&
+      collectionChannel !==
+        "committee" &&
       collectionChannel !== "online"
     ) {
       return NextResponse.json(
-        { error: "Invalid collection channel." },
-        { status: 400 }
+        {
+          error:
+            "Invalid collection channel.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
+    const channel =
+      collectionChannel as CollectionChannel;
+
     // =========================================================
-    // ONLINE CONTRIBUTION
-    //
-    // Public website:
-    // UPI ONLY
-    // UTR REQUIRED
-    // ALWAYS PENDING
+    // CLEAN PAYMENT VALUES
     // =========================================================
 
-    if (collectionChannel === "online") {
-      if (paymentMethod !== "upi") {
+    const cleanUtr =
+      typeof utr === "string"
+        ? utr.trim()
+        : "";
+
+    const cleanPaidTo =
+      typeof paidTo === "string"
+        ? paidTo.trim()
+        : "";
+
+    const cleanCollectedBy =
+      typeof collectedBy === "string"
+        ? collectedBy.trim()
+        : "";
+
+    // =========================================================
+    // PUBLIC ONLINE CONTRIBUTION
+    //
+    // UPI ONLY
+    // UTR REQUIRED
+    // STATUS = PENDING
+    // =========================================================
+
+    if (channel === "online") {
+      if (
+        paymentMethod !== "upi"
+      ) {
         return NextResponse.json(
           {
             error:
               "Online contributions can only be made through UPI.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
-      if (!utr || !utr.trim()) {
+      if (!cleanUtr) {
         return NextResponse.json(
           {
             error:
               "UTR / Transaction ID is mandatory for online contributions.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
-      if (paidTo) {
+      if (cleanPaidTo) {
         return NextResponse.json(
           {
             error:
               "Paid To must not be provided for online contributions.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
-      // Public contribution must always start as pending.
-      // The admin will verify it later.
+      if (cleanCollectedBy) {
+        return NextResponse.json(
+          {
+            error:
+              "Collected By must not be provided for online contributions.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
     }
 
     // =========================================================
     // COMMITTEE CONTRIBUTION
     //
-    // Door-to-door:
     // CASH or UPI
-    // UTR required for UPI
-    // Paid To required for CASH
-    // IMMEDIATELY VERIFIED
+    // UPI -> UTR REQUIRED
+    // CASH -> PAID TO REQUIRED
+    // COLLECTED BY REQUIRED
+    // STATUS = VERIFIED
     // =========================================================
 
-    if (collectionChannel === "committee") {
+    if (
+      channel === "committee"
+    ) {
       if (
         paymentMethod !== "cash" &&
         paymentMethod !== "upi"
@@ -159,95 +271,125 @@ export async function POST(request: Request) {
             error:
               "Committee collection must use Cash or UPI.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
-      if (!collectedBy || !collectedBy.trim()) {
+      if (!cleanCollectedBy) {
         return NextResponse.json(
           {
             error:
               "Committee member name is required.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
-      if (paymentMethod === "upi") {
-        if (!utr || !utr.trim()) {
+      // -------------------------------------------------------
+      // COMMITTEE UPI
+      // -------------------------------------------------------
+
+      if (
+        paymentMethod === "upi"
+      ) {
+        if (!cleanUtr) {
           return NextResponse.json(
             {
               error:
                 "UTR / Transaction ID is mandatory for UPI.",
             },
-            { status: 400 }
+            {
+              status: 400,
+            }
           );
         }
 
-        if (paidTo) {
+        if (cleanPaidTo) {
           return NextResponse.json(
             {
               error:
                 "Paid To must not be provided for UPI.",
             },
-            { status: 400 }
+            {
+              status: 400,
+            }
           );
         }
       }
 
-      if (paymentMethod === "cash") {
-        if (!paidTo || !paidTo.trim()) {
+      // -------------------------------------------------------
+      // COMMITTEE CASH
+      // -------------------------------------------------------
+
+      if (
+        paymentMethod === "cash"
+      ) {
+        if (!cleanPaidTo) {
           return NextResponse.json(
             {
               error:
                 "Please select who received the cash.",
             },
-            { status: 400 }
+            {
+              status: 400,
+            }
           );
         }
 
-        if (utr) {
+        if (cleanUtr) {
           return NextResponse.json(
             {
               error:
                 "UTR must not be provided for cash payments.",
             },
-            { status: 400 }
+            {
+              status: 400,
+            }
           );
         }
       }
     }
 
     // =========================================================
-    // COLLECTION STATUS
-    //
-    // This field is only relevant to the committee workflow
-    // if you still want to record it.
-    //
-    // Public online contribution doesn't need it.
-    // =========================================================
-
-    if (
-      collectionChannel === "online"
-    ) {
-      // Ignore anything accidentally sent from public UI.
-      // We do not allow the browser to influence the
-      // verification workflow.
-    }
-
-
-    // =========================================================
     // DUPLICATE ACTIVE CONTRIBUTION
+    //
+    // One active contribution per Block + Flat.
+    //
+    // Rejected records are ignored.
     // =========================================================
 
-    const { data: existingContribution, error: duplicateError } =
-      await supabaseAdmin
-        .from("contributions")
-        .select("id, payment_id, status")
-        .eq("block", block)
-        .eq("flat_no", flatNo)
-        .neq("status", "rejected")
-        .maybeSingle();
+    const {
+      data: existingContribution,
+      error: duplicateError,
+    } = await supabaseAdmin
+      .from("contributions")
+      .select(
+        `
+        id,
+        payment_id,
+        status,
+        block,
+        flat_no
+        `
+      )
+      .eq(
+        "block",
+        block.trim()
+      )
+      .eq(
+        "flat_no",
+        flatNo.trim()
+      )
+      .neq(
+        "status",
+        "rejected"
+      )
+      .limit(1)
+      .maybeSingle();
 
     if (duplicateError) {
       console.error(
@@ -260,7 +402,9 @@ export async function POST(request: Request) {
           error:
             "Unable to check existing contribution.",
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
@@ -269,24 +413,45 @@ export async function POST(request: Request) {
         {
           error:
             "This flat already has a contribution record.",
+
           paymentId:
-            existingContribution.payment_id || null,
+            existingContribution.payment_id ||
+            null,
         },
-        { status: 409 }
+        {
+          status: 409,
+        }
       );
     }
 
     // =========================================================
     // DUPLICATE UTR
+    //
+    // Applies to all UPI contributions.
     // =========================================================
 
-    if (paymentMethod === "upi" && utr?.trim()) {
-      const { data: existingUtr, error: utrError } =
-        await supabaseAdmin
-          .from("contributions")
-          .select("id, payment_id")
-          .eq("utr", utr.trim())
-          .maybeSingle();
+    if (
+      paymentMethod === "upi" &&
+      cleanUtr
+    ) {
+      const {
+        data: existingUtr,
+        error: utrError,
+      } = await supabaseAdmin
+        .from("contributions")
+        .select(
+          `
+          id,
+          payment_id,
+          status
+          `
+        )
+        .eq(
+          "utr",
+          cleanUtr
+        )
+        .limit(1)
+        .maybeSingle();
 
       if (utrError) {
         console.error(
@@ -299,7 +464,9 @@ export async function POST(request: Request) {
             error:
               "Unable to validate UTR.",
           },
-          { status: 500 }
+          {
+            status: 500,
+          }
         );
       }
 
@@ -308,32 +475,38 @@ export async function POST(request: Request) {
           {
             error:
               "This UTR / Transaction ID has already been submitted.",
+
+            paymentId:
+              existingUtr.payment_id ||
+              null,
           },
-          { status: 409 }
+          {
+            status: 409,
+          }
         );
       }
     }
 
     // =========================================================
     // SERVER-SIDE STATUS
-    // =========================================================
     //
-    // NEVER trust status from frontend.
+    // IMPORTANT:
+    // Never trust status from frontend.
     //
     // Committee:
-    //     immediately verified
+    //     verified immediately
     //
     // Online:
     //     pending
     // =========================================================
 
     const initialStatus =
-      collectionChannel === "committee"
+      channel === "committee"
         ? "verified"
         : "pending";
 
     const verifiedAt =
-      collectionChannel === "committee"
+      channel === "committee"
         ? new Date().toISOString()
         : null;
 
@@ -341,47 +514,71 @@ export async function POST(request: Request) {
     // INSERT CONTRIBUTION
     // =========================================================
 
-    const { data: contribution, error: insertError } =
-      await supabaseAdmin
-        .from("contributions")
-        .insert({
-          name: name.trim(),
-          block,
-          flat_no: flatNo,
-          resident_type: residentType,
-          mobile,
-          amount: numericAmount,
+    const {
+      data: contribution,
+      error: insertError,
+    } = await supabaseAdmin
+      .from("contributions")
+      .insert({
+        name:
+          name.trim(),
 
-          collection_status:
-            collectionChannel === "committee"
-              ? null
-              : collectionStatus || null,
+        block:
+          block.trim(),
 
-          payment_method: paymentMethod,
+        flat_no:
+          flatNo.trim(),
 
-          utr:
-            paymentMethod === "upi"
-              ? utr.trim()
-              : null,
+        resident_type:
+          residentType,
 
-          paid_to:
-            paymentMethod === "cash"
-              ? paidTo.trim()
-              : null,
+        mobile:
+          cleanMobile,
 
-          collection_channel: collectionChannel,
+        amount:
+          numericAmount,
 
-          collected_by:
-            collectionChannel === "committee"
-              ? collectedBy.trim()
-              : null,
+        // Collection status is relevant
+        // only for public online collection.
+        collection_status:
+          channel === "online"
+            ? collectionStatus || null
+            : null,
 
-          status: initialStatus,
+        payment_method:
+          paymentMethod,
 
-          verified_at: verifiedAt,
-        })
-        .select()
-        .single();
+        utr:
+          paymentMethod === "upi"
+            ? cleanUtr
+            : null,
+
+        paid_to:
+          paymentMethod === "cash"
+            ? cleanPaidTo
+            : null,
+
+        collection_channel:
+          channel,
+
+        collected_by:
+          channel === "committee"
+            ? cleanCollectedBy
+            : null,
+
+        // Kept true for compatibility
+        // with the existing database structure.
+        whatsapp_opt_in:
+          true,
+
+        status:
+          initialStatus,
+
+        verified_at:
+          verifiedAt,
+      })
+      .select()
+      .single();
 
     if (insertError) {
       console.error(
@@ -389,14 +586,210 @@ export async function POST(request: Request) {
         insertError
       );
 
+      // -------------------------------------------------------
+      // Handle duplicate database constraint
+      // -------------------------------------------------------
+
+      if (
+        insertError.code ===
+        "23505"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This contribution or transaction ID has already been submitted.",
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+
       return NextResponse.json(
         {
           error:
             insertError.message ||
             "Unable to submit contribution.",
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
+    }
+
+    // =========================================================
+    // WHATSAPP
+    // =========================================================
+
+    let whatsappSent = false;
+    let whatsappError:
+      | string
+      | null = null;
+
+    try {
+      // =======================================================
+      // COMMITTEE CONTRIBUTION
+      //
+      // Template:
+      // buh_committee_contribution_confirmed
+      //
+      // Currently waiting for Meta approval.
+      //
+      // Once approved, this will automatically send.
+      // =======================================================
+
+      if (
+        channel === "committee"
+      ) {
+        const paymentId =
+          contribution.payment_id ||
+          contribution.id;
+
+        const result =
+          await sendCommitteeContributionConfirmedWhatsApp(
+            {
+              mobile:
+                contribution.mobile,
+
+              name:
+                contribution.name,
+
+              paymentId:
+                paymentId,
+
+              amount:
+                Number(
+                  contribution.amount
+                ),
+
+              block:
+                contribution.block,
+
+              flatNo:
+                contribution.flat_no,
+
+              paymentMode:
+                contribution.payment_method ===
+                "cash"
+                  ? "Cash"
+                  : "UPI",
+            }
+          );
+
+        whatsappSent =
+          result.sent;
+
+        await supabaseAdmin
+          .from("contributions")
+          .update({
+            whatsapp_verified_at:
+              result.sent
+                ? new Date().toISOString()
+                : null,
+
+            whatsapp_last_error:
+              result.sent
+                ? null
+                : result.error ||
+                  null,
+          })
+          .eq(
+            "id",
+            contribution.id
+          );
+      }
+
+      // =======================================================
+      // PUBLIC ONLINE CONTRIBUTION
+      //
+      // Template:
+      // buh_contribution_verification
+      //
+      // {{1}} Name
+      // {{2}} Amount
+      // {{3}} Block-Flat
+      // {{4}} UTR
+      // =======================================================
+
+      if (
+        channel === "online"
+      ) {
+        const result =
+          await sendContributionSubmittedWhatsApp(
+            {
+              mobile:
+                contribution.mobile,
+
+              name:
+                contribution.name,
+
+              amount:
+                Number(
+                  contribution.amount
+                ),
+
+              block:
+                contribution.block,
+
+              flatNo:
+                contribution.flat_no,
+
+              utr:
+                contribution.utr ||
+                "",
+            }
+          );
+
+        whatsappSent =
+          result.sent;
+
+        await supabaseAdmin
+          .from("contributions")
+          .update({
+            whatsapp_submitted_at:
+              result.sent
+                ? new Date().toISOString()
+                : null,
+
+            whatsapp_last_error:
+              result.sent
+                ? null
+                : result.error ||
+                  null,
+          })
+          .eq(
+            "id",
+            contribution.id
+          );
+      }
+    } catch (error) {
+      whatsappError =
+        error instanceof Error
+          ? error.message
+          : "WhatsApp message failed.";
+
+      console.error(
+        "WHATSAPP ERROR:",
+        whatsappError
+      );
+
+      // -------------------------------------------------------
+      // Do NOT fail the contribution just because
+      // WhatsApp failed.
+      //
+      // Contribution is already safely stored.
+      // -------------------------------------------------------
+
+      await supabaseAdmin
+        .from("contributions")
+        .update({
+          whatsapp_last_error:
+            whatsappError,
+        })
+        .eq(
+          "id",
+          contribution.id
+        );
     }
 
     // =========================================================
@@ -408,22 +801,44 @@ export async function POST(request: Request) {
         success: true,
 
         contribution: {
-          id: contribution.id,
+          id:
+            contribution.id,
+
           paymentId:
             contribution.payment_id,
+
           status:
             contribution.status,
+
           collectionChannel:
             contribution.collection_channel,
+
           paymentMethod:
             contribution.payment_method,
+
           amount:
             contribution.amount,
+
+          block:
+            contribution.block,
+
+          flatNo:
+            contribution.flat_no,
         },
+
+        whatsappSent,
+
+        whatsappError,
       },
-      { status: 201 }
+      {
+        status: 201,
+      }
     );
   } catch (error) {
+    // =========================================================
+    // GLOBAL ERROR
+    // =========================================================
+
     console.error(
       "CONTRIBUTION ROUTE ERROR:",
       error
@@ -436,7 +851,9 @@ export async function POST(request: Request) {
             ? error.message
             : "Unexpected server error.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

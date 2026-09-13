@@ -7,18 +7,28 @@ const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 const BLOCKS = ["P1", "P2", "Villa"] as const;
 type Block = (typeof BLOCKS)[number];
 
+function generateFlats(start: number, end: number) {
+  const flats: string[] = [];
+
+  for (let i = start; i <= end; i++) {
+    flats.push(String(i).padStart(3, "0"));
+  }
+
+  return flats;
+}
+
 const FLATS: Record<Block, string[]> = {
   P1: [
-    ...Array.from({ length: 12 }, (_, i) => `${101 + i}`),
-    ...Array.from({ length: 12 }, (_, i) => `${201 + i}`),
-    ...Array.from({ length: 12 }, (_, i) => `${301 + i}`),
-    ...Array.from({ length: 12 }, (_, i) => `${401 + i}`),
+    ...generateFlats(1, 12),
+    ...generateFlats(101, 112),
+    ...generateFlats(201, 212),
+    ...generateFlats(301, 312),
   ],
   P2: [
-    ...Array.from({ length: 67 }, (_, i) => `${101 + i}`),
-    ...Array.from({ length: 67 }, (_, i) => `${201 + i}`),
-    ...Array.from({ length: 67 }, (_, i) => `${301 + i}`),
-    ...Array.from({ length: 67 }, (_, i) => `${401 + i}`),
+    ...generateFlats(1, 67),
+    ...generateFlats(101, 167),
+    ...generateFlats(201, 267),
+    ...generateFlats(301, 367),
   ],
   Villa: ["001", "002", "003", "004"],
 };
@@ -32,7 +42,7 @@ const MATERIAL_SEVAS = [
     unit: "kg",
   },
   {
-    id: "grocery",
+    id: "Grocery",
     title: "Grocery",
     subtitle: "Donate dal for community meals",
     icon: "fa-seedling",
@@ -92,10 +102,8 @@ const VOLUNTEER_ROLES = [
   { id: "cultural_program", title: "Cultural Program", icon: "fa-music" },
   { id: "devotee_management", title: "Devotee Management", icon: "fa-people-group" },
   { id: "cleanliness", title: "Cleanliness Management", icon: "fa-broom" },
-  { id: "plates_spoon", title: "Plates, Cups & Spoon", icon: "fa-plate-utensils" },
+  { id: "plates_spoon", title: "Plates, Cups & Spoon", icon: "fa-utensils" },
   { id: "water_management", title: "Water Management", icon: "fa-water" },
-
-
 ] as const;
 
 type MaterialSelection = {
@@ -229,7 +237,10 @@ function FlatSearchSelect({
   }, [block, search]);
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onClick={(e) => e.stopPropagation()}
+    >
       <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.8px] text-[#765f53]">
         Flat No. <span className="text-[#a70e18]">*</span>
       </span>
@@ -241,10 +252,18 @@ function FlatSearchSelect({
         <input
           value={search || value}
           disabled={!block}
-          onFocus={onToggle}
-          onChange={(e) => {
-            setSearch(e.target.value);
+          onFocus={(e) => {
+            e.stopPropagation();
             onToggle();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!open) onToggle();
+          }}
+          onChange={(e) => {
+            e.stopPropagation();
+            setSearch(e.target.value);
+            if (!open) onToggle();
           }}
           placeholder={block ? "Search and select your flat" : "Select block first"}
           className="w-full bg-transparent text-[13px] text-[#292929] outline-none placeholder:text-[#aaa09a] disabled:cursor-not-allowed"
