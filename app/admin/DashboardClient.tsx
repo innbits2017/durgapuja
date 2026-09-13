@@ -156,6 +156,7 @@ type Section =
   | "overview"
   | "contributions"
   | "culturalProgram"
+  | "seva"
   | "donations"
   | "expenses"
   | "lastYear";
