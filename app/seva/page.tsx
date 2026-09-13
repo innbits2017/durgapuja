@@ -32,8 +32,8 @@ const MATERIAL_SEVAS = [
     unit: "kg",
   },
   {
-    id: "dal",
-    title: "Dal",
+    id: "grocery",
+    title: "Grocery",
     subtitle: "Donate dal for community meals",
     icon: "fa-seedling",
     unit: "kg",

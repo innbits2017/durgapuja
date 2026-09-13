@@ -10,6 +10,7 @@ export default async function DurgaPujaDashboard() {
     { data: expenses, error: expensesError },
     { data: lastYearPaid, error: lastYearPaidError },
     { data: culturalPrograms, error: culturalProgramsError },
+    { data: sevaRegistrations, error: sevaRegistrationsError },
   ] = await Promise.all([
     supabaseAdmin
       .from("contributions")
@@ -40,6 +41,12 @@ export default async function DurgaPujaDashboard() {
         "id, registration_no, participant_name, age, block, flat_no, participant_type, mobile, email, performance_type, group_name, category, performance_title, description, duration, status, created_at, updated_at"
       )
       .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("seva_registrations")
+      .select(
+        "id, seva_no, name, block, flat_no, mobile, materials, volunteer_roles, volunteer_role_names, volunteer_note, status, admin_note, created_at, updated_at"
+      )
+      .order("created_at", { ascending: false }),
   ]);
 
   const error =
@@ -47,7 +54,8 @@ export default async function DurgaPujaDashboard() {
     donationsError ||
     expensesError ||
     lastYearPaidError ||
-    culturalProgramsError;
+    culturalProgramsError ||
+    sevaRegistrationsError;
 
   if (error) {
     console.error("Dashboard data fetch error:", error);
@@ -100,6 +108,22 @@ export default async function DurgaPujaDashboard() {
           description: item.description ?? null,
           duration: item.duration,
           status: item.status,
+          created_at: item.created_at,
+          updated_at: item.updated_at ?? null,
+        }))}
+        initialSevaRegistrations={(sevaRegistrations ?? []).map((item) => ({
+          id: item.id,
+          seva_no: item.seva_no,
+          name: item.name,
+          block: item.block,
+          flat_no: String(item.flat_no),
+          mobile: item.mobile,
+          materials: Array.isArray(item.materials) ? item.materials : [],
+          volunteer_roles: Array.isArray(item.volunteer_roles) ? item.volunteer_roles : [],
+          volunteer_role_names: Array.isArray(item.volunteer_role_names) ? item.volunteer_role_names : [],
+          volunteer_note: item.volunteer_note ?? null,
+          status: item.status,
+          admin_note: item.admin_note ?? null,
           created_at: item.created_at,
           updated_at: item.updated_at ?? null,
         }))}

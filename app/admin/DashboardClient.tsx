@@ -79,6 +79,31 @@ type CulturalProgram = {
   updated_at?: string | null;
 };
 
+type SevaRegistration = {
+  id: string;
+  seva_no: string;
+  name: string;
+  block: string;
+  flat_no: string;
+  mobile: string;
+  materials: Array<{ type?: string; title?: string; quantity?: number | null; unit?: string | null; }>;
+  volunteer_roles: string[];
+  volunteer_role_names: string[];
+  volunteer_note: string | null;
+  status: string;
+  admin_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SevaStatusFilter =
+  | "all"
+  | "pending"
+  | "contacted"
+  | "confirmed"
+  | "completed"
+  | "rejected";
+
 type Expense = {
   id: string;
   title: string;
@@ -261,12 +286,14 @@ export default function DashboardClient({
   initialExpenses,
   initialLastYearPaid,
   initialCulturalPrograms,
+  initialSevaRegistrations,
 }: {
   initialContributions: Contribution[];
   initialDonations: Donation[];
   initialExpenses: Expense[];
   initialLastYearPaid: LastYearPaid[];
   initialCulturalPrograms: CulturalProgram[];
+  initialSevaRegistrations: SevaRegistration[];
 }) {
   const router = useRouter();
 
@@ -299,6 +326,11 @@ export default function DashboardClient({
   const [culturalPrograms, setCulturalPrograms] =
     useState<CulturalProgram[]>(
       initialCulturalPrograms
+    );
+
+  const [sevaRegistrations, setSevaRegistrations] =
+    useState<SevaRegistration[]>(
+      initialSevaRegistrations
     );
 
   const [contributionFilter, setContributionFilter] =
@@ -337,6 +369,14 @@ export default function DashboardClient({
   const [culturalPerformanceFilter, setCulturalPerformanceFilter] =
     useState<CulturalPerformanceFilter>("all");
 
+  const [sevaSearch, setSevaSearch] = useState("");
+  const [sevaStatusFilter, setSevaStatusFilter] =
+    useState<SevaStatusFilter>("all");
+  const [sevaBlockFilter, setSevaBlockFilter] =
+    useState<BlockFilter>("all");
+  const [selectedSeva, setSelectedSeva] =
+    useState<SevaRegistration | null>(null);
+
   const [selectedCulturalProgram, setSelectedCulturalProgram] =
     useState<CulturalProgram | null>(null);
 
@@ -371,6 +411,10 @@ export default function DashboardClient({
   useEffect(() => {
     setCulturalPrograms(initialCulturalPrograms);
   }, [initialCulturalPrograms]);
+
+  useEffect(() => {
+    setSevaRegistrations(initialSevaRegistrations);
+  }, [initialSevaRegistrations]);
 
   useEffect(() => {
     const refreshDashboard = () => {
@@ -580,6 +624,57 @@ export default function DashboardClient({
       rejected: rejected.length,
     };
   }, [culturalPrograms]);
+
+  /* ==========================================================
+     SEVA STATS
+  ========================================================== */
+
+  const sevaStats = useMemo(() => {
+    const pending = sevaRegistrations.filter((item) => item.status === "pending");
+    const contacted = sevaRegistrations.filter((item) => item.status === "contacted");
+    const confirmed = sevaRegistrations.filter((item) => item.status === "confirmed");
+    const completed = sevaRegistrations.filter((item) => item.status === "completed");
+    const rejected = sevaRegistrations.filter((item) => item.status === "rejected");
+
+    return {
+      total: sevaRegistrations.length,
+      pending: pending.length,
+      contacted: contacted.length,
+      confirmed: confirmed.length,
+      completed: completed.length,
+      rejected: rejected.length,
+    };
+  }, [sevaRegistrations]);
+
+  const filteredSevaRegistrations = useMemo(() => {
+    const term = sevaSearch.trim().toLowerCase();
+
+    return sevaRegistrations.filter((item) => {
+      const matchesStatus =
+        sevaStatusFilter === "all" || item.status === sevaStatusFilter;
+      const matchesBlock =
+        sevaBlockFilter === "all" || item.block === sevaBlockFilter;
+
+      if (!matchesStatus || !matchesBlock) return false;
+      if (!term) return true;
+
+      return [
+        item.seva_no,
+        item.name,
+        item.block,
+        item.flat_no,
+        item.mobile,
+        item.volunteer_note || "",
+        ...(item.volunteer_role_names || []),
+        ...(item.materials || []).map((material) =>
+          [material.title || "", material.quantity ?? "", material.unit || ""].join(" ")
+        ),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term);
+    });
+  }, [sevaRegistrations, sevaSearch, sevaStatusFilter, sevaBlockFilter]);
 
   /* ==========================================================
      FINANCIAL STATS
@@ -1298,6 +1393,108 @@ export default function DashboardClient({
     } finally {
       setLoadingId(null);
     }
+  }
+
+  /* ==========================================================
+     UPDATE SEVA
+  ========================================================== */
+
+  async function updateSevaStatus(
+    id: string,
+    status: "contacted" | "confirmed" | "completed" | "rejected"
+  ) {
+    setLoadingId(id);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/admin/seva/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || "Unable to update Seva registration.");
+        return;
+      }
+
+      const updated = result.seva as SevaRegistration | undefined;
+
+      setSevaRegistrations((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status,
+                updated_at: new Date().toISOString(),
+                ...(updated || {}),
+              }
+            : item
+        )
+      );
+
+      setSelectedSeva((current) =>
+        current?.id === id
+          ? {
+              ...current,
+              status,
+              updated_at: new Date().toISOString(),
+              ...(updated || {}),
+            }
+          : current
+      );
+
+      setMessage(
+        status === "confirmed"
+          ? "Seva registration confirmed successfully."
+          : status === "completed"
+            ? "Seva marked as completed."
+            : status === "contacted"
+              ? "Seva marked as contacted."
+              : "Seva registration rejected."
+      );
+    } catch {
+      setMessage("Something went wrong. Please try again.");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  function exportSevaRegistrations() {
+    const rows = filteredSevaRegistrations.map((item) => ({
+      "Seva ID": item.seva_no,
+      Name: item.name,
+      Block: item.block,
+      "Flat No.": item.flat_no,
+      Mobile: item.mobile,
+      "Material Seva": (item.materials || [])
+        .map((material) =>
+          `${material.title || ""}${material.quantity ? ` - ${material.quantity} ${material.unit || ""}` : ""}`
+        )
+        .join("; "),
+      "Volunteer Seva": (item.volunteer_role_names || []).join("; "),
+      "Volunteer Note": item.volunteer_note || "",
+      Status: item.status,
+      "Admin Note": item.admin_note || "",
+      "Registered On": formatDateTime(item.created_at),
+      "Updated On": formatDateTime(item.updated_at),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [
+      { wch: 18 }, { wch: 24 }, { wch: 10 }, { wch: 12 }, { wch: 15 },
+      { wch: 55 }, { wch: 55 }, { wch: 35 }, { wch: 14 }, { wch: 35 },
+      { wch: 22 }, { wch: 22 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Seva Registrations");
+    XLSX.writeFile(
+      workbook,
+      `BUH-Seva-Registrations-${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
   }
 
   /* ==========================================================
@@ -2236,6 +2433,13 @@ export default function DashboardClient({
             />
 
             <NavButton
+              active={section === "seva"}
+              onClick={() => setSection("seva")}
+              icon="fa-hands-praying"
+              label="Seva"
+            />
+
+            <NavButton
               active={
                 section ===
                 "donations"
@@ -2446,6 +2650,13 @@ export default function DashboardClient({
                   culturalStats.total
                 )}
                 sub={`${culturalStats.pending} pending · ${culturalStats.approved} approved`}
+              />
+
+              <SmallSummary
+                icon="fa-hands-praying"
+                title="Seva Registrations"
+                value={String(sevaStats.total)}
+                sub={`${sevaStats.pending} pending · ${sevaStats.confirmed} confirmed`}
               />
 
               <SmallSummary
@@ -3914,6 +4125,189 @@ export default function DashboardClient({
         )}
 
         {/* ====================================================
+            SEVA
+        ==================================================== */}
+
+        {section === "seva" && (
+          <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
+            <div className="border-b border-[#eee5db] px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="font-serif text-xl font-bold">Seva Registrations</h2>
+                  <p className="mt-1 text-xs text-[#858585]">
+                    {filteredSevaRegistrations.length} shown · {sevaStats.total} total registrations
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={exportSevaRegistrations}
+                  disabled={filteredSevaRegistrations.length === 0}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  <i className="fa-solid fa-file-excel" />
+                  Export
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="relative lg:col-span-2">
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#999]" />
+                  <input
+                    value={sevaSearch}
+                    onChange={(e) => setSevaSearch(e.target.value)}
+                    placeholder="Search Seva ID, name, flat, mobile..."
+                    className="h-10 w-full rounded-lg border border-[#ddd6cd] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#a70e18]"
+                  />
+                </div>
+                <select
+                  value={sevaStatusFilter}
+                  onChange={(e) => setSevaStatusFilter(e.target.value as SevaStatusFilter)}
+                  className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <select
+                  value={sevaBlockFilter}
+                  onChange={(e) => setSevaBlockFilter(e.target.value as BlockFilter)}
+                  className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                >
+                  <option value="all">All Blocks</option>
+                  <option value="P1">P1</option>
+                  <option value="P2">P2</option>
+                  <option value="Villa">Villa</option>
+                </select>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {[
+                  ["Total", sevaStats.total, "bg-[#fcf8f1] text-[#292929]"],
+                  ["Pending", sevaStats.pending, "bg-[#fff8e7] text-[#a56b00]"],
+                  ["Contacted", sevaStats.contacted, "bg-[#eef5ff] text-[#245a9b]"],
+                  ["Confirmed", sevaStats.confirmed, "bg-[#edf8ef] text-[#23753b]"],
+                  ["Completed", sevaStats.completed, "bg-[#f3f3f3] text-[#555]"],
+                ].map(([label, value, classes]) => (
+                  <div key={String(label)} className={`rounded-lg px-3 py-2.5 ${classes}`}>
+                    <div className="text-[10px] uppercase tracking-wide opacity-70">{label}</div>
+                    <div className="mt-1 text-lg font-bold">{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[1250px] text-left">
+                <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
+                  <tr>
+                    <th className="px-5 py-3">Seva ID</th>
+                    <th className="px-4 py-3">Resident</th>
+                    <th className="px-4 py-3">Flat</th>
+                    <th className="px-4 py-3">Material Seva</th>
+                    <th className="px-4 py-3">Volunteer Seva</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-5 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f0ebe5]">
+                  {filteredSevaRegistrations.map((item) => (
+                    <tr key={item.id} className="hover:bg-[#fffdf9]">
+                      <td className="px-5 py-4">
+                        <div className="text-sm font-semibold text-[#a70e18]">{item.seva_no}</div>
+                        <div className="mt-1 text-xs text-[#888]">{formatDateTime(item.created_at)}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-semibold">{item.name}</div>
+                        <div className="mt-1 text-xs text-[#777]">{item.mobile}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-semibold">{item.block}-{item.flat_no}</div>
+                      </td>
+                      <td className="max-w-[320px] px-4 py-4 text-xs">
+                        {(item.materials || []).length ? (
+                          <div className="space-y-1">
+                            {(item.materials || []).map((material, index) => (
+                              <div key={`${item.id}-m-${index}`}>
+                                <span className="font-semibold">{material.title}</span>
+                                {material.quantity ? ` · ${material.quantity} ${material.unit || ""}` : ""}
+                              </div>
+                            ))}
+                          </div>
+                        ) : <span className="text-[#aaa]">None</span>}
+                      </td>
+                      <td className="max-w-[330px] px-4 py-4 text-xs">
+                        {(item.volunteer_role_names || []).length ? (
+                          <div className="line-clamp-4">{item.volunteer_role_names.join(" · ")}</div>
+                        ) : <span className="text-[#aaa]">None</span>}
+                      </td>
+                      <td className="px-4 py-4"><SevaStatusBadge status={item.status} /></td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => setSelectedSeva(item)} className="rounded-lg border border-[#ddd] bg-white px-3 py-2 text-xs font-semibold text-[#666]">
+                            <i className="fa-solid fa-eye mr-1" /> View
+                          </button>
+                          {item.status === "pending" && (
+                            <>
+                              <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "confirmed")} className="rounded-lg bg-[#23753b] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Confirm</button>
+                              <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "rejected")} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2 text-xs font-semibold text-[#a70e18] disabled:opacity-50">Reject</button>
+                            </>
+                          )}
+                          {item.status === "confirmed" && (
+                            <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "completed")} className="rounded-lg bg-[#a70e18] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Complete</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="divide-y divide-[#eee5db] md:hidden">
+              {filteredSevaRegistrations.map((item) => (
+                <div key={item.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">{item.name}</div>
+                      <div className="mt-1 text-xs text-[#777]">{item.block}-{item.flat_no} · {item.mobile}</div>
+                    </div>
+                    <SevaStatusBadge status={item.status} />
+                  </div>
+                  <div className="mt-3 rounded-lg bg-[#fcf8f1] p-3 text-xs">
+                    <div className="font-semibold text-[#a70e18]">{item.seva_no}</div>
+                    <div className="mt-2">
+                      <span className="text-[#888]">Material Seva</span>
+                      <div className="mt-1 font-medium">{(item.materials || []).map((m) => `${m.title || ""}${m.quantity ? ` - ${m.quantity} ${m.unit || ""}` : ""}`).join(" · ") || "None"}</div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-[#888]">Volunteer Seva</span>
+                      <div className="mt-1 font-medium">{(item.volunteer_role_names || []).join(" · ") || "None"}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => setSelectedSeva(item)} className="flex-1 rounded-lg border border-[#ddd] bg-white py-2.5 text-xs font-semibold text-[#666]">View Details</button>
+                    {item.status === "pending" && (
+                      <>
+                        <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "confirmed")} className="rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><i className="fa-solid fa-check" /></button>
+                        <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "rejected")} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"><i className="fa-solid fa-xmark" /></button>
+                      </>
+                    )}
+                    {item.status === "confirmed" && (
+                      <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "completed")} className="rounded-lg bg-[#a70e18] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><i className="fa-solid fa-check-double" /></button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredSevaRegistrations.length === 0 && <EmptyState label="No Seva registrations found." />}
+          </section>
+        )}
+
+        {/* ====================================================
             DONATIONS
         ==================================================== */}
 
@@ -4587,6 +4981,18 @@ export default function DashboardClient({
         {/* ====================================================
             EXPENSE MODAL
         ==================================================== */}
+
+        {selectedSeva && (
+          <SevaDetailsModal
+            seva={selectedSeva}
+            loading={loadingId === selectedSeva.id}
+            onClose={() => setSelectedSeva(null)}
+            onContact={() => updateSevaStatus(selectedSeva.id, "contacted")}
+            onConfirm={() => updateSevaStatus(selectedSeva.id, "confirmed")}
+            onComplete={() => updateSevaStatus(selectedSeva.id, "completed")}
+            onReject={() => updateSevaStatus(selectedSeva.id, "rejected")}
+          />
+        )}
 
         {selectedCulturalProgram && (
           <CulturalProgramModal
@@ -5355,6 +5761,117 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/* ============================================================
+   SEVA STATUS BADGE
+============================================================ */
+
+function SevaStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; classes: string; icon: string }> = {
+    pending: { label: "Pending", classes: "bg-[#fff7e8] text-[#9a6a16]", icon: "fa-clock" },
+    contacted: { label: "Contacted", classes: "bg-[#eef5ff] text-[#245a9b]", icon: "fa-phone" },
+    confirmed: { label: "Confirmed", classes: "bg-[#edf8f0] text-[#23753b]", icon: "fa-circle-check" },
+    completed: { label: "Completed", classes: "bg-[#f1f1f1] text-[#555]", icon: "fa-check-double" },
+    rejected: { label: "Rejected", classes: "bg-[#fff0f0] text-[#a70e18]", icon: "fa-circle-xmark" },
+  };
+  const item = config[status] || config.pending;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.classes}`}>
+      <i className={`fa-solid ${item.icon}`} /> {item.label}
+    </span>
+  );
+}
+
+/* ============================================================
+   SEVA DETAILS MODAL
+============================================================ */
+
+function SevaDetailsModal({
+  seva, loading, onClose, onContact, onConfirm, onComplete, onReject,
+}: {
+  seva: SevaRegistration;
+  loading: boolean;
+  onClose: () => void;
+  onContact: () => void;
+  onConfirm: () => void;
+  onComplete: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-[#eee5db] bg-white px-5 py-4">
+          <div>
+            <div className="text-[10px] font-bold tracking-[2px] text-[#a70e18]">SEVA</div>
+            <h2 className="mt-1 font-serif text-xl font-bold">Seva Registration Details</h2>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f2eb] text-[#666]"><i className="fa-solid fa-xmark" /></button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          <div className="flex items-start justify-between gap-4 rounded-xl bg-[#fcf8f1] p-4">
+            <div>
+              <div className="text-xs text-[#888]">Seva ID</div>
+              <div className="mt-1 font-bold text-[#a70e18]">{seva.seva_no}</div>
+            </div>
+            <SevaStatusBadge status={seva.status} />
+          </div>
+
+          <div>
+            <h3 className="font-serif text-lg font-bold">Resident Details</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <DetailItem label="Name" value={seva.name} />
+              <DetailItem label="Block / Flat" value={`${seva.block}-${seva.flat_no}`} />
+              <DetailItem label="Mobile" value={seva.mobile} />
+              <DetailItem label="Registered On" value={formatDateTime(seva.created_at)} />
+            </div>
+          </div>
+
+          <div className="border-t border-[#eee5db] pt-5">
+            <h3 className="font-serif text-lg font-bold">Material Seva</h3>
+            <div className="mt-3 space-y-2">
+              {(seva.materials || []).length ? (seva.materials || []).map((material, index) => (
+                <div key={`${seva.id}-detail-m-${index}`} className="rounded-lg bg-[#fcf8f1] px-3 py-2.5 text-sm">
+                  <span className="font-semibold">{material.title}</span>
+                  {material.quantity ? <span className="text-[#666]"> · {material.quantity} {material.unit || ""}</span> : null}
+                </div>
+              )) : <div className="text-sm text-[#999]">No material Seva selected.</div>}
+            </div>
+          </div>
+
+          <div className="border-t border-[#eee5db] pt-5">
+            <h3 className="font-serif text-lg font-bold">Volunteer Seva</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(seva.volunteer_role_names || []).length ? (seva.volunteer_role_names || []).map((role) => (
+                <span key={role} className="rounded-full bg-[#fff7ed] px-3 py-1.5 text-xs font-semibold text-[#a70e18]">{role}</span>
+              )) : <span className="text-sm text-[#999]">No volunteer role selected.</span>}
+            </div>
+            {seva.volunteer_note && (
+              <div className="mt-3 rounded-xl bg-[#fcf8f1] p-4">
+                <div className="text-xs font-semibold text-[#888]">Volunteer Note</div>
+                <div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#444]">{seva.volunteer_note}</div>
+              </div>
+            )}
+          </div>
+
+          {seva.admin_note && (
+            <div className="border-t border-[#eee5db] pt-5">
+              <div className="text-xs font-semibold text-[#888]">Admin Note</div>
+              <div className="mt-1 whitespace-pre-wrap text-sm text-[#444]">{seva.admin_note}</div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 border-t border-[#eee5db] pt-4">
+            {seva.status === "pending" && <button type="button" disabled={loading} onClick={onContact} className="flex-1 rounded-lg border border-[#ddd] bg-white py-3 text-sm font-semibold text-[#245a9b] disabled:opacity-50">Mark Contacted</button>}
+            {(seva.status === "pending" || seva.status === "contacted") && <button type="button" disabled={loading} onClick={onConfirm} className="flex-1 rounded-lg bg-[#23753b] py-3 text-sm font-semibold text-white disabled:opacity-50">Confirm Seva</button>}
+            {seva.status === "confirmed" && <button type="button" disabled={loading} onClick={onComplete} className="flex-1 rounded-lg bg-[#a70e18] py-3 text-sm font-semibold text-white disabled:opacity-50">Mark Completed</button>}
+            {(seva.status === "pending" || seva.status === "contacted") && <button type="button" disabled={loading} onClick={onReject} className="flex-1 rounded-lg border border-[#f0cccc] bg-[#fff6f6] py-3 text-sm font-semibold text-[#a70e18] disabled:opacity-50">Reject</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ============================================================
