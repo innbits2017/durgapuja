@@ -45,6 +45,29 @@ function generateSevaNo() {
   return `SEVA-2026-${random}`;
 }
 
+/**
+ * WhatsApp template variables must be plain text.
+ *
+ * Remove:
+ * - new lines
+ * - tabs
+ * - excessive spaces
+ *
+ * Also keep the parameter comfortably below the WhatsApp
+ * variable length limit.
+ */
+function sanitizeWhatsAppParameter(value: string) {
+  return String(value || "")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s{5,}/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 900);
+}
+
+/**
+ * Create a WhatsApp-safe, single-line Seva description.
+ */
 function formatSevaDetails(
   materials: Array<{
     type: string;
@@ -55,41 +78,45 @@ function formatSevaDetails(
   volunteerRoleNames: string[],
   volunteerNote: string | null
 ) {
-  const details: string[] = [];
+  const parts: string[] = [];
 
+  // Material Seva
   if (materials.length > 0) {
-    details.push("Material Seva:");
-
-    for (const item of materials) {
-      if (item.type === "full_prasad") {
-        details.push(`• ${item.title}`);
-      } else if (item.type === "cylinder") {
-        details.push(`• ${item.title}`);
-      } else if (item.quantity !== null) {
-        details.push(
-          `• ${item.title}: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`
-        );
-      } else {
-        details.push(`• ${item.title}`);
+    const materialDetails = materials.map((item) => {
+      if (
+        item.type === "full_prasad" ||
+        item.type === "cylinder"
+      ) {
+        return item.title;
       }
-    }
+
+      if (item.quantity !== null) {
+        return `${item.title}: ${item.quantity}${
+          item.unit ? ` ${item.unit}` : ""
+        }`;
+      }
+
+      return item.title;
+    });
+
+    parts.push(
+      `Material Seva: ${materialDetails.join(", ")}`
+    );
   }
 
+  // Volunteer Seva
   if (volunteerRoleNames.length > 0) {
-    details.push("");
-    details.push("Volunteer Seva:");
-
-    for (const role of volunteerRoleNames) {
-      details.push(`• ${role}`);
-    }
+    parts.push(
+      `Volunteer Seva: ${volunteerRoleNames.join(", ")}`
+    );
   }
 
+  // Volunteer note
   if (volunteerNote) {
-    details.push("");
-    details.push(`Note: ${volunteerNote}`);
+    parts.push(`Note: ${volunteerNote}`);
   }
 
-  return details.join("\n");
+  return sanitizeWhatsAppParameter(parts.join(" | "));
 }
 
 export async function POST(request: Request) {
@@ -170,7 +197,7 @@ export async function POST(request: Request) {
     }
 
     // ---------------------------------------------------------
-    // Clean material data
+    // Clean materials
     // ---------------------------------------------------------
 
     const cleanMaterials = materials
@@ -180,6 +207,7 @@ export async function POST(request: Request) {
         }
 
         const material = item as MaterialInput;
+
         const type = String(material.type || "").trim();
 
         return MATERIAL_IDS.includes(
@@ -207,16 +235,9 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // Quantity validation
     //
-    // Quantity is NOT required for:
+    // Quantity NOT required for:
     // - Full One-Time Prasad
     // - Gas Cylinder
-    //
-    // Quantity IS required for:
-    // - Rice
-    // - Dal
-    // - Vegetables
-    // - Empty Water Cans
-    // - Sukha Prasad
     // ---------------------------------------------------------
 
     for (const item of cleanMaterials) {
@@ -261,10 +282,12 @@ export async function POST(request: Request) {
     );
 
     // ---------------------------------------------------------
-    // Volunteer role names
+    // Clean volunteer role names
     // ---------------------------------------------------------
 
-    const cleanVolunteerRoleNames = Array.isArray(volunteerRoleNames)
+    const cleanVolunteerRoleNames = Array.isArray(
+      volunteerRoleNames
+    )
       ? volunteerRoleNames
           .filter((item: unknown) => typeof item === "string")
           .map((item: string) => item.trim())
@@ -337,10 +360,6 @@ export async function POST(request: Request) {
 
     // ---------------------------------------------------------
     // WhatsApp notification
-    //
-    // Important:
-    // The database registration is already successful.
-    // If WhatsApp fails, we DO NOT fail the Seva submission.
     // ---------------------------------------------------------
 
     let whatsappSent = false;
@@ -354,14 +373,21 @@ export async function POST(request: Request) {
         cleanVolunteerNote || null
       );
 
-      const whatsappResult = await sendSevaSubmittedWhatsApp({
-        mobile: cleanMobile,
-        name: name.trim(),
+      console.log("Seva WhatsApp details:", {
         sevaNo: data.seva_no,
-        sevaDetails,
+        details: sevaDetails,
       });
 
+      const whatsappResult =
+        await sendSevaSubmittedWhatsApp({
+          mobile: cleanMobile,
+          name: name.trim(),
+          sevaNo: data.seva_no,
+          sevaDetails,
+        });
+
       whatsappSent = Boolean(whatsappResult?.sent);
+
       whatsappMessageId =
         whatsappResult?.messageId || null;
 
@@ -389,7 +415,7 @@ export async function POST(request: Request) {
     }
 
     // ---------------------------------------------------------
-    // Success response
+    // Success
     // ---------------------------------------------------------
 
     return NextResponse.json(
