@@ -715,30 +715,14 @@ export async function POST(request: Request) {
         channel === "online"
       ) {
         const result =
-          await sendContributionSubmittedWhatsApp(
-            {
-              mobile:
-                contribution.mobile,
-
-              name:
-                contribution.name,
-
-              amount:
-                Number(
-                  contribution.amount
-                ),
-
-              block:
-                contribution.block,
-
-              flatNo:
-                contribution.flat_no,
-
-              utr:
-                contribution.utr ||
-                "",
-            }
-          );
+          await sendContributionSubmittedWhatsApp({
+            mobile: contribution.mobile,
+            name: contribution.name,
+            amount: Number(contribution.amount),
+            block: contribution.block,
+            flatNo: contribution.flat_no,
+            utr: contribution.utr || "",
+          });
 
         whatsappSent =
           result.sent;
