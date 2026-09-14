@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendSevaSubmittedWhatsApp } from "@/lib/whatsapp";
 
-const VALID_BLOCKS = ["P1", "P2", "Villa"];
+const VALID_BLOCKS = ["P1", "P2", "Villa"] as const;
 
 const MATERIAL_IDS = [
   "rice",
-  "grocery",
+  "dal",
   "vegetables",
   "full_prasad",
   "cylinder",
   "water_cans",
   "sukha_prasad",
-];
+] as const;
 
 const VOLUNTEER_IDS = [
   "cooking_management",
@@ -31,70 +31,65 @@ const VOLUNTEER_IDS = [
   "cultural_program",
   "devotee_management",
   "cleanliness",
-];
+] as const;
+
+type MaterialInput = {
+  type?: unknown;
+  title?: unknown;
+  quantity?: unknown;
+  unit?: unknown;
+};
 
 function generateSevaNo() {
   const random = Math.floor(100000 + Math.random() * 900000);
   return `SEVA-2026-${random}`;
 }
 
-/**
- * Creates the text that will be inserted into:
- *
- * {{3}} Selected Seva Details
- *
- * Example:
- *
- * Rice - 10 kg
- * Full One-Time Prasad
- * Volunteer: Decoration
- * Volunteer: Cooking Management
- */
-function buildSevaDetails(
+function formatSevaDetails(
   materials: Array<{
-    type?: string;
-    title?: string;
-    quantity?: number | null;
-    unit?: string | null;
+    type: string;
+    title: string;
+    quantity: number | null;
+    unit: string | null;
   }>,
-  volunteerRoleNames: string[]
+  volunteerRoleNames: string[],
+  volunteerNote: string | null
 ) {
   const details: string[] = [];
 
-  for (const item of materials) {
-    const title = String(item.title || "").trim();
+  if (materials.length > 0) {
+    details.push("Material Seva:");
 
-    if (!title) continue;
-
-    if (
-      item.type !== "full_prasad" &&
-      item.type !== "cylinder" &&
-      item.quantity !== null &&
-      item.quantity !== undefined &&
-      item.quantity !== ""
-    ) {
-      const quantity = Number(item.quantity);
-
-      if (Number.isFinite(quantity)) {
+    for (const item of materials) {
+      if (item.type === "full_prasad") {
+        details.push(`• ${item.title}`);
+      } else if (item.type === "cylinder") {
+        details.push(`• ${item.title}`);
+      } else if (item.quantity !== null) {
         details.push(
-          `${title} - ${quantity}${item.unit ? ` ${item.unit}` : ""}`
+          `• ${item.title}: ${item.quantity}${item.unit ? ` ${item.unit}` : ""}`
         );
-        continue;
+      } else {
+        details.push(`• ${item.title}`);
       }
     }
-
-    details.push(title);
   }
 
-  for (const role of volunteerRoleNames) {
-    const cleanRole = String(role || "").trim();
+  if (volunteerRoleNames.length > 0) {
+    details.push("");
+    details.push("Volunteer Seva:");
 
-    if (cleanRole) {
-      details.push(`Volunteer: ${cleanRole}`);
+    for (const role of volunteerRoleNames) {
+      details.push(`• ${role}`);
     }
   }
 
-  return details.join("\n") || "Seva";
+  if (volunteerNote) {
+    details.push("");
+    details.push(`Note: ${volunteerNote}`);
+  }
+
+  return details.join("\n");
 }
 
 export async function POST(request: Request) {
@@ -112,9 +107,9 @@ export async function POST(request: Request) {
       volunteerNote,
     } = body;
 
-    /* -------------------------------------------------------
-       VALIDATION
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Basic validation
+    // ---------------------------------------------------------
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -137,6 +132,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---------------------------------------------------------
+    // Mobile validation
+    // ---------------------------------------------------------
+
     const cleanMobile = String(mobile || "").replace(/\D/g, "");
 
     if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
@@ -148,65 +147,95 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---------------------------------------------------------
+    // Materials validation
+    // ---------------------------------------------------------
+
     if (!Array.isArray(materials)) {
       return NextResponse.json(
-        { error: "Invalid material Seva data." },
+        {
+          error: "Invalid material Seva data.",
+        },
         { status: 400 }
       );
     }
 
     if (!Array.isArray(volunteerRoles)) {
       return NextResponse.json(
-        { error: "Invalid volunteer Seva data." },
+        {
+          error: "Invalid volunteer Seva data.",
+        },
         { status: 400 }
       );
     }
 
-    /* -------------------------------------------------------
-       CLEAN MATERIAL SEVA
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Clean material data
+    // ---------------------------------------------------------
 
     const cleanMaterials = materials
-      .filter(
-        (item) =>
-          item &&
-          typeof item === "object" &&
-          MATERIAL_IDS.includes(String(item.type))
-      )
-      .map((item) => {
+      .filter((item: unknown): item is MaterialInput => {
+        if (!item || typeof item !== "object") {
+          return false;
+        }
+
+        const material = item as MaterialInput;
+        const type = String(material.type || "").trim();
+
+        return MATERIAL_IDS.includes(
+          type as (typeof MATERIAL_IDS)[number]
+        );
+      })
+      .map((item: MaterialInput) => {
         const materialType = String(item.type || "").trim();
+
+        const quantity =
+          item.quantity === null ||
+          item.quantity === undefined ||
+          item.quantity === ""
+            ? null
+            : Number(item.quantity);
 
         return {
           type: materialType,
           title: String(item.title || "").trim(),
-          quantity:
-            item.quantity === null ||
-            item.quantity === undefined ||
-            item.quantity === ""
-              ? null
-              : Number(item.quantity),
+          quantity,
           unit: String(item.unit || "").trim() || null,
         };
       });
 
+    // ---------------------------------------------------------
+    // Quantity validation
+    //
+    // Quantity is NOT required for:
+    // - Full One-Time Prasad
+    // - Gas Cylinder
+    //
+    // Quantity IS required for:
+    // - Rice
+    // - Dal
+    // - Vegetables
+    // - Empty Water Cans
+    // - Sukha Prasad
+    // ---------------------------------------------------------
+
     for (const item of cleanMaterials) {
       const materialType = String(item.type);
 
-      // Quantity is required for all materials except:
-      // Full One-Time Prasad and Gas Cylinder
-      if (
-        materialType !== "full_prasad" &&
-        materialType !== "cylinder"
-      ) {
+      const quantityNotRequired =
+        materialType === "full_prasad" ||
+        materialType === "cylinder";
+
+      if (!quantityNotRequired) {
         if (
           item.quantity === null ||
-          !Number.isFinite(item.quantity) ||
+          !Number.isFinite(Number(item.quantity)) ||
           Number(item.quantity) <= 0
         ) {
           return NextResponse.json(
             {
               error: `Please provide a valid quantity for ${
-                item.title || item.type
+                item.title || materialType
               }.`,
             },
             { status: 400 }
@@ -215,19 +244,40 @@ export async function POST(request: Request) {
       }
     }
 
-    /* -------------------------------------------------------
-       CLEAN VOLUNTEER ROLES
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Clean volunteer roles
+    // ---------------------------------------------------------
 
     const cleanVolunteerRoles = volunteerRoles.filter(
-      (id: unknown) =>
-        typeof id === "string" &&
-        VOLUNTEER_IDS.includes(id)
+      (id: unknown): id is string => {
+        if (typeof id !== "string") {
+          return false;
+        }
+
+        return VOLUNTEER_IDS.includes(
+          id as (typeof VOLUNTEER_IDS)[number]
+        );
+      }
     );
 
+    // ---------------------------------------------------------
+    // Volunteer role names
+    // ---------------------------------------------------------
+
+    const cleanVolunteerRoleNames = Array.isArray(volunteerRoleNames)
+      ? volunteerRoleNames
+          .filter((item: unknown) => typeof item === "string")
+          .map((item: string) => item.trim())
+          .filter(Boolean)
+      : [];
+
+    // ---------------------------------------------------------
+    // At least one Seva required
+    // ---------------------------------------------------------
+
     if (
-      !cleanMaterials.length &&
-      !cleanVolunteerRoles.length
+      cleanMaterials.length === 0 &&
+      cleanVolunteerRoles.length === 0
     ) {
       return NextResponse.json(
         {
@@ -237,30 +287,24 @@ export async function POST(request: Request) {
       );
     }
 
-    /* -------------------------------------------------------
-       CLEAN VOLUNTEER ROLE NAMES
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Volunteer note
+    // ---------------------------------------------------------
 
-    const cleanVolunteerRoleNames =
-      Array.isArray(volunteerRoleNames)
-        ? volunteerRoleNames
-            .filter(
-              (item: unknown) =>
-                typeof item === "string"
-            )
-            .map((item: string) => item.trim())
-            .filter(Boolean)
-        : [];
+    const cleanVolunteerNote =
+      typeof volunteerNote === "string"
+        ? volunteerNote.trim()
+        : "";
 
-    /* -------------------------------------------------------
-       GENERATE SEVA NUMBER
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Generate Seva number
+    // ---------------------------------------------------------
 
     const sevaNo = generateSevaNo();
 
-    /* -------------------------------------------------------
-       SAVE TO SUPABASE
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Insert into Supabase
+    // ---------------------------------------------------------
 
     const { data, error } = await supabaseAdmin
       .from("seva_registrations")
@@ -273,18 +317,14 @@ export async function POST(request: Request) {
         materials: cleanMaterials,
         volunteer_roles: cleanVolunteerRoles,
         volunteer_role_names: cleanVolunteerRoleNames,
-        volunteer_note:
-          volunteerNote?.trim() || null,
+        volunteer_note: cleanVolunteerNote || null,
         status: "pending",
       })
       .select("id, seva_no")
       .single();
 
     if (error) {
-      console.error(
-        "Seva insert error:",
-        error
-      );
+      console.error("Seva insert error:", error);
 
       return NextResponse.json(
         {
@@ -295,95 +335,68 @@ export async function POST(request: Request) {
       );
     }
 
-    /* -------------------------------------------------------
-       BUILD WHATSAPP SEVA DETAILS
-    ------------------------------------------------------- */
-
-    const sevaDetails = buildSevaDetails(
-      cleanMaterials,
-      cleanVolunteerRoleNames
-    );
-
-    console.log(
-      "Seva registration created:",
-      {
-        id: data.id,
-        sevaNo: data.seva_no,
-        name: name.trim(),
-        mobile: cleanMobile,
-        sevaDetails,
-      }
-    );
-
-    /* -------------------------------------------------------
-       SEND WHATSAPP SUBMISSION MESSAGE
-       
-       IMPORTANT:
-       WhatsApp failure must NOT delete or invalidate
-       the Seva registration.
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // WhatsApp notification
+    //
+    // Important:
+    // The database registration is already successful.
+    // If WhatsApp fails, we DO NOT fail the Seva submission.
+    // ---------------------------------------------------------
 
     let whatsappSent = false;
     let whatsappMessageId: string | null = null;
     let whatsappError: string | null = null;
 
     try {
-      const whatsappResult =
-        await sendSevaSubmittedWhatsApp({
-          mobile: cleanMobile,
-          name: name.trim(),
-          sevaNo: data.seva_no,
-          sevaDetails,
-        });
-
-      whatsappSent = Boolean(
-        whatsappResult?.sent
+      const sevaDetails = formatSevaDetails(
+        cleanMaterials,
+        cleanVolunteerRoleNames,
+        cleanVolunteerNote || null
       );
 
+      const whatsappResult = await sendSevaSubmittedWhatsApp({
+        mobile: cleanMobile,
+        name: name.trim(),
+        sevaNo: data.seva_no,
+        sevaDetails,
+      });
+
+      whatsappSent = Boolean(whatsappResult?.sent);
       whatsappMessageId =
         whatsappResult?.messageId || null;
 
-      whatsappError =
-        whatsappResult?.error || null;
+      if (!whatsappSent && whatsappResult?.error) {
+        whatsappError = whatsappResult.error;
+      }
 
-      console.log(
-        "Seva WhatsApp result:",
-        {
-          sevaNo: data.seva_no,
-          mobile: cleanMobile,
-          sent: whatsappSent,
-          messageId: whatsappMessageId,
-          error: whatsappError,
-        }
-      );
-    } catch (whatsappException) {
+      console.log("Seva WhatsApp result:", {
+        sevaNo: data.seva_no,
+        mobile: cleanMobile,
+        sent: whatsappSent,
+        messageId: whatsappMessageId,
+        error: whatsappError,
+      });
+    } catch (whatsappErrorValue) {
       whatsappError =
-        whatsappException instanceof Error
-          ? whatsappException.message
-          : "Unknown WhatsApp error.";
+        whatsappErrorValue instanceof Error
+          ? whatsappErrorValue.message
+          : String(whatsappErrorValue);
 
       console.error(
-        "Seva WhatsApp send failed:",
-        {
-          sevaNo: data.seva_no,
-          mobile: cleanMobile,
-          error: whatsappException,
-        }
+        "Seva WhatsApp notification failed:",
+        whatsappErrorValue
       );
     }
 
-    /* -------------------------------------------------------
-       RESPONSE
-    ------------------------------------------------------- */
+    // ---------------------------------------------------------
+    // Success response
+    // ---------------------------------------------------------
 
     return NextResponse.json(
       {
         success: true,
         id: data.id,
         sevaNo: data.seva_no,
-
-        // Useful for debugging.
-        // The frontend does not need to use these.
         whatsappSent,
         whatsappMessageId,
         whatsappError,
@@ -391,15 +404,11 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "Seva API error:",
-      error
-    );
+    console.error("Seva API error:", error);
 
     return NextResponse.json(
       {
-        error:
-          "Something went wrong. Please try again.",
+        error: "Something went wrong. Please try again.",
       },
       { status: 500 }
     );
