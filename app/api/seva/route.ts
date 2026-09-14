@@ -170,31 +170,36 @@ export async function POST(request: Request) {
       .filter(
         (item) =>
           item &&
-          typeof item.type === "string" &&
-          MATERIAL_IDS.includes(item.type)
+          typeof item === "object" &&
+          MATERIAL_IDS.includes(String(item.type))
       )
-      .map((item) => ({
-        type: item.type,
-        title: String(item.title || "").trim(),
-        quantity:
-          item.quantity === null ||
-          item.quantity === undefined ||
-          item.quantity === ""
-            ? null
-            : Number(item.quantity),
-        unit: String(item.unit || "").trim() || null,
-      }));
+      .map((item) => {
+        const materialType = String(item.type || "").trim();
 
-    /* -------------------------------------------------------
-       VALIDATE QUANTITIES
-    ------------------------------------------------------- */
+        return {
+          type: materialType,
+          title: String(item.title || "").trim(),
+          quantity:
+            item.quantity === null ||
+            item.quantity === undefined ||
+            item.quantity === ""
+              ? null
+              : Number(item.quantity),
+          unit: String(item.unit || "").trim() || null,
+        };
+      });
 
     for (const item of cleanMaterials) {
+      const materialType = String(item.type);
+
+      // Quantity is required for all materials except:
+      // Full One-Time Prasad and Gas Cylinder
       if (
-        item.type !== "full_prasad" &&
-        item.type !== "cylinder"
+        materialType !== "full_prasad" &&
+        materialType !== "cylinder"
       ) {
         if (
+          item.quantity === null ||
           !Number.isFinite(item.quantity) ||
           Number(item.quantity) <= 0
         ) {
