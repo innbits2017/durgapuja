@@ -3,36 +3,27 @@
 const GRAPH_API_VERSION =
   process.env.WHATSAPP_API_VERSION || "v26.0";
 
-const WHATSAPP_TEMPLATE_LANGUAGE =
+const TEMPLATE_LANGUAGE =
   process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
 
-/*
- * Optional image header media ID.
- *
- * If a template does not have an image header,
- * do not pass imageMediaId to sendTemplate().
- */
-const CONTRIBUTION_IMAGE_MEDIA_ID =
+const IMAGE_MEDIA_ID =
+  process.env.WHATSAPP_TEMPLATE_IMAGE_MEDIA_ID ||
   process.env.WHATSAPP_CONTRIBUTION_IMAGE_MEDIA_ID ||
   "1590506885817187";
 
-/* ============================================================
-   TYPES
-============================================================ */
-
-type WhatsAppResult = {
-  sent: boolean;
-  skipped: boolean;
-  messageId?: string | null;
-  error?: string | null;
-};
-
-/* ============================================================
-   NORMALIZE INDIAN MOBILE NUMBER
-============================================================ */
-
+/**
+ * Normalize Indian WhatsApp numbers.
+ *
+ * Accepts:
+ * 9874563210
+ * +91 9874563210
+ * 919874563210
+ *
+ * Returns:
+ * 919874563210
+ */
 function normalizeIndianWhatsAppNumber(mobile: string) {
-  const digits = mobile.replace(/\D/g, "");
+  const digits = String(mobile || "").replace(/\D/g, "");
 
   if (digits.startsWith("91") && digits.length === 12) {
     return digits;
@@ -45,31 +36,29 @@ function normalizeIndianWhatsAppNumber(mobile: string) {
   return digits;
 }
 
-/* ============================================================
-   COMMON TEMPLATE SENDER
-============================================================ */
+type SendTemplateOptions = {
+  mobile: string;
+  templateName: string;
+  bodyParameters: string[];
+  imageMediaId?: string;
+};
 
+/**
+ * Send an IMAGE HEADER + BODY WhatsApp template.
+ *
+ * IMPORTANT:
+ * All current BUH Durga Puja templates use an IMAGE header.
+ */
 async function sendTemplate({
   mobile,
   templateName,
-  bodyParameters = [],
-  imageMediaId,
-}: {
-  mobile: string;
-  templateName: string;
-  bodyParameters?: string[];
-  imageMediaId?: string;
-}): Promise<WhatsAppResult> {
+  bodyParameters,
+  imageMediaId = IMAGE_MEDIA_ID,
+}: SendTemplateOptions) {
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
-
-  const phoneNumberId =
-    process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
   if (!token || !phoneNumberId) {
-    console.error(
-      "WhatsApp Cloud API credentials are missing."
-    );
-
     return {
       sent: false,
       skipped: true,
@@ -79,145 +68,146 @@ async function sendTemplate({
     };
   }
 
-  const components: any[] = [];
+  const recipient = normalizeIndianWhatsAppNumber(mobile);
 
-  /* ----------------------------------------------------------
-     IMAGE HEADER
-  ---------------------------------------------------------- */
-
-  if (imageMediaId) {
-    components.push({
-      type: "header",
-      parameters: [
-        {
-          type: "image",
-          image: {
-            id: imageMediaId,
-          },
-        },
-      ],
-    });
+  if (!recipient || recipient.length < 10) {
+    return {
+      sent: false,
+      skipped: true,
+      messageId: null,
+      error: "Invalid WhatsApp mobile number.",
+    };
   }
 
-  /* ----------------------------------------------------------
-     BODY
-  ---------------------------------------------------------- */
+  if (!templateName) {
+    return {
+      sent: false,
+      skipped: true,
+      messageId: null,
+      error: "WhatsApp template name is missing.",
+    };
+  }
 
-  if (bodyParameters.length > 0) {
-    components.push({
-      type: "body",
-      parameters: bodyParameters.map((text) => ({
-        type: "text",
-        text: String(text),
-      })),
-    });
+  if (!imageMediaId) {
+    return {
+      sent: false,
+      skipped: true,
+      messageId: null,
+      error:
+        "WhatsApp template image Media ID is not configured.",
+    };
   }
 
   const payload = {
     messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to: normalizeIndianWhatsAppNumber(mobile),
+
+    to: recipient,
+
     type: "template",
 
     template: {
       name: templateName,
 
       language: {
-        code: WHATSAPP_TEMPLATE_LANGUAGE,
+        code: TEMPLATE_LANGUAGE,
       },
 
-      components,
+      components: [
+        {
+          type: "header",
+
+          parameters: [
+            {
+              type: "image",
+
+              image: {
+                id: imageMediaId,
+              },
+            },
+          ],
+        },
+
+        {
+          type: "body",
+
+          parameters: bodyParameters.map((value) => ({
+            type: "text",
+            text: String(value ?? ""),
+          })),
+        },
+      ],
     },
   };
 
-  try {
-    const response = await fetch(
-      `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
-      {
-        method: "POST",
+  console.log("WhatsApp template request:", {
+    templateName,
+    recipient,
+    language: TEMPLATE_LANGUAGE,
+    bodyParameterCount: bodyParameters.length,
+    hasImageHeader: true,
+  });
 
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+  const response = await fetch(
+    `https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`,
+    {
+      method: "POST",
 
-        body: JSON.stringify(payload),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
 
-        cache: "no-store",
-      }
-    );
+      body: JSON.stringify(payload),
 
-    const result = await response
-      .json()
-      .catch(() => ({}));
-
-    if (!response.ok) {
-      const errorMessage =
-        result?.error?.message ||
-        "WhatsApp Cloud API request failed.";
-
-      console.error(
-        "WhatsApp API error:",
-        JSON.stringify(result, null, 2)
-      );
-
-      return {
-        sent: false,
-        skipped: false,
-        messageId: null,
-        error: errorMessage,
-      };
+      cache: "no-store",
     }
+  );
 
-    const messageId =
-      result?.messages?.[0]?.id || null;
+  const result = await response
+    .json()
+    .catch(() => ({}));
 
-    console.log(
-      `WhatsApp message sent using template "${templateName}".`,
-      messageId
-    );
+  if (!response.ok) {
+    const message =
+      result?.error?.message ||
+      "WhatsApp Cloud API request failed.";
 
-    return {
-      sent: true,
-      skipped: false,
-      messageId,
-      error: null,
-    };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "WhatsApp request failed.";
+    console.error("WhatsApp API error:", result);
 
-    console.error(
-      "WhatsApp request exception:",
-      error
-    );
-
-    return {
-      sent: false,
-      skipped: false,
-      messageId: null,
-      error: errorMessage,
-    };
+    throw new Error(message);
   }
+
+  const messageId =
+    result?.messages?.[0]?.id || null;
+
+  console.log("WhatsApp message accepted:", {
+    templateName,
+    recipient,
+    messageId,
+    messageStatus:
+      result?.messages?.[0]?.message_status || null,
+  });
+
+  return {
+    sent: true,
+    skipped: false,
+    messageId,
+    error: null,
+  };
 }
 
-/* ============================================================
-   1. RESIDENT CONTRIBUTION SUBMITTED
-============================================================
+/* =========================================================
+   CONTRIBUTION - SUBMITTED / UNDER REVIEW
+   Template:
+   buh_contribution_verification
 
-Template:
-buh_contribution_verification
-
-Variables:
-
-{{1}} Name
-{{2}} Amount
-{{3}} Block-Flat
-{{4}} UTR
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Name
+   {{2}} Amount
+   {{3}} Block-Flat
+   {{4}} UTR
+========================================================= */
 
 export async function sendContributionSubmittedWhatsApp({
   mobile,
@@ -241,39 +231,32 @@ export async function sendContributionSubmittedWhatsApp({
       process.env.WHATSAPP_SUBMITTED_TEMPLATE ||
       "buh_contribution_verification",
 
-    /*
-     * Keep image header only if your approved
-     * buh_contribution_verification template
-     * actually contains an IMAGE header.
-     */
-    imageMediaId: CONTRIBUTION_IMAGE_MEDIA_ID,
-
     bodyParameters: [
       name,
-
-      Number(amount).toLocaleString("en-IN"),
-
+      String(amount),
       `${block}-${flatNo}`,
-
       utr,
     ],
   });
 }
 
-/* ============================================================
-   2. RESIDENT CONTRIBUTION VERIFIED
-============================================================
+/* =========================================================
+   CONTRIBUTION - VERIFIED
+   Template:
+   buh_contribution_confirmed
 
-Template:
-buh_contribution_confirmed
+   IMAGE HEADER
+   BODY:
+   {{1}} Name
+   {{2}} Amount
+   {{3}} Block-Flat
 
-Variables:
-
-{{1}} Name
-{{2}} Amount
-{{3}} Block-Flat
-
-============================================================ */
+   NOTE:
+   receiptUrl is intentionally retained as an optional
+   argument so existing admin code doesn't break.
+   It is NOT sent because the approved template has only
+   3 body variables.
+========================================================= */
 
 export async function sendContributionVerifiedWhatsApp({
   mobile,
@@ -281,12 +264,14 @@ export async function sendContributionVerifiedWhatsApp({
   amount,
   block,
   flatNo,
+  receiptUrl: _receiptUrl,
 }: {
   mobile: string;
   name: string;
   amount: number;
   block: string;
   flatNo: string;
+  receiptUrl?: string;
 }) {
   return sendTemplate({
     mobile,
@@ -297,29 +282,24 @@ export async function sendContributionVerifiedWhatsApp({
 
     bodyParameters: [
       name,
-
-      Number(amount).toLocaleString("en-IN"),
-
+      String(amount),
       `${block}-${flatNo}`,
     ],
   });
 }
 
-/* ============================================================
-   3. RESIDENT CONTRIBUTION REJECTED
-============================================================
+/* =========================================================
+   CONTRIBUTION - REJECTED
+   Template:
+   buh_contribution_rejected
 
-Template:
-buh_contribution_rejected
-
-Variables:
-
-{{1}} Name
-{{2}} Amount
-{{3}} Block-Flat
-{{4}} UTR
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Name
+   {{2}} Amount
+   {{3}} Block-Flat
+   {{4}} UTR
+========================================================= */
 
 export async function sendContributionRejectedWhatsApp({
   mobile,
@@ -345,34 +325,26 @@ export async function sendContributionRejectedWhatsApp({
 
     bodyParameters: [
       name,
-
-      Number(amount).toLocaleString("en-IN"),
-
+      String(amount),
       `${block}-${flatNo}`,
-
-      utr,
+      utr || "N/A",
     ],
   });
 }
 
-/* ============================================================
-   4. COMMITTEE CONTRIBUTION CONFIRMED
-============================================================
+/* =========================================================
+   COMMITTEE CONTRIBUTION - CONFIRMED
+   Template:
+   buh_committee_contribution_confirmed
 
-Template:
-buh_committee_contribution_confirmed
-
-CURRENTLY PENDING META APPROVAL.
-
-Variables:
-
-{{1}} Name
-{{2}} Payment ID
-{{3}} Amount
-{{4}} Block-Flat
-{{5}} Payment Mode
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Name
+   {{2}} Payment ID
+   {{3}} Amount
+   {{4}} Block-Flat
+   {{5}} Payment Mode
+========================================================= */
 
 export async function sendCommitteeContributionConfirmedWhatsApp({
   mobile,
@@ -389,7 +361,7 @@ export async function sendCommitteeContributionConfirmedWhatsApp({
   amount: number;
   block: string;
   flatNo: string;
-  paymentMode: string;
+  paymentMode: "Cash" | "UPI" | string;
 }) {
   return sendTemplate({
     mobile,
@@ -400,46 +372,39 @@ export async function sendCommitteeContributionConfirmedWhatsApp({
 
     bodyParameters: [
       name,
-
       paymentId,
-
-      Number(amount).toLocaleString("en-IN"),
-
+      String(amount),
       `${block}-${flatNo}`,
-
       paymentMode,
     ],
   });
 }
 
-/* ============================================================
-   5. EXTERNAL DONATION CONFIRMED
-============================================================
+/* =========================================================
+   EXTERNAL DONATION - CONFIRMED
+   Template:
+   buh_external_donation_confirmed
 
-Template:
-buh_external_donation_confirmed
-
-Variables:
-
-{{1}} Contact person name
-{{2}} Organisation / Donor
-{{3}} Amount
-{{4}} Payment Mode
-{{5}} Payment ID / UTR
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Contact Person
+   {{2}} Organization / Donor
+   {{3}} Amount
+   {{4}} Payment Mode
+   {{5}} Payment ID / UTR
+========================================================= */
 
 export async function sendExternalDonationConfirmedWhatsApp({
   mobile,
   contactName,
-  organisationName,
+  donorName,
   amount,
   paymentMode,
   paymentId,
 }: {
   mobile: string;
   contactName: string;
-  organisationName: string;
+  donorName: string;
   amount: number;
   paymentMode: string;
   paymentId: string;
@@ -453,33 +418,26 @@ export async function sendExternalDonationConfirmedWhatsApp({
 
     bodyParameters: [
       contactName,
-
-      organisationName,
-
-      Number(amount).toLocaleString("en-IN"),
-
+      donorName,
+      String(amount),
       paymentMode,
-
       paymentId,
     ],
   });
 }
 
-/* ============================================================
-   6. CULTURAL PROGRAM SUBMITTED
-============================================================
+/* =========================================================
+   CULTURAL PROGRAM - SUBMITTED
+   Template:
+   buh_cultural_program_submitted
 
-Template:
-buh_cultural_program_submitted
-
-Variables:
-
-{{1}} Participant name
-{{2}} Registration number
-{{3}} Participant name
-{{4}} Performance title
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Participant Name
+   {{2}} Registration Number
+   {{3}} Participant Name
+   {{4}} Performance Title
+========================================================= */
 
 export async function sendCulturalProgramSubmittedWhatsApp({
   mobile,
@@ -501,31 +459,25 @@ export async function sendCulturalProgramSubmittedWhatsApp({
 
     bodyParameters: [
       participantName,
-
       registrationNo,
-
       participantName,
-
       performanceTitle,
     ],
   });
 }
 
-/* ============================================================
-   7. CULTURAL PROGRAM CONFIRMED
-============================================================
+/* =========================================================
+   CULTURAL PROGRAM - CONFIRMED
+   Template:
+   buh_cultural_program_confirmed
 
-Template:
-buh_cultural_program_confirmed
-
-Variables:
-
-{{1}} Participant name
-{{2}} Registration number
-{{3}} Performance title
-{{4}} Slot number
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Participant Name
+   {{2}} Registration Number
+   {{3}} Performance Title
+   {{4}} Slot Number
+========================================================= */
 
 export async function sendCulturalProgramConfirmedWhatsApp({
   mobile,
@@ -549,40 +501,34 @@ export async function sendCulturalProgramConfirmedWhatsApp({
 
     bodyParameters: [
       participantName,
-
       registrationNo,
-
       performanceTitle,
-
       String(slotNumber),
     ],
   });
 }
 
-/* ============================================================
-   8. SEVA SUBMITTED
-============================================================
+/* =========================================================
+   SEVA - SUBMITTED
+   Template:
+   buh_seva_submitted
 
-Template:
-buh_seva_submitted
-
-Variables:
-
-{{1}} Name
-{{2}} Seva ID
-{{3}} Selected Seva details
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Name
+   {{2}} Seva ID
+   {{3}} Selected Seva Details
+========================================================= */
 
 export async function sendSevaSubmittedWhatsApp({
   mobile,
   name,
-  sevaId,
+  sevaNo,
   sevaDetails,
 }: {
   mobile: string;
   name: string;
-  sevaId: string;
+  sevaNo: string;
   sevaDetails: string;
 }) {
   return sendTemplate({
@@ -594,38 +540,33 @@ export async function sendSevaSubmittedWhatsApp({
 
     bodyParameters: [
       name,
-
-      sevaId,
-
+      sevaNo,
       sevaDetails,
     ],
   });
 }
 
-/* ============================================================
-   9. SEVA CONFIRMED
-============================================================
+/* =========================================================
+   SEVA - CONFIRMED
+   Template:
+   buh_seva_confirmed
 
-Template:
-buh_seva_confirmed
-
-Variables:
-
-{{1}} Name
-{{2}} Seva ID
-{{3}} Selected Seva details
-
-============================================================ */
+   IMAGE HEADER
+   BODY:
+   {{1}} Name
+   {{2}} Seva ID
+   {{3}} Selected Seva Details
+========================================================= */
 
 export async function sendSevaConfirmedWhatsApp({
   mobile,
   name,
-  sevaId,
+  sevaNo,
   sevaDetails,
 }: {
   mobile: string;
   name: string;
-  sevaId: string;
+  sevaNo: string;
   sevaDetails: string;
 }) {
   return sendTemplate({
@@ -637,9 +578,7 @@ export async function sendSevaConfirmedWhatsApp({
 
     bodyParameters: [
       name,
-
-      sevaId,
-
+      sevaNo,
       sevaDetails,
     ],
   });
