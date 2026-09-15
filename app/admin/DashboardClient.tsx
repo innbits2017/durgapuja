@@ -105,6 +105,22 @@ type SevaRegistration = {
   updated_at: string;
 };
 
+function getMaterialPrice(
+  material: SevaRegistration["materials"][number]
+) {
+  return Number(material.price || 0);
+}
+
+function getSevaMaterialTotal(
+  item: SevaRegistration
+) {
+  return (item.materials || []).reduce(
+    (sum, material) =>
+      sum + getMaterialPrice(material),
+    0
+  );
+}
+
 type SevaStatusFilter =
   | "all"
   | "pending"

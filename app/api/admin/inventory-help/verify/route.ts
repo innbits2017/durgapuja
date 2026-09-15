@@ -113,7 +113,7 @@ export async function POST(
       } = await supabaseAdmin
         .from("inventory_items")
         .select(
-          "id, item_name, required_quantity, active"
+          "id, item_name, required_quantity, unit, active"
         )
         .eq(
           "id",
