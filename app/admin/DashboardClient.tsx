@@ -75,6 +75,7 @@ type CulturalProgram = {
   description: string | null;
   duration: string;
   status: string;
+  slot_number: number | null;
   created_at: string;
   updated_at?: string | null;
 };
@@ -1112,6 +1113,7 @@ export default function DashboardClient({
         item.description ?? "",
         item.duration,
         item.status,
+        item.slot_number ?? "",
       ]
         .join(" ")
         .toLowerCase()
@@ -1648,6 +1650,7 @@ export default function DashboardClient({
   function exportCulturalPrograms() {
     const rows = filteredCulturalPrograms.map((item) => ({
       "Registration ID": item.registration_no,
+      "Slot No.": item.slot_number ?? "",
       Participant: item.participant_name,
       Age: item.age,
       Block: item.block,
@@ -1667,7 +1670,8 @@ export default function DashboardClient({
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [
-      { wch: 20 },
+      { wch: 20 }, // Registration ID
+      { wch: 10 }, // Slot No.
       { wch: 24 },
       { wch: 8 },
       { wch: 10 },
@@ -3893,6 +3897,7 @@ export default function DashboardClient({
                 <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
                   <tr>
                     <th className="px-5 py-3">Registration</th>
+                    <th className="px-4 py-3">Slot</th>
                     <th className="px-4 py-3">Participant</th>
                     <th className="px-4 py-3">Flat</th>
                     <th className="px-4 py-3">Performance</th>
@@ -3916,6 +3921,16 @@ export default function DashboardClient({
                         <div className="mt-1 text-xs text-[#888]">
                           {formatDateTime(item.created_at)}
                         </div>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        {item.slot_number ? (
+                          <span className="inline-flex items-center rounded-full bg-[#fff4dc] px-3 py-1 text-xs font-bold text-[#9a6b00]">
+                            Slot {item.slot_number}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#aaa]">—</span>
+                        )}
                       </td>
 
                       <td className="px-4 py-4">
@@ -4043,6 +4058,13 @@ export default function DashboardClient({
                   <div className="mt-3 rounded-lg bg-[#fcf8f1] p-3 text-xs">
                     <div className="font-semibold text-[#a70e18]">
                       {item.registration_no}
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between rounded-lg border border-[#f0dfbd] bg-[#fff8ea] px-3 py-2">
+                      <span className="text-[#777]">Assigned Slot</span>
+                      <strong className="font-bold text-[#a70e18]">
+                        {item.slot_number ? `Slot ${item.slot_number}` : "—"}
+                      </strong>
                     </div>
 
                     <div className="mt-2 font-semibold">
@@ -5999,6 +6021,15 @@ function CulturalProgramModal({
               <DetailItem
                 label="Block / Flat"
                 value={`${program.block}-${program.flat_no}`}
+              />
+
+              <DetailItem
+                label="Assigned Slot"
+                value={
+                  program.slot_number
+                    ? `Slot ${program.slot_number}`
+                    : "Not Assigned"
+                }
               />
 
               <DetailItem
