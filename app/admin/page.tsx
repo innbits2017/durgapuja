@@ -38,7 +38,7 @@ export default async function DurgaPujaDashboard() {
     supabaseAdmin
       .from("cultural_program_registrations")
       .select(
-        "id, registration_no, participant_name, age, block, flat_no, participant_type, mobile, email, performance_type, group_name, category, performance_title, description, duration, status, created_at, updated_at"
+        "id, registration_no, participant_name, age, block, flat_no, participant_type, mobile, email, performance_type, group_name, category, performance_title, description, duration, status, slot_number, created_at, updated_at"
       )
       .order("created_at", { ascending: false }),
     supabaseAdmin
@@ -126,6 +126,7 @@ export default async function DurgaPujaDashboard() {
           admin_note: item.admin_note ?? null,
           created_at: item.created_at,
           updated_at: item.updated_at ?? null,
+          slot_number: item.slot_number ?? null,
         }))}
       />
     </>
