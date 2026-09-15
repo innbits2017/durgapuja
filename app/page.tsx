@@ -80,27 +80,87 @@ const events = [
 
 const photoGallery = [
   {
-    src: "/images/durga-puja-collection.webp",
+    src: "/images/gallery/durgapuga15.webp",
     alt: "Maa Durga",
     title: "Maa Durga",
   },
   {
-    src: "/images/saptami-puja.webp",
+    src: "/images/gallery/durga-puja-dandia.webp",
+    alt: "Maa Durga",
+    title: "Maa Durga",
+  },
+  {
+    src: "/images/gallery/puri-durgapuja2025.webp",
+    alt: "Maa Durga",
+    title: "Maa Durga",
+  },
+  {
+    src: "/images/gallery/durgapuga14.webp",
     alt: "Saptami Puja",
     title: "Devotion",
   },
   {
-    src: "/images/ashtami-puja.webp",
+    src: "/images/gallery/durgapuga2.webp",
     alt: "Ashtami Puja",
     title: "Celebration",
   },
   {
-    src: "/images/navami.webp",
+    src: "/images/gallery/durgapuga3.webp",
     alt: "Navami Celebration",
     title: "Togetherness",
   },
   {
-    src: "/images/dashami.webp",
+    src: "/images/gallery/durgapuga4.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga5.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga6.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga9.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga10.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga11.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga12.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga13.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga27.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga28.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+  {
+    src: "/images/gallery/durgapuga216.webp",
     alt: "Dashami Celebration",
     title: "Tradition",
   },
@@ -111,19 +171,19 @@ const videoGallery = [
     thumbnail: "/images/durga-puja-collection.webp",
     title: "BUH Durga Puja Highlights",
     description: "Moments from our Durga Puja celebrations",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_1",
+    url: "https://youtu.be/Lky6t5c3lFQ",
   },
   {
     thumbnail: "/images/saptami-puja.webp",
     title: "Saptami Celebration",
     description: "Devotion, music and togetherness",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_2",
+    url: "https://youtube.com/shorts/0m4UV7WoBP0",
   },
   {
     thumbnail: "/images/ashtami-puja.webp",
     title: "Ashtami Cultural Evening",
     description: "A celebration of talent and culture",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_3",
+    url: "https://youtube.com/shorts/3yRCgSsqW1Q",
   },
   {
     thumbnail: "/images/navami.webp",
@@ -138,6 +198,28 @@ const videoGallery = [
     url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_5",
   },
 ];
+
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    let videoId = "";
+
+    if (parsed.hostname.includes("youtu.be")) {
+      videoId = parsed.pathname.replace("/", "").split("/")[0];
+    } else if (parsed.hostname.includes("youtube.com")) {
+      videoId =
+        parsed.searchParams.get("v") ||
+        parsed.pathname.match(/(?:embed|shorts)\/([^/?]+)/)?.[1] ||
+        "";
+    }
+
+    if (!videoId) return "";
+
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
+  } catch {
+    return "";
+  }
+}
 
 const aboutItems = [
   {
@@ -719,34 +801,23 @@ function GallerySlider({
 
                 <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
 
-                  <img
-                    src={
-                      items[lightboxIndex]
-                        .thumbnail
-                    }
-                    alt={
-                      items[lightboxIndex]
-                        .title
-                    }
-                    className="h-full w-full object-cover"
-                  />
-
-                  <a
-                    href={
-                      items[lightboxIndex].url
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#a70e18] text-white shadow-2xl transition hover:scale-110">
-
-                      <i className="fa-solid fa-play ml-1 text-2xl" />
-
+                  {getYouTubeEmbedUrl(
+                    items[lightboxIndex].url
+                  ) ? (
+                    <iframe
+                      src={getYouTubeEmbedUrl(
+                        items[lightboxIndex].url
+                      )}
+                      title={items[lightboxIndex].title}
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-white/70">
+                      Unable to load this video.
                     </div>
-
-                  </a>
+                  )}
 
                 </div>
 
