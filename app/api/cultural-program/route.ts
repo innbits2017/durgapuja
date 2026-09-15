@@ -175,7 +175,9 @@ export async function POST(request: Request) {
         duration,
         status: "pending",
       })
-      .select("id, registration_no, slot_number")
+      .select(
+        "id, registration_no, participant_name, performance_title, slot_number"
+      )
       .single();
 
     if (error) {
