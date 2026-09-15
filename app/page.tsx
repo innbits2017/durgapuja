@@ -10,7 +10,7 @@ const events = [
     day: "MAHA SHASHTI",
     shortDay: "Shashthi",
     date: "16 OCTOBER 2026",
-    image: "/images/shashti-puja.webp",
+    image: "/images/gallery/durga-puja-dandia.webp",
     icon: "fa-solid fa-hands-praying",
     color: "bg-[#8f1019]",
     schedule: {
@@ -81,16 +81,6 @@ const events = [
 const photoGallery = [
   {
     src: "/images/gallery/durgapuga15.webp",
-    alt: "Maa Durga",
-    title: "Maa Durga",
-  },
-  {
-    src: "/images/gallery/durga-puja-dandia.webp",
-    alt: "Maa Durga",
-    title: "Maa Durga",
-  },
-  {
-    src: "/images/gallery/puri-durgapuja2025.webp",
     alt: "Maa Durga",
     title: "Maa Durga",
   },
@@ -171,19 +161,19 @@ const videoGallery = [
     thumbnail: "/images/durga-puja-collection.webp",
     title: "BUH Durga Puja Highlights",
     description: "Moments from our Durga Puja celebrations",
-    url: "https://youtu.be/Lky6t5c3lFQ",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_1",
   },
   {
     thumbnail: "/images/saptami-puja.webp",
     title: "Saptami Celebration",
     description: "Devotion, music and togetherness",
-    url: "https://youtube.com/shorts/0m4UV7WoBP0",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_2",
   },
   {
     thumbnail: "/images/ashtami-puja.webp",
     title: "Ashtami Cultural Evening",
     description: "A celebration of talent and culture",
-    url: "https://youtube.com/shorts/3yRCgSsqW1Q",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_3",
   },
   {
     thumbnail: "/images/navami.webp",
@@ -198,28 +188,6 @@ const videoGallery = [
     url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_5",
   },
 ];
-
-function getYouTubeEmbedUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    let videoId = "";
-
-    if (parsed.hostname.includes("youtu.be")) {
-      videoId = parsed.pathname.replace("/", "").split("/")[0];
-    } else if (parsed.hostname.includes("youtube.com")) {
-      videoId =
-        parsed.searchParams.get("v") ||
-        parsed.pathname.match(/(?:embed|shorts)\/([^/?]+)/)?.[1] ||
-        "";
-    }
-
-    if (!videoId) return "";
-
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
-  } catch {
-    return "";
-  }
-}
 
 const aboutItems = [
   {
@@ -801,23 +769,34 @@ function GallerySlider({
 
                 <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
 
-                  {getYouTubeEmbedUrl(
-                    items[lightboxIndex].url
-                  ) ? (
-                    <iframe
-                      src={getYouTubeEmbedUrl(
-                        items[lightboxIndex].url
-                      )}
-                      title={items[lightboxIndex].title}
-                      className="absolute inset-0 h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-white/70">
-                      Unable to load this video.
+                  <img
+                    src={
+                      items[lightboxIndex]
+                        .thumbnail
+                    }
+                    alt={
+                      items[lightboxIndex]
+                        .title
+                    }
+                    className="h-full w-full object-cover"
+                  />
+
+                  <a
+                    href={
+                      items[lightboxIndex].url
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#a70e18] text-white shadow-2xl transition hover:scale-110">
+
+                      <i className="fa-solid fa-play ml-1 text-2xl" />
+
                     </div>
-                  )}
+
+                  </a>
 
                 </div>
 
@@ -1022,21 +1001,21 @@ export default function HomePage() {
               </a>
 
               <a
-                href="#seva"
+                href="/seva"
                 className="transition hover:text-[#a70e18]"
               >
                 Offer Seva
               </a>
 
               <a
-                href="#cultural-program"
+                href="/cultural-program"
                 className="transition hover:text-[#a70e18]"
               >
                 Cultural Program Registration
               </a>
 
               <a
-                href="#cultural-program"
+                href="/inventory-help"
                 className="transition hover:text-[#a70e18]"
               >
                 Inventory Help
@@ -1447,236 +1426,184 @@ export default function HomePage() {
 
       <section
         id="events"
-        className="relative bg-[#f8f0e5] px-5 py-24"
+        className="relative overflow-hidden bg-[#f8f0e5] px-5 py-16 sm:py-20"
       >
+        <div className="pointer-events-none absolute left-[-100px] top-20 h-72 w-72 rounded-full border border-[#c7a66b]/10" />
+        <div className="pointer-events-none absolute bottom-20 right-[-120px] h-80 w-80 rounded-full border border-[#c7a66b]/10" />
 
-        <div className="mx-auto max-w-6xl">
-
+        <div className="relative mx-auto max-w-6xl">
+          {/* Section heading */}
           <div className="text-center">
-
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-[#d7b66a] bg-[#fffaf2] text-xl text-[#a70e18]">
-
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#d7b66a] bg-[#fffaf2] text-lg text-[#a70e18] shadow-sm">
               <i className="fa-solid fa-calendar-days" />
-
             </div>
 
-            <p className="text-xs font-bold tracking-[0.4em] text-[#a77a2b]">
+            <p className="text-[10px] font-bold tracking-[0.35em] text-[#a77a2b]">
               PUJA & CELEBRATIONS
             </p>
 
-            <h2 className="mt-4 text-4xl font-bold text-[#761019] sm:text-5xl">
+            <h2 className="mt-3 text-4xl font-bold text-[#761019] sm:text-5xl">
               Events & Celebrations
             </h2>
 
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#766457]">
-              Five days of devotion, music, dance, culture
-              and community celebration.
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#766457]">
+              Five days of devotion, music, dance, culture and community celebration.
             </p>
-
           </div>
 
-          <div className="relative mt-16">
+          {/* Events timeline */}
+          <div className="relative mt-12 sm:mt-14">
+            {/* One continuous centre line */}
+            <div className="pointer-events-none absolute bottom-0 left-1/2 top-0 hidden w-px -translate-x-1/2 bg-[#d7b66a]/55 md:block" />
 
-            {/* Timeline */}
+            <div className="space-y-14 sm:space-y-16">
+              {events.map((event, index) => {
+                const imageOnLeft = index % 2 === 0;
 
-            <div className="absolute left-1/2 top-0 hidden h-full w-px -translate-x-1/2 bg-[#c7a66b]/40 md:block" />
-
-            <div className="space-y-12">
-
-              {events.map((event, index) => (
-
-                <div
-                  key={event.day}
-                  className="relative grid gap-8 md:grid-cols-2 md:gap-14"
-                >
-
-                  <div
-                    className={`rounded-[2rem] border border-[#e4d3bc] bg-white p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                      index % 2 === 1
-                        ? "md:col-start-2"
-                        : "md:col-start-1"
-                    }`}
+                return (
+                  <article
+                    key={event.day}
+                    className="relative grid items-center md:grid-cols-[minmax(0,1fr)_70px_minmax(0,1fr)] md:gap-x-8 lg:gap-x-10"
                   >
-
-                    {/* Event Image */}
-
-                    <div className="group relative mb-6 overflow-hidden rounded-2xl">
-
-                      <img
-                        src={event.image}
-                        alt={event.day}
-                        className="h-52 w-full object-cover object-top transition duration-700 group-hover:scale-110"
-                      />
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#3b090d]/75 via-transparent to-transparent" />
-
-                      <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-xs font-bold text-[#761019] shadow-lg">
-
-                        <i className="fa-regular fa-calendar" />
-
-                        {event.date}
-
+                    {/* Centre dot */}
+                    <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 md:flex">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-[5px] border-[#f8f0e5] bg-[#a70e18] shadow-[0_3px_12px_rgba(80,20,20,0.18)]">
+                        <div className="h-2.5 w-2.5 rounded-full bg-white" />
                       </div>
-
                     </div>
 
-                    {/* Event Heading */}
+                    {/* IMAGE */}
+                    <div
+                      className={
+                        imageOnLeft
+                          ? "md:col-start-1 md:row-start-1"
+                          : "md:col-start-3 md:row-start-1"
+                      }
+                    >
+                      <div className="overflow-hidden rounded-[1.35rem] border border-[#e4d3bc] bg-white shadow-sm">
+                        <div className="relative aspect-[16/8] overflow-hidden">
+                          <img
+                            src={event.image}
+                            alt={event.day}
+                            className="h-full w-full object-cover transition duration-700 hover:scale-105"
+                          />
 
-                    <div className="flex items-center gap-4">
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#3b090d]/85 via-[#3b090d]/10 to-transparent" />
 
-                      <div
-                        className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${event.color} text-xl text-white shadow-lg`}
-                      >
+                          <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 sm:bottom-5 sm:left-5 sm:right-5">
+                            <div>
+                              <p className="text-[9px] font-bold tracking-[0.2em] text-[#f0d27d]">
+                                {event.date}
+                              </p>
 
-                        <div className="absolute inset-1 rounded-xl border border-white/20" />
+                              <p className="mt-1 text-xl font-bold text-white sm:text-2xl">
+                                {event.day}
+                              </p>
+                            </div>
 
-                        <i className={`${event.icon} relative z-10`} />
-
+                            <div
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${event.color} text-white shadow-lg`}
+                            >
+                              <i className={`${event.icon} text-sm`} />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-
-                      <div>
-
-                        <p className="text-2xl font-bold text-[#761019]">
-                          {event.day}
-                        </p>
-
-                      </div>
-
                     </div>
 
-                  {/* Day Schedule */}
+                    {/* CONTENT */}
+                    <div
+                      className={
+                        imageOnLeft
+                          ? "md:col-start-3 md:row-start-1"
+                          : "md:col-start-1 md:row-start-1"
+                      }
+                    >
+                      <div className="rounded-[1.35rem] border border-[#e4d3bc] bg-white p-4 shadow-sm sm:p-5">
+                        <div className="mb-3 flex items-end justify-between gap-3">
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
+                              {event.shortDay}
+                            </p>
 
-                  <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                            <h3 className="mt-1 text-xl font-bold text-[#761019] sm:text-2xl">
+                              {event.day}
+                            </h3>
+                          </div>
 
-                    {/* Morning */}
-                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
-                          <i className="fa-solid fa-sun" />
+                          <p className="shrink-0 text-[10px] font-semibold text-[#8a7667] sm:text-xs">
+                            {event.date}
+                          </p>
                         </div>
 
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
-                            Morning
-                          </p>
+                        <div className="overflow-hidden rounded-xl border border-[#eadbc6] bg-[#fffaf2]">
+                          {[
+                            {
+                              icon: "fa-sun",
+                              label: "Morning",
+                              value: event.schedule.morning,
+                            },
+                            {
+                              icon: "fa-cloud-sun",
+                              label: "Afternoon",
+                              value: event.schedule.afternoon,
+                            },
+                            {
+                              icon: "fa-music",
+                              label: "Evening",
+                              value: event.schedule.evening,
+                            },
+                            {
+                              icon: "fa-moon",
+                              label: "Night",
+                              value: event.schedule.night,
+                            },
+                          ].map((slot, slotIndex) => (
+                            <div
+                              key={slot.label}
+                              className={`grid grid-cols-[88px_1fr] gap-2 px-3 py-3 sm:grid-cols-[100px_1fr] sm:px-4 sm:py-3.5 ${
+                                slotIndex !== 3
+                                  ? "border-b border-[#eadbc6]"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.11em] text-[#a77a2b] sm:text-[10px]">
+                                <i
+                                  className={`fa-solid ${slot.icon} text-[#a70e18]`}
+                                />
+                                <span>{slot.label}</span>
+                              </div>
 
-                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
-                            {event.schedule.morning}
-                          </p>
+                              <p className="text-xs font-semibold leading-5 text-[#392823] sm:text-sm">
+                                {slot.value}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-
                       </div>
-
                     </div>
 
-                    {/* Afternoon */}
-                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
-                          <i className="fa-solid fa-cloud-sun" />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
-                            Afternoon
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
-                            {event.schedule.afternoon}
-                          </p>
-                        </div>
-
+                    {/* Mobile connector between events */}
+                    {index < events.length - 1 && (
+                      <div className="col-span-full mx-auto mt-8 flex flex-col items-center md:hidden">
+                        <div className="h-6 w-px bg-[#d7b66a]/55" />
+                        <div className="h-2.5 w-2.5 rounded-full bg-[#a70e18] ring-4 ring-[#f8f0e5]" />
+                        <div className="h-6 w-px bg-[#d7b66a]/55" />
                       </div>
-
-                    </div>
-
-                    {/* Evening */}
-                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
-                          <i className="fa-solid fa-music" />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
-                            Evening
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
-                            {event.schedule.evening}
-                          </p>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* Night */}
-                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
-                          <i className="fa-solid fa-moon" />
-                        </div>
-
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
-                            Night
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
-                            {event.schedule.night}
-                          </p>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  </div>
-
-                  {/* Timeline Marker */}
-
-                  <div className="absolute left-1/2 top-10 hidden -translate-x-1/2 md:block">
-
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-4 border-[#f8f0e5] bg-[#a70e18] shadow-lg">
-
-                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              ))}
-
+                    )}
+                  </article>
+                );
+              })}
             </div>
-
           </div>
 
-          <div className="mt-14 flex items-center justify-center gap-3 text-center">
-
-            <i className="fa-solid fa-circle-info text-[#a77a2b]" />
-
-            <p className="text-xs text-[#8a7667]">
-              Timings are subject to change. Please
-              check the website for the latest updates.
+          <div className="mt-10 flex items-center justify-center gap-2 text-center">
+            <i className="fa-solid fa-circle-info text-[11px] text-[#a77a2b]" />
+            <p className="text-[10px] text-[#8a7667]">
+              Timings are subject to change. Please check the website for the latest updates.
             </p>
-
           </div>
-
         </div>
-
       </section>
 
       {/* =====================================================
