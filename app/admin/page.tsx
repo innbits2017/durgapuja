@@ -11,6 +11,7 @@ export default async function DurgaPujaDashboard() {
     { data: lastYearPaid, error: lastYearPaidError },
     { data: culturalPrograms, error: culturalProgramsError },
     { data: sevaRegistrations, error: sevaRegistrationsError },
+    { data: inventoryHelp, error: inventoryHelpError },
   ] = await Promise.all([
     supabaseAdmin
       .from("contributions")
@@ -55,6 +56,32 @@ export default async function DurgaPujaDashboard() {
         "id, seva_no, name, block, flat_no, mobile, materials, volunteer_roles, volunteer_role_names, volunteer_note, status, admin_note, created_at, updated_at"
       )
       .order("created_at", { ascending: false }),
+
+      supabaseAdmin
+        .from("inventory_help_requests")
+        .select(`
+          id,
+          request_no,
+          name,
+          block,
+          flat_no,
+          mobile,
+          brand,
+          quantity,
+          status,
+          admin_note,
+          created_at,
+          verified_at,
+          inventory_item_id,
+          inventory_items (
+            item_name,
+            item_key,
+            unit
+          )
+        `)
+        .order("created_at", {
+          ascending: false,
+        }),
   ]);
 
   const error =

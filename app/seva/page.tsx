@@ -7,82 +7,74 @@ const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 const BLOCKS = ["P1", "P2", "Villa"] as const;
 type Block = (typeof BLOCKS)[number];
 
-function generateFlats(start: number, end: number) {
-  const flats: string[] = [];
-
-  for (let i = start; i <= end; i++) {
-    flats.push(String(i).padStart(3, "0"));
-  }
-
-  return flats;
-}
-
 const FLATS: Record<Block, string[]> = {
   P1: [
-    ...generateFlats(1, 12),
-    ...generateFlats(101, 112),
-    ...generateFlats(201, 212),
-    ...generateFlats(301, 312),
+    ...Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(3, "0")),
+    ...Array.from({ length: 12 }, (_, i) => `${101 + i}`),
+    ...Array.from({ length: 12 }, (_, i) => `${201 + i}`),
+    ...Array.from({ length: 12 }, (_, i) => `${301 + i}`),
   ],
   P2: [
-    ...generateFlats(1, 67),
-    ...generateFlats(101, 167),
-    ...generateFlats(201, 267),
-    ...generateFlats(301, 367),
+    ...Array.from({ length: 67 }, (_, i) => String(i + 1).padStart(3, "0")),
+    ...Array.from({ length: 67 }, (_, i) => `${101 + i}`),
+    ...Array.from({ length: 67 }, (_, i) => `${201 + i}`),
+    ...Array.from({ length: 67 }, (_, i) => `${301 + i}`),
   ],
   Villa: ["001", "002", "003", "004"],
 };
+
+const PUJA_DAYS = ["Shashti", "Saptami", "Ashtami", "Navami", "Dasami"] as const;
+type PujaDay = (typeof PUJA_DAYS)[number];
 
 const MATERIAL_SEVAS = [
   {
     id: "rice",
     title: "Rice",
-    subtitle: "Donate rice for Bhog & Prasad",
+    subtitle: "Sponsor rice for Bhog & Prasad.",
     icon: "fa-bowl-rice",
-    unit: "kg",
+    options: [
+      { id: "rice_10", label: "10 kg", price: 601 },
+      { id: "rice_25", label: "25 kg", price: 1501 },
+      { id: "rice_50", label: "50 kg", price: 3001 },
+    ],
   },
   {
-    id: "grocery",
-    title: "Grocery",
-    subtitle: "Donate dal for community meals",
+    id: "dal",
+    title: "Dal",
+    subtitle: "Sponsor dal for community meals.",
     icon: "fa-seedling",
-    unit: "kg",
+    options: [
+      { id: "dal_5", label: "5 kg", price: 601 },
+    ],
   },
   {
     id: "vegetables",
     title: "Vegetables",
-    subtitle: "Fresh vegetables for daily Prasad",
+    subtitle: "Sponsor fresh vegetables for Puja meals.",
     icon: "fa-carrot",
-    unit: "kg",
-  },
-  {
-    id: "full_prasad",
-    title: "Full One-Time Prasad",
-    subtitle: "Sponsor one complete Prasad service",
-    icon: "fa-utensils",
-    unit: "service",
-  },
-  {
-    id: "cylinder",
-    title: "Gas Cylinder",
-    subtitle: "Support the Puja kitchen with a cylinder",
-    icon: "fa-fire-flame-simple",
-    unit: "cylinder",
-  },
-  {
-    id: "water_cans",
-    title: "Empty Water Cans",
-    subtitle: "Provide empty water cans for the committee",
-    icon: "fa-bottle-water",
-    unit: "can",
+    options: [
+      { id: "vegetables_10", label: "10 kg", price: 801 },
+      { id: "vegetables_20", label: "20 kg", price: 1501 },
+    ],
   },
   {
     id: "sukha_prasad",
     title: "Sukha Prasad",
-    subtitle: "Donate dry Prasad for devotees",
+    subtitle: "Sponsor dry Prasad for devotees.",
     icon: "fa-gift",
-    unit: "kg",
+    options: [
+      { id: "sukha_once", label: "One Time", price: 1001 },
+      { id: "sukha_both", label: "Both Times", price: 2001 },
+    ],
   },
+] as const;
+
+const ANNADANA_OPTIONS = [
+  { id: "annadana_5001", label: "₹5,001", price: 5001 },
+  { id: "annadana_10001", label: "₹10,001", price: 10001 },
+  { id: "annadana_15001", label: "₹15,001", price: 15001 },
+  { id: "annadana_20001", label: "₹20,001", price: 20001 },
+  { id: "annadana_25001", label: "₹25,001", price: 25001 },
 ] as const;
 
 const VOLUNTEER_ROLES = [
@@ -102,13 +94,12 @@ const VOLUNTEER_ROLES = [
   { id: "cultural_program", title: "Cultural Program", icon: "fa-music" },
   { id: "devotee_management", title: "Devotee Management", icon: "fa-people-group" },
   { id: "cleanliness", title: "Cleanliness Management", icon: "fa-broom" },
-  { id: "plates_spoon", title: "Plates, Cups & Spoon", icon: "fa-utensils" },
-  { id: "water_management", title: "Water Management", icon: "fa-water" },
 ] as const;
 
 type MaterialSelection = {
   selected: boolean;
-  quantity: string;
+  optionId: string;
+  day: PujaDay | "";
 };
 
 function InputField({
@@ -169,7 +160,7 @@ function CustomSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="relative">
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
       <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.8px] text-[#765f53]">
         {label} <span className="text-[#a70e18]">*</span>
       </span>
@@ -237,10 +228,7 @@ function FlatSearchSelect({
   }, [block, search]);
 
   return (
-    <div
-      className="relative"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
       <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.8px] text-[#765f53]">
         Flat No. <span className="text-[#a70e18]">*</span>
       </span>
@@ -250,20 +238,14 @@ function FlatSearchSelect({
           <i className="fa-solid fa-house" />
         </span>
         <input
-          value={search || value}
+          value={search}
           disabled={!block}
-          onFocus={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!open) onToggle();
+          onFocus={() => {
+            if (block) onToggle();
           }}
           onChange={(e) => {
-            e.stopPropagation();
             setSearch(e.target.value);
-            if (!open) onToggle();
+            onToggle();
           }}
           placeholder={block ? "Search and select your flat" : "Select block first"}
           className="w-full bg-transparent text-[13px] text-[#292929] outline-none placeholder:text-[#aaa09a] disabled:cursor-not-allowed"
@@ -294,6 +276,23 @@ function FlatSearchSelect({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function SummaryBox({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] text-[#8a7b70]">{label}</div>
+      <div className="mt-1 text-[12px] font-bold text-[#403731]">
+        {value}
+      </div>
     </div>
   );
 }
@@ -342,11 +341,31 @@ export default function SevaPage() {
   const [flatNo, setFlatNo] = useState("");
   const [flatSearch, setFlatSearch] = useState("");
   const [mobile, setMobile] = useState("");
+  const [utr, setUtr] = useState("");
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   const [materialSelections, setMaterialSelections] = useState<Record<string, MaterialSelection>>(
-    Object.fromEntries(MATERIAL_SEVAS.map((item) => [item.id, { selected: false, quantity: "" }]))
+    Object.fromEntries(
+      MATERIAL_SEVAS.map((item) => [
+        item.id,
+        {
+          selected: false,
+          optionId: item.options[0]?.id || "",
+          day: "",
+        },
+      ])
+    )
   );
+
+  const [annadanaSelection, setAnnadanaSelection] = useState<{
+    selected: boolean;
+    optionId: string;
+    day: PujaDay | "";
+  }>({
+    selected: false,
+    optionId: ANNADANA_OPTIONS[0].id,
+    day: "",
+  });
 
   const [volunteerRoles, setVolunteerRoles] = useState<string[]>([]);
   const [volunteerNote, setVolunteerNote] = useState("");
@@ -356,7 +375,48 @@ export default function SevaPage() {
   const [error, setError] = useState("");
 
   const selectedMaterials = MATERIAL_SEVAS.filter((item) => materialSelections[item.id]?.selected);
-  const hasAnySeva = selectedMaterials.length > 0 || volunteerRoles.length > 0;
+  const hasAnySeva =
+    selectedMaterials.length > 0 ||
+    annadanaSelection.selected ||
+    volunteerRoles.length > 0;
+
+  const selectedMaterialTotal = selectedMaterials.reduce((sum, item) => {
+    const selection = materialSelections[item.id];
+    const option = item.options.find((entry) => entry.id === selection?.optionId);
+    return sum + Number(option?.price || 0);
+  }, 0);
+
+  const annadanaTotal = annadanaSelection.selected
+    ? Number(
+        ANNADANA_OPTIONS.find(
+          (option) => option.id === annadanaSelection.optionId
+        )?.price || 0
+      )
+    : 0;
+
+  // Calculate the total BEFORE constructing the UPI URL.
+  // This avoids a temporal-dead-zone error during render.
+  const totalSevaAmount = selectedMaterialTotal + annadanaTotal;
+
+  const upiId =
+    process.env.NEXT_PUBLIC_UPI_ID || "9036082478@ptsbi";
+
+  const upiName =
+    process.env.NEXT_PUBLIC_UPI_NAME || "BUH Durga Puja";
+
+  const upiUrl =
+    `upi://pay` +
+    `?pa=${encodeURIComponent(upiId)}` +
+    `&pn=${encodeURIComponent(upiName)}` +
+    `&am=${totalSevaAmount.toFixed(2)}` +
+    `&cu=INR` +
+    `&tn=${encodeURIComponent(
+      `BUH Durga Puja Seva - ${block}-${flatNo}`
+    )}`;
+
+  const qrUrl =
+    `https://api.qrserver.com/v1/create-qr-code/` +
+    `?size=400x400&margin=10&data=${encodeURIComponent(upiUrl)}`;
 
   function toggleMaterial(id: string) {
     setMaterialSelections((current) => ({
@@ -368,13 +428,37 @@ export default function SevaPage() {
     }));
   }
 
-  function updateQuantity(id: string, quantity: string) {
+  function updateMaterialOption(id: string, optionId: string) {
     setMaterialSelections((current) => ({
       ...current,
       [id]: {
         ...current[id],
-        quantity,
+        optionId,
       },
+    }));
+  }
+
+  function updateMaterialDay(id: string, day: PujaDay) {
+    setMaterialSelections((current) => ({
+      ...current,
+      [id]: {
+        ...current[id],
+        day,
+      },
+    }));
+  }
+
+  function updateAnnadanaOption(optionId: string) {
+    setAnnadanaSelection((current) => ({
+      ...current,
+      optionId,
+    }));
+  }
+
+  function updateAnnadanaDay(day: PujaDay) {
+    setAnnadanaSelection((current) => ({
+      ...current,
+      day,
     }));
   }
 
@@ -413,13 +497,22 @@ export default function SevaPage() {
     }
 
     for (const item of selectedMaterials) {
-      if (item.id !== "full_prasad" && item.id !== "cylinder") {
-        const quantity = Number(materialSelections[item.id]?.quantity);
-        if (!Number.isFinite(quantity) || quantity <= 0) {
-          setError(`Please enter the quantity for ${item.title}.`);
-          return;
-        }
+      const selection = materialSelections[item.id];
+
+      if (!selection?.optionId) {
+        setError(`Please select a package for ${item.title}.`);
+        return;
       }
+
+      if (!selection.day) {
+        setError(`Please select the Puja day for ${item.title}.`);
+        return;
+      }
+    }
+
+    if (annadanaSelection.selected && !annadanaSelection.day) {
+      setError("Please select the Puja day for Annadana Seva.");
+      return;
     }
 
     setOpenDropdown(null);
@@ -428,6 +521,13 @@ export default function SevaPage() {
 
   async function submitSeva() {
     setError("");
+
+    if (totalSevaAmount > 0 && !utr.trim()) {
+      setError("Please enter the UTR / Transaction ID.");
+      setStep(2);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -439,24 +539,68 @@ export default function SevaPage() {
           block,
           flatNo,
           mobile,
-          materials: selectedMaterials.map((item) => ({
-            type: item.id,
-            title: item.title,
-            quantity: materialSelections[item.id]?.quantity || null,
-            unit: item.unit,
-          })),
+          materials: [
+            ...selectedMaterials.map((item) => {
+              const selection = materialSelections[item.id];
+              const option = item.options.find(
+                (entry) => entry.id === selection.optionId
+              );
+
+              const quantityMatch =
+                option?.label.match(/^(\d+)/);
+
+              return {
+                type: item.id,
+                title: item.title,
+                package: option?.label || "",
+                quantity: quantityMatch
+                  ? Number(quantityMatch[1])
+                  : null,
+                unit:
+                  item.id === "sukha_prasad"
+                    ? "time"
+                    : "kg",
+                price: Number(option?.price || 0),
+                day: selection.day,
+              };
+            }),
+            ...(annadanaSelection.selected
+              ? [
+                  {
+                    type: "annadana",
+                    title: "Annadana Seva",
+                    package:
+                      ANNADANA_OPTIONS.find(
+                        (option) =>
+                          option.id === annadanaSelection.optionId
+                      )?.label || "",
+                    quantity: null,
+                    unit: "service",
+                    price: annadanaTotal,
+                    day: annadanaSelection.day,
+                  },
+                ]
+              : []),
+          ],
           volunteerRoles,
-          volunteerRoleNames: VOLUNTEER_ROLES.filter((role) => volunteerRoles.includes(role.id)).map(
-            (role) => role.title
-          ),
+          volunteerRoleNames: VOLUNTEER_ROLES.filter(
+            (role) => volunteerRoles.includes(role.id)
+          ).map((role) => role.title),
           volunteerNote: volunteerNote.trim() || null,
+          amount: totalSevaAmount,
+          paymentMethod:
+            totalSevaAmount > 0 ? "upi" : null,
+          utr:
+            totalSevaAmount > 0 ? utr.trim() : null,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data?.error || "Unable to submit your Seva.");
+        setError(
+          data?.error || "Unable to submit your Seva."
+        );
         return;
       }
 
@@ -464,7 +608,9 @@ export default function SevaPage() {
       setStep(3);
     } catch (err) {
       console.error(err);
-      setError("Something went wrong. Please check your connection and try again.");
+      setError(
+        "Something went wrong. Please check your connection and try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -476,10 +622,25 @@ export default function SevaPage() {
     setFlatNo("");
     setFlatSearch("");
     setMobile("");
+    setUtr("");
     setOpenDropdown(null);
     setMaterialSelections(
-      Object.fromEntries(MATERIAL_SEVAS.map((item) => [item.id, { selected: false, quantity: "" }]))
+      Object.fromEntries(
+        MATERIAL_SEVAS.map((item) => [
+          item.id,
+          {
+            selected: false,
+            optionId: item.options[0]?.id || "",
+            day: "",
+          },
+        ])
+      )
     );
+    setAnnadanaSelection({
+      selected: false,
+      optionId: ANNADANA_OPTIONS[0].id,
+      day: "",
+    });
     setVolunteerRoles([]);
     setVolunteerNote("");
     setSubmittedId("");
@@ -668,92 +829,149 @@ export default function SevaPage() {
                     <div>
                       <h3 className="font-serif text-[21px] text-[#292929]">Material Seva</h3>
                       <p className="mt-1 text-[11px] text-[#777] sm:text-[12px]">
-                        Select one or more items you would like to provide.
+                        Sponsor the required materials. The committee will purchase and arrange the items.
                       </p>
                     </div>
-                    <span className="rounded-full bg-[#fff3e9] px-2.5 py-1 text-[10px] font-bold text-[#a70e18]">
-                      OPTIONAL
-                    </span>
+                    <span className="rounded-full bg-[#fff3e9] px-2.5 py-1 text-[10px] font-bold text-[#a70e18]">OPTIONAL</span>
+                  </div>
+
+                  <div className="mb-3 rounded-[11px] border border-[#f0dfbd] bg-[#fff8ea] px-3 py-2.5 text-[10px] leading-[1.5] text-[#6f6259]">
+                    <i className="fa-solid fa-circle-info mr-1 text-[#a70e18]" />
+                    Seva amounts are sponsorship amounts for the listed requirement. Please do not bring the materials directly.
                   </div>
 
                   <div className="grid gap-2.5 sm:grid-cols-2">
                     {MATERIAL_SEVAS.map((item) => {
-                      const selected = materialSelections[item.id]?.selected;
-                      const quantityRequired = item.id !== "full_prasad" && item.id !== "cylinder";
+                      const selection = materialSelections[item.id];
+                      const selected = selection?.selected;
+                      const selectedOption = item.options.find((option) => option.id === selection?.optionId);
 
                       return (
-                        <div
-                          key={item.id}
-                          className={`rounded-[13px] border p-3 transition ${
-                            selected
-                              ? "border-[#d8b06b] bg-[#fff8ed] shadow-[0_7px_16px_rgba(150,105,42,0.08)]"
-                              : "border-[#eadfd2] bg-[#fffdf9]"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => toggleMaterial(item.id)}
-                            className="flex w-full items-start gap-3 text-left"
-                          >
-                            <span
-                              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
-                                selected ? "bg-[#a70e18] text-white" : "bg-[#f8e8e5] text-[#a70e18]"
-                              }`}
-                            >
+                        <div key={item.id} className={`rounded-[13px] border p-3 transition ${
+                          selected
+                            ? "border-[#d8b06b] bg-[#fff8ed] shadow-[0_7px_16px_rgba(150,105,42,0.08)]"
+                            : "border-[#eadfd2] bg-[#fffdf9]"
+                        }`}>
+                          <button type="button" onClick={() => toggleMaterial(item.id)} className="flex w-full items-start gap-3 text-left">
+                            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
+                              selected ? "bg-[#a70e18] text-white" : "bg-[#f8e8e5] text-[#a70e18]"
+                            }`}>
                               <i className={`fa-solid ${item.icon}`} />
                             </span>
-
                             <span className="min-w-0 flex-1">
                               <span className="flex items-center justify-between gap-2">
-                                <span className="text-[13px] font-bold text-[#3b312d]">{item.title}</span>
-                                <span
-                                  className={`flex h-5 w-5 items-center justify-center rounded-full border text-[9px] ${
-                                    selected
-                                      ? "border-[#a70e18] bg-[#a70e18] text-white"
-                                      : "border-[#d8d0c8] text-transparent"
-                                  }`}
-                                >
+                                <span className="text-[15px] font-bold text-[#3b312d]">{item.title}</span>
+                                <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[9px] ${
+                                  selected ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#d8d0c8] text-transparent"
+                                }`}>
                                   <i className="fa-solid fa-check" />
                                 </span>
                               </span>
-                              <span className="mt-0.5 block text-[10px] leading-[1.4] text-[#81766f]">
-                                {item.subtitle}
-                              </span>
+                              <span className="mt-0.5 block text-[12px] leading-[1.45] text-[#81766f]">{item.subtitle}</span>
                             </span>
                           </button>
 
-                          {selected && quantityRequired && (
-                            <div className="mt-3 flex items-center gap-2">
-                              <span className="text-[10px] font-semibold text-[#756961]">Quantity</span>
-                              <input
-                                type="number"
-                                min="1"
-                                step="0.5"
-                                value={materialSelections[item.id]?.quantity || ""}
-                                onChange={(e) => updateQuantity(item.id, e.target.value)}
-                                placeholder="Enter"
-                                className="h-8 w-24 rounded-[8px] border border-[#e5d6c7] bg-white px-2 text-[11px] outline-none focus:border-[#c99a43]"
-                              />
-                              <span className="text-[10px] text-[#81766f]">{item.unit}</span>
+                          <div className="mt-3 grid gap-2">
+                            <div>
+                              <div className="mb-1 text-[12px] font-semibold text-[#756961]">Sponsorship Option</div>
+                              <div className="grid grid-cols-1 gap-1.5">
+                                {item.options.map((option) => (
+                                  <button key={option.id} type="button" disabled={!selected} onClick={() => updateMaterialOption(item.id, option.id)}
+                                    className={`flex items-center justify-between rounded-[9px] border px-2.5 py-2.5 text-left text-[12px] transition ${
+                                      selectedOption?.id === option.id
+                                        ? "border-[#c79531] bg-[#fff1d9] font-bold text-[#a70e18]"
+                                        : "border-[#eadfd2] bg-white text-[#555]"
+                                    } ${!selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff8ed]"}`}>
+                                    <span>{option.label}</span>
+                                    <span>₹{option.price.toLocaleString("en-IN")}</span>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          )}
 
-                          {selected && item.id === "full_prasad" && (
-                            <div className="mt-3 rounded-[8px] bg-[#fff0e7] px-2.5 py-2 text-[10px] text-[#7b5b4e]">
-                              <i className="fa-solid fa-heart mr-1 text-[#a70e18]" />
-                              One complete Prasad service for the community.
+                            <div>
+                              <div className="mb-1 text-[12px] font-semibold text-[#756961]">Puja Day</div>
+                              <div className="grid grid-cols-5 gap-1">
+                                {PUJA_DAYS.map((day) => (
+                                  <button key={day} type="button" disabled={!selected} onClick={() => updateMaterialDay(item.id, day)}
+                                    className={`rounded-[8px] border px-1 py-2 text-[11px] font-semibold transition ${
+                                      selection?.day === day ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#eadfd2] bg-white text-[#6f6259]"
+                                    } ${!selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff1e9]"}`}>
+                                    {day}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          )}
-
-                          {selected && item.id === "cylinder" && (
-                            <div className="mt-3 rounded-[8px] bg-[#fff0e7] px-2.5 py-2 text-[10px] text-[#7b5b4e]">
-                              <i className="fa-solid fa-circle-info mr-1 text-[#a70e18]" />
-                              Cylinder requirement will be coordinated by the Puja Committee.
-                            </div>
-                          )}
+                          </div>
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* ANNADANA SEVA */}
+                <div className="mt-7">
+                  <div className="mb-3 flex items-end justify-between gap-3">
+                    <div>
+                      <h3 className="font-serif text-[21px] text-[#292929]">Annadana Seva</h3>
+                      <p className="mt-1 text-[11px] text-[#777] sm:text-[12px]">Sponsor Annadana for the Puja community.</p>
+                    </div>
+                    <span className="rounded-full bg-[#fff3e9] px-2.5 py-1 text-[10px] font-bold text-[#a70e18]">OPTIONAL</span>
+                  </div>
+
+                  <div className={`rounded-[13px] border p-3 transition ${
+                    annadanaSelection.selected
+                      ? "border-[#d8b06b] bg-[#fff8ed] shadow-[0_7px_16px_rgba(150,105,42,0.08)]"
+                      : "border-[#eadfd2] bg-[#fffdf9]"
+                  }`}>
+                    <button type="button" onClick={() => setAnnadanaSelection((current) => ({ ...current, selected: !current.selected }))} className="flex w-full items-start gap-3 text-left">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
+                        annadanaSelection.selected ? "bg-[#a70e18] text-white" : "bg-[#f8e8e5] text-[#a70e18]"
+                      }`}>
+                        <i className="fa-solid fa-bowl-food" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-[15px] font-bold text-[#3b312d]">Annadana Sponsorship</span>
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[9px] ${
+                            annadanaSelection.selected ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#d8d0c8] text-transparent"
+                          }`}>
+                            <i className="fa-solid fa-check" />
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-[12px] leading-[1.45] text-[#81766f]">Choose a sponsorship amount and the day you wish to support.</span>
+                      </span>
+                    </button>
+
+                    <div className="mt-3 grid gap-2">
+                      <div>
+                        <div className="mb-1 text-[12px] font-semibold text-[#756961]">Sponsorship Amount</div>
+                        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+                          {ANNADANA_OPTIONS.map((option) => (
+                            <button key={option.id} type="button" disabled={!annadanaSelection.selected} onClick={() => updateAnnadanaOption(option.id)}
+                              className={`rounded-[9px] border px-2.5 py-2.5 text-[12px] font-bold transition ${
+                                annadanaSelection.optionId === option.id ? "border-[#c79531] bg-[#fff1d9] text-[#a70e18]" : "border-[#eadfd2] bg-white text-[#555]"
+                              } ${!annadanaSelection.selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff8ed]"}`}>
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="mb-1 text-[12px] font-semibold text-[#756961]">Puja Day</div>
+                        <div className="grid grid-cols-5 gap-1">
+                          {PUJA_DAYS.map((day) => (
+                            <button key={day} type="button" disabled={!annadanaSelection.selected} onClick={() => updateAnnadanaDay(day)}
+                              className={`rounded-[8px] border px-1 py-2 text-[11px] font-semibold transition ${
+                                annadanaSelection.day === day ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#eadfd2] bg-white text-[#6f6259]"
+                              } ${!annadanaSelection.selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff1e9]"}`}>
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -793,7 +1011,7 @@ export default function SevaPage() {
                           >
                             <i className={`fa-solid ${role.icon} text-[11px]`} />
                           </span>
-                          <span className="flex-1 text-[11px] font-semibold leading-[1.35] text-[#4b403a]">
+                          <span className="flex-1 text-[13px] font-semibold leading-[1.35] text-[#4b403a]">
                             {role.title}
                           </span>
                           <span
@@ -848,87 +1066,122 @@ export default function SevaPage() {
           {/* STEP 2 */}
           {step === 2 && (
             <section className="relative overflow-hidden rounded-[22px] border border-[rgba(177,146,105,0.12)] bg-white shadow-[0_14px_35px_rgba(68,44,20,0.10)] max-[600px]:rounded-[16px]">
-              <div className="px-6 pb-2 pt-5 max-[600px]:px-3 max-[600px]:pb-1 max-[600px]:pt-3">
-                <div className="mb-5">
-                  <h2 className="font-serif text-[25px] text-[#292929]">Confirm Your Seva</h2>
-                  <p className="mt-1 text-[12px] text-[#737983] sm:text-[13px]">
-                    Please review your selections before submitting.
+              <div className="px-[45px] pb-6 pt-6 max-[600px]:px-4 max-[600px]:pb-[17px] max-[600px]:pt-[26px]">
+                <div className="mb-[22px] text-center">
+                  <h2 className="m-0 font-serif text-[25px] text-[#292929] max-[600px]:text-[19px]">
+                    Payment & Confirmation
+                  </h2>
+                  <p className="mt-2 text-[14px] text-[#737983]">
+                    Complete your payment and submit the transaction details.
                   </p>
                 </div>
 
-                <div className="rounded-[13px] bg-[#fcf7ed] p-4">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div>
-                      <div className="text-[10px] text-[#8a7b70]">Name</div>
-                      <div className="mt-1 text-[12px] font-bold text-[#403731]">{name}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#8a7b70]">Block</div>
-                      <div className="mt-1 text-[12px] font-bold text-[#403731]">{block}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#8a7b70]">Flat</div>
-                      <div className="mt-1 text-[12px] font-bold text-[#403731]">{flatNo}</div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#8a7b70]">Mobile</div>
-                      <div className="mt-1 text-[12px] font-bold text-[#403731]">+91 {mobile}</div>
-                    </div>
-                  </div>
+                <div className="mb-5 grid grid-cols-4 gap-3 rounded-[13px] bg-[#fcf8f1] p-[15px] max-[600px]:grid-cols-2">
+                  <SummaryBox label="Name" value={name} />
+                  <SummaryBox label="Block" value={block} />
+                  <SummaryBox label="Flat" value={flatNo} />
+                  <SummaryBox
+                    label="Amount"
+                    value={`₹${totalSevaAmount.toLocaleString("en-IN")}`}
+                  />
                 </div>
 
-                <div className="mt-5">
-                  <h3 className="font-serif text-[20px] text-[#292929]">Selected Seva</h3>
+                {totalSevaAmount > 0 ? (
+                  <>
+                    <div className="mb-5">
+                      <label className="mb-2 block text-[13px] font-semibold text-[#333]">
+                        Payment Method
+                      </label>
+                      <div className="flex min-h-[58px] items-center justify-center gap-3 rounded-[11px] border border-[#a70e18] bg-[#fff1f1] text-[13px] font-bold text-[#a70e18]">
+                        <i className="fa-solid fa-qrcode" />
+                        UPI / Online
+                      </div>
+                    </div>
 
-                  <div className="mt-3 space-y-2">
-                    {selectedMaterials.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 rounded-[11px] border border-[#eadfd2] bg-[#fffdf9] px-3 py-2.5">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[#f8e8e5] text-[#a70e18]">
-                          <i className={`fa-solid ${item.icon} text-[11px]`} />
+                    <div className="mb-4 rounded-[13px] bg-[#fcf8f1] px-[18px] py-[15px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] text-[#555]">
+                          Total Sponsorship
                         </span>
-                        <div className="flex-1">
-                          <div className="text-[12px] font-bold text-[#403731]">{item.title}</div>
-                          <div className="text-[10px] text-[#81766f]">{item.subtitle}</div>
-                        </div>
-                        <div className="text-right text-[11px] font-bold text-[#a70e18]">
-                          {materialSelections[item.id]?.quantity
-                            ? `${materialSelections[item.id]?.quantity} ${item.unit}`
-                            : "1 service"}
+                        <strong className="text-[18px] text-[#a70e18]">
+                          ₹{totalSevaAmount.toLocaleString("en-IN")}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="text-center">
+                      <div className="inline-flex w-[65%] rounded-[17px] border border-[#ededed] bg-white p-3 shadow-[0_8px_25px_rgba(0,0,0,0.07)] max-[600px]:w-[85%]">
+                        <img
+                          src={qrUrl}
+                          alt="UPI Payment QR Code"
+                          className="h-auto w-full"
+                        />
+                      </div>
+
+                      <p className="mt-3 text-[13px] text-[#333]">
+                        Scan with Google Pay, PhonePe, Paytm or any UPI app
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                        <span className="text-[12px] text-[#555]">
+                          Paying to
+                        </span>
+                        <strong className="text-[12px] text-[#222]">
+                          {upiName}
+                        </strong>
+                        <div className="inline-flex items-center gap-2 rounded-lg bg-[#f6f6f6] px-3 py-[7px] text-[11px] text-[#737373]">
+                          <span>{upiId}</span>
+                          <button
+                            type="button"
+                            className="text-[#737373] hover:text-[#333]"
+                            onClick={() =>
+                              navigator.clipboard?.writeText(upiId)
+                            }
+                            aria-label="Copy UPI ID"
+                          >
+                            <i className="fa-regular fa-copy" />
+                          </button>
                         </div>
                       </div>
-                    ))}
+                    </div>
 
-                    {volunteerRoles.map((roleId) => {
-                      const role = VOLUNTEER_ROLES.find((item) => item.id === roleId);
-                      if (!role) return null;
+                    <a
+                      href={upiUrl}
+                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white no-underline shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition hover:-translate-y-px"
+                    >
+                      <i className="fa-solid fa-mobile-screen-button" />
+                      Open UPI App
+                    </a>
 
-                      return (
-                        <div key={role.id} className="flex items-center gap-3 rounded-[11px] border border-[#eadfd2] bg-[#fffdf9] px-3 py-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[#f8e8e5] text-[#a70e18]">
-                            <i className={`fa-solid ${role.icon} text-[11px]`} />
-                          </span>
-                          <div className="flex-1 text-[12px] font-bold text-[#403731]">{role.title}</div>
-                          <span className="rounded-full bg-[#fff1e8] px-2 py-1 text-[9px] font-bold text-[#a70e18]">
-                            Volunteer
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                    <div className="mt-6">
+                      <InputField
+                        icon="fa-receipt"
+                        label="UTR / Transaction ID"
+                        placeholder="Enter UTR / Transaction ID"
+                        value={utr}
+                        onChange={setUtr}
+                        required
+                      />
+                    </div>
 
-                {volunteerNote && (
-                  <div className="mt-4 rounded-[11px] border border-[#f0dfbd] bg-[#fff8ea] p-3 text-[11px] leading-[1.5] text-[#6f6259]">
-                    <strong>Volunteer Note:</strong> {volunteerNote}
+                    <div className="my-[15px] flex gap-2 rounded-[11px] border border-[#f0dfbd] bg-[#fff8eb] px-[15px] py-[13px] text-[12px] text-[#725e3a]">
+                      <i className="mt-0.5 fa-solid fa-circle-info" />
+                      <p>
+                        Payment is not submitted for verification until the UTR / Transaction ID is filled and submitted.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-[13px] border border-[#f0dfbd] bg-[#fff8eb] p-4 text-center">
+                    <i className="fa-solid fa-hands-praying mb-2 text-2xl text-[#a70e18]" />
+                    <p className="text-[13px] font-semibold text-[#4f4039]">
+                      No payment is required for Volunteer Seva.
+                    </p>
+                    <p className="mt-1 text-[12px] text-[#777]">
+                      You can submit your volunteer preferences directly.
+                    </p>
                   </div>
                 )}
-
-                <div className="mt-5 flex items-start gap-3 rounded-[12px] border border-[#f0dfbd] bg-[#fff8ea] p-3.5">
-                  <i className="fa-solid fa-circle-info mt-0.5 text-[#a70e18]" />
-                  <p className="text-[11px] leading-[1.5] text-[#6f6259]">
-                    The Puja Committee will contact you to coordinate the selected Seva and collection / volunteer arrangements.
-                  </p>
-                </div>
 
                 {error && (
                   <div className="mt-4 flex items-start gap-2 rounded-[10px] border border-[#f1cccc] bg-[#fff1f1] px-3 py-2.5 text-[12px] text-[#a20d16]">
@@ -937,41 +1190,41 @@ export default function SevaPage() {
                   </div>
                 )}
 
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    disabled={loading}
-                    className="min-h-[50px] rounded-[12px] border border-[#e3d6c8] bg-[#fffaf4] text-[13px] font-bold text-[#705e53] transition hover:bg-white disabled:opacity-50"
-                  >
-                    <i className="fa-solid fa-arrow-left mr-2" />
-                    Edit Seva
-                  </button>
+                <button
+                  type="button"
+                  onClick={submitSeva}
+                  disabled={loading || (totalSevaAmount > 0 && !utr.trim())}
+                  className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] border-0 bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <span>Submitting...</span>
+                      <i className="fa-solid fa-spinner fa-spin" />
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        {totalSevaAmount > 0
+                          ? "Submit Seva & Payment"
+                          : "Submit Seva"}
+                      </span>
+                      <i className="fa-solid fa-check" />
+                    </>
+                  )}
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={submitSeva}
-                    disabled={loading}
-                    className="flex min-h-[50px] items-center justify-center gap-2 rounded-[12px] bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[13px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <>
-                        <span>Submitting...</span>
-                        <i className="fa-solid fa-spinner fa-spin" />
-                      </>
-                    ) : (
-                      <>
-                        <span>Submit Seva</span>
-                        <i className="fa-solid fa-check" />
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="my-2 flex items-center justify-center gap-2 text-[11px] text-[#687078]">
-                  <i className="fa-solid fa-lock" />
-                  <span>Your information is safe and secure</span>
-                </div>
+                <button
+                  type="button"
+                  disabled={loading}
+                  className="mt-3 flex w-full items-center justify-center gap-2 border-0 bg-transparent text-[12px] font-semibold text-[#777]"
+                  onClick={() => {
+                    setError("");
+                    setStep(1);
+                  }}
+                >
+                  <i className="fa-solid fa-arrow-left" />
+                  Change Seva Details
+                </button>
               </div>
             </section>
           )}
@@ -1012,8 +1265,14 @@ export default function SevaPage() {
 
                   <div className="mt-2 flex justify-between text-[12px] text-[#666]">
                     <span>Total Sevas</span>
-                    <strong>{selectedMaterials.length + volunteerRoles.length}</strong>
+                    <strong>{selectedMaterials.length + (annadanaSelection.selected ? 1 : 0) + volunteerRoles.length}</strong>
                   </div>
+                  {totalSevaAmount > 0 && (
+                    <div className="mt-2 flex justify-between text-[12px] text-[#666]">
+                      <span>Sponsorship Amount</span>
+                      <strong className="text-[#a70e18]">₹{totalSevaAmount.toLocaleString("en-IN")}</strong>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mx-auto flex max-w-[500px] gap-[11px] rounded-[12px] border border-[#f0dfbd] bg-[#fff8ea] p-[15px] text-left">
@@ -1021,7 +1280,7 @@ export default function SevaPage() {
                   <div>
                     <strong className="text-[13px]">Thank you for offering your Seva</strong>
                     <p className="mt-1 text-[12px] leading-[1.5] text-[#666]">
-                      The Puja Committee will contact you regarding the material collection or volunteer coordination.
+                      The Puja Committee will verify the payment using the UTR provided and will contact you regarding Seva confirmation and coordination.
                     </p>
                   </div>
                 </div>

@@ -4,16 +4,6 @@ import { sendSevaSubmittedWhatsApp } from "@/lib/whatsapp";
 
 const VALID_BLOCKS = ["P1", "P2", "Villa"] as const;
 
-const MATERIAL_IDS = [
-  "rice",
-  "dal",
-  "vegetables",
-  "full_prasad",
-  "cylinder",
-  "water_cans",
-  "sukha_prasad",
-] as const;
-
 const VOLUNTEER_IDS = [
   "cooking_management",
   "grocery_purchase",
@@ -33,11 +23,48 @@ const VOLUNTEER_IDS = [
   "cleanliness",
 ] as const;
 
-type MaterialInput = {
-  type?: unknown;
-  title?: unknown;
-  quantity?: unknown;
-  unit?: unknown;
+const MATERIAL_PRICING: Record<
+  string,
+  { title: string; packages: Record<string, number> }
+> = {
+  rice: {
+    title: "Rice",
+    packages: {
+      "10 kg": 601,
+      "25 kg": 1501,
+      "50 kg": 3001,
+    },
+  },
+  dal: {
+    title: "Dal",
+    packages: {
+      "5 kg": 601,
+    },
+  },
+  vegetables: {
+    title: "Vegetables",
+    packages: {
+      "10 kg": 801,
+      "20 kg": 1501,
+    },
+  },
+  sukha_prasad: {
+    title: "Sukha Prasad",
+    packages: {
+      "One Time": 1001,
+      "Both Times": 2001,
+    },
+  },
+  annadana: {
+    title: "Annadana Seva",
+    packages: {
+      "₹5,001": 5001,
+      "₹10,001": 10001,
+      "₹15,001": 15001,
+      "₹20,001": 20001,
+      "₹25,001": 25001,
+    },
+  },
 };
 
 function generateSevaNo() {
@@ -45,78 +72,12 @@ function generateSevaNo() {
   return `SEVA-2026-${random}`;
 }
 
-/**
- * WhatsApp template variables must be plain text.
- *
- * Remove:
- * - new lines
- * - tabs
- * - excessive spaces
- *
- * Also keep the parameter comfortably below the WhatsApp
- * variable length limit.
- */
 function sanitizeWhatsAppParameter(value: string) {
   return String(value || "")
     .replace(/[\r\n\t]+/g, " ")
-    .replace(/\s{5,}/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 900);
-}
-
-/**
- * Create a WhatsApp-safe, single-line Seva description.
- */
-function formatSevaDetails(
-  materials: Array<{
-    type: string;
-    title: string;
-    quantity: number | null;
-    unit: string | null;
-  }>,
-  volunteerRoleNames: string[],
-  volunteerNote: string | null
-) {
-  const parts: string[] = [];
-
-  // Material Seva
-  if (materials.length > 0) {
-    const materialDetails = materials.map((item) => {
-      if (
-        item.type === "full_prasad" ||
-        item.type === "cylinder"
-      ) {
-        return item.title;
-      }
-
-      if (item.quantity !== null) {
-        return `${item.title}: ${item.quantity}${
-          item.unit ? ` ${item.unit}` : ""
-        }`;
-      }
-
-      return item.title;
-    });
-
-    parts.push(
-      `Material Seva: ${materialDetails.join(", ")}`
-    );
-  }
-
-  // Volunteer Seva
-  if (volunteerRoleNames.length > 0) {
-    parts.push(
-      `Volunteer Seva: ${volunteerRoleNames.join(", ")}`
-    );
-  }
-
-  // Volunteer note
-  if (volunteerNote) {
-    parts.push(`Note: ${volunteerNote}`);
-  }
-
-  return sanitizeWhatsAppParameter(parts.join(" | "));
 }
 
 export async function POST(request: Request) {
@@ -132,11 +93,10 @@ export async function POST(request: Request) {
       volunteerRoles,
       volunteerRoleNames,
       volunteerNote,
+      amount,
+      paymentMethod,
+      utr,
     } = body;
-
-    // ---------------------------------------------------------
-    // Basic validation
-    // ---------------------------------------------------------
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -159,175 +119,174 @@ export async function POST(request: Request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // Mobile validation
-    // ---------------------------------------------------------
-
     const cleanMobile = String(mobile || "").replace(/\D/g, "");
 
     if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
       return NextResponse.json(
-        {
-          error: "Please enter a valid 10-digit mobile number.",
-        },
+        { error: "Please enter a valid 10-digit mobile number." },
         { status: 400 }
       );
     }
 
-    // ---------------------------------------------------------
-    // Materials validation
-    // ---------------------------------------------------------
-
     if (!Array.isArray(materials)) {
       return NextResponse.json(
-        {
-          error: "Invalid material Seva data.",
-        },
+        { error: "Invalid Material Seva data." },
         { status: 400 }
       );
     }
 
     if (!Array.isArray(volunteerRoles)) {
       return NextResponse.json(
-        {
-          error: "Invalid volunteer Seva data.",
-        },
+        { error: "Invalid Volunteer Seva data." },
         { status: 400 }
       );
     }
 
-    // ---------------------------------------------------------
-    // Clean materials
-    // ---------------------------------------------------------
+    const cleanMaterials: Array<{
+      type: string;
+      title: string;
+      package: string;
+      quantity: number | null;
+      unit: string | null;
+      price: number;
+      day: string | null;
+    }> = [];
 
-    const cleanMaterials = materials
-      .filter((item: unknown): item is MaterialInput => {
-        if (!item || typeof item !== "object") {
-          return false;
-        }
+    for (const item of materials) {
+      if (!item || typeof item !== "object") continue;
 
-        const material = item as MaterialInput;
+      const type = String(item.type || "").trim();
+      const pricing = MATERIAL_PRICING[type];
 
-        const type = String(material.type || "").trim();
-
-        return MATERIAL_IDS.includes(
-          type as (typeof MATERIAL_IDS)[number]
+      if (!pricing) {
+        return NextResponse.json(
+          { error: `Invalid Seva item: ${type || "Unknown"}.` },
+          { status: 400 }
         );
-      })
-      .map((item: MaterialInput) => {
-        const materialType = String(item.type || "").trim();
-
-        const quantity =
-          item.quantity === null ||
-          item.quantity === undefined ||
-          item.quantity === ""
-            ? null
-            : Number(item.quantity);
-
-        return {
-          type: materialType,
-          title: String(item.title || "").trim(),
-          quantity,
-          unit: String(item.unit || "").trim() || null,
-        };
-      });
-
-    // ---------------------------------------------------------
-    // Quantity validation
-    //
-    // Quantity NOT required for:
-    // - Full One-Time Prasad
-    // - Gas Cylinder
-    // ---------------------------------------------------------
-
-    for (const item of cleanMaterials) {
-      const materialType = String(item.type);
-
-      const quantityNotRequired =
-        materialType === "full_prasad" ||
-        materialType === "cylinder";
-
-      if (!quantityNotRequired) {
-        if (
-          item.quantity === null ||
-          !Number.isFinite(Number(item.quantity)) ||
-          Number(item.quantity) <= 0
-        ) {
-          return NextResponse.json(
-            {
-              error: `Please provide a valid quantity for ${
-                item.title || materialType
-              }.`,
-            },
-            { status: 400 }
-          );
-        }
       }
+
+      const packageLabel = String(item.package || "").trim();
+      const expectedPrice = pricing.packages[packageLabel];
+
+      if (!expectedPrice) {
+        return NextResponse.json(
+          {
+            error: `Invalid sponsorship option for ${pricing.title}.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const day = String(item.day || "").trim();
+
+      if (
+        !["Shashti", "Saptami", "Ashtami", "Navami", "Dasami"].includes(day)
+      ) {
+        return NextResponse.json(
+          {
+            error: `Please select a valid Puja day for ${pricing.title}.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const quantityMatch = packageLabel.match(/^(\d+)/);
+
+      cleanMaterials.push({
+        type,
+        title: pricing.title,
+        package: packageLabel,
+        quantity: quantityMatch ? Number(quantityMatch[1]) : null,
+        unit: type === "sukha_prasad" ? "time" : type === "annadana" ? "service" : "kg",
+        price: expectedPrice,
+        day,
+      });
     }
 
-    // ---------------------------------------------------------
-    // Clean volunteer roles
-    // ---------------------------------------------------------
-
     const cleanVolunteerRoles = volunteerRoles.filter(
-      (id: unknown): id is string => {
-        if (typeof id !== "string") {
-          return false;
-        }
-
-        return VOLUNTEER_IDS.includes(
-          id as (typeof VOLUNTEER_IDS)[number]
-        );
-      }
+      (id: unknown): id is string =>
+        typeof id === "string" &&
+        (VOLUNTEER_IDS as readonly string[]).includes(id)
     );
 
-    // ---------------------------------------------------------
-    // Clean volunteer role names
-    // ---------------------------------------------------------
+    if (!cleanMaterials.length && !cleanVolunteerRoles.length) {
+      return NextResponse.json(
+        { error: "Please select at least one Seva." },
+        { status: 400 }
+      );
+    }
 
-    const cleanVolunteerRoleNames = Array.isArray(
-      volunteerRoleNames
-    )
+    const cleanVolunteerRoleNames = Array.isArray(volunteerRoleNames)
       ? volunteerRoleNames
           .filter((item: unknown) => typeof item === "string")
           .map((item: string) => item.trim())
           .filter(Boolean)
       : [];
 
-    // ---------------------------------------------------------
-    // At least one Seva required
-    // ---------------------------------------------------------
+    const calculatedAmount = cleanMaterials.reduce(
+      (sum, item) => sum + item.price,
+      0
+    );
+
+    const clientAmount = Number(amount || 0);
 
     if (
-      cleanMaterials.length === 0 &&
-      cleanVolunteerRoles.length === 0
+      !Number.isFinite(clientAmount) ||
+      clientAmount !== calculatedAmount
     ) {
       return NextResponse.json(
         {
-          error: "Please select at least one Seva.",
+          error:
+            "The sponsorship amount does not match the selected Seva options.",
         },
         { status: 400 }
       );
     }
 
-    // ---------------------------------------------------------
-    // Volunteer note
-    // ---------------------------------------------------------
+    if (calculatedAmount > 0) {
+      if (paymentMethod !== "upi") {
+        return NextResponse.json(
+          { error: "Please complete the payment using UPI." },
+          { status: 400 }
+        );
+      }
 
-    const cleanVolunteerNote =
-      typeof volunteerNote === "string"
-        ? volunteerNote.trim()
-        : "";
+      if (!String(utr || "").trim()) {
+        return NextResponse.json(
+          { error: "Please enter the UTR / Transaction ID." },
+          { status: 400 }
+        );
+      }
 
-    // ---------------------------------------------------------
-    // Generate Seva number
-    // ---------------------------------------------------------
+      const cleanUtr = String(utr).trim();
+
+      const { data: existingUtr, error: utrError } =
+        await supabaseAdmin
+          .from("seva_registrations")
+          .select("id")
+          .eq("utr", cleanUtr)
+          .maybeSingle();
+
+      if (utrError) {
+        console.error("Seva UTR check error:", utrError);
+        return NextResponse.json(
+          { error: "Unable to validate the UTR / Transaction ID." },
+          { status: 500 }
+        );
+      }
+
+      if (existingUtr) {
+        return NextResponse.json(
+          {
+            error:
+              "This UTR / Transaction ID has already been submitted.",
+          },
+          { status: 409 }
+        );
+      }
+    }
 
     const sevaNo = generateSevaNo();
-
-    // ---------------------------------------------------------
-    // Insert into Supabase
-    // ---------------------------------------------------------
 
     const { data, error } = await supabaseAdmin
       .from("seva_registrations")
@@ -340,7 +299,11 @@ export async function POST(request: Request) {
         materials: cleanMaterials,
         volunteer_roles: cleanVolunteerRoles,
         volunteer_role_names: cleanVolunteerRoleNames,
-        volunteer_note: cleanVolunteerNote || null,
+        volunteer_note: volunteerNote?.trim() || null,
+        amount: calculatedAmount,
+        payment_method: calculatedAmount > 0 ? "upi" : null,
+        utr: calculatedAmount > 0 ? String(utr).trim() : null,
+        payment_status: calculatedAmount > 0 ? "pending" : null,
         status: "pending",
       })
       .select("id, seva_no")
@@ -358,72 +321,77 @@ export async function POST(request: Request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // WhatsApp notification
-    // ---------------------------------------------------------
-
+    /*
+     * WhatsApp submission notification.
+     *
+     * IMPORTANT:
+     * The registration is already saved. A WhatsApp failure must
+     * never make the Seva submission fail.
+     */
     let whatsappSent = false;
+    let whatsappSkipped = false;
     let whatsappMessageId: string | null = null;
     let whatsappError: string | null = null;
 
     try {
-      const sevaDetails = formatSevaDetails(
-        cleanMaterials,
-        cleanVolunteerRoleNames,
-        cleanVolunteerNote || null
-      );
+      const sevaDetails = [
+        ...cleanMaterials.map(
+          (item) =>
+            `${item.title}: ${item.package}, ${item.day}, Rs.${item.price.toLocaleString("en-IN")}`
+        ),
+        ...cleanVolunteerRoleNames.map(
+          (role) => `${role}: Volunteer`
+        ),
+      ].join("; ");
 
-      console.log("Seva WhatsApp details:", {
-        sevaNo: data.seva_no,
-        details: sevaDetails,
-      });
-
-      const whatsappResult =
-        await sendSevaSubmittedWhatsApp({
-          mobile: cleanMobile,
-          name: name.trim(),
-          sevaNo: data.seva_no,
-          sevaDetails,
-        });
-
-      whatsappSent = Boolean(whatsappResult?.sent);
-
-      whatsappMessageId =
-        whatsappResult?.messageId || null;
-
-      if (!whatsappSent && whatsappResult?.error) {
-        whatsappError = whatsappResult.error;
-      }
-
-      console.log("Seva WhatsApp result:", {
-        sevaNo: data.seva_no,
+      const result = await sendSevaSubmittedWhatsApp({
         mobile: cleanMobile,
-        sent: whatsappSent,
-        messageId: whatsappMessageId,
-        error: whatsappError,
+        name: sanitizeWhatsAppParameter(name.trim()),
+        sevaNo: sanitizeWhatsAppParameter(data.seva_no),
+        sevaDetails: sanitizeWhatsAppParameter(
+          calculatedAmount > 0
+            ? `${sevaDetails}; Total Sponsorship: Rs.${calculatedAmount.toLocaleString("en-IN")}; Payment: UPI; UTR: ${String(utr).trim()}`
+            : sevaDetails
+        ),
       });
+
+      whatsappSent = Boolean(result.sent);
+      whatsappSkipped = Boolean(result.skipped);
+      whatsappMessageId = result.messageId || null;
+      whatsappError = result.sent
+        ? null
+        : result.error || null;
+
+      if (!result.sent && result.error) {
+        console.error(
+          "Seva WhatsApp submission notification failed:",
+          result.error
+        );
+      }
     } catch (whatsappErrorValue) {
       whatsappError =
         whatsappErrorValue instanceof Error
           ? whatsappErrorValue.message
-          : String(whatsappErrorValue);
+          : "WhatsApp submission message failed.";
 
       console.error(
-        "Seva WhatsApp notification failed:",
+        "Seva submitted WhatsApp error:",
         whatsappErrorValue
       );
     }
-
-    // ---------------------------------------------------------
-    // Success
-    // ---------------------------------------------------------
 
     return NextResponse.json(
       {
         success: true,
         id: data.id,
         sevaNo: data.seva_no,
+        amount: calculatedAmount,
+        paymentMethod:
+          calculatedAmount > 0 ? "upi" : null,
+        paymentStatus:
+          calculatedAmount > 0 ? "pending" : null,
         whatsappSent,
+        whatsappSkipped,
         whatsappMessageId,
         whatsappError,
       },
@@ -433,9 +401,7 @@ export async function POST(request: Request) {
     console.error("Seva API error:", error);
 
     return NextResponse.json(
-      {
-        error: "Something went wrong. Please try again.",
-      },
+      { error: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

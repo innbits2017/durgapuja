@@ -8,125 +8,134 @@ const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 const events = [
   {
     day: "MAHA SHASHTI",
+    shortDay: "Shashthi",
     date: "16 OCTOBER 2026",
-    image:
-      "https://images.unsplash.com/photo-1606293926075-69a00dbfde81?auto=format&fit=crop&w=1000&q=85",
+    image: "/images/shashti-puja.webp",
     icon: "fa-solid fa-hands-praying",
     color: "bg-[#8f1019]",
-    items: [
-      {
-        title: "Bodhon & Shashti Puja",
-        time: "6:00 PM onwards",
-        icon: "fa-solid fa-hands-praying",
-      },
-    ],
+    schedule: {
+      morning: "—",
+      afternoon: "Maa Durga Welcome & Shashthi Puja",
+      evening: "Kids Drawing + Family Tambola",
+      night: "Dinner",
+    },
   },
   {
     day: "MAHA SAPTAMI",
+    shortDay: "Saptami",
     date: "17 OCTOBER 2026",
-    image:
-      "/images/saptami-puja.webp",
+    image: "/images/saptami-puja.webp",
     icon: "fa-solid fa-fire-flame-curved",
     color: "bg-[#a70e18]",
-    items: [
-      {
-        title: "Saptami Puja",
-        time: "9:00 AM onwards",
-        icon: "fa-solid fa-hands-praying",
-      },
-      {
-        title: "Dandiya Night",
-        time: "7:30 PM onwards",
-        icon: "fa-solid fa-drum",
-      },
-    ],
+    schedule: {
+      morning: "Breakfast + Saptami Puja & Pushpanjali",
+      afternoon: "Kids Carnival + Family Treasure Hunt",
+      evening: "Dandia Night",
+      night: "Dinner",
+    },
   },
   {
     day: "MAHA ASHTAMI",
+    shortDay: "Ashtami",
     date: "18 OCTOBER 2026",
-    image:
-      "/images/ashtami-puja.webp",
+    image: "/images/ashtami-puja.webp",
     icon: "fa-solid fa-om",
     color: "bg-[#8f1019]",
-    items: [
-      {
-        title: "Ashtami Puja & Pushpanjali",
-        time: "9:00 AM onwards",
-        icon: "fa-solid fa-hands-praying",
-      },
-      {
-        title: "Cultural Programme",
-        time: "6:30 PM onwards",
-        icon: "fa-solid fa-masks-theater",
-      },
-    ],
+    schedule: {
+      morning: "Breakfast + Maha Ashtami Puja & Pushpanjali",
+      afternoon: "Family Games + Kids Fun Zone",
+      evening: "Cultural Programme",
+      night: "Dinner",
+    },
   },
   {
     day: "MAHA NAVAMI",
+    shortDay: "Navami",
     date: "19 OCTOBER 2026",
-    image:
-      "/images/navami.webp",
+    image: "/images/navami.webp",
     icon: "fa-solid fa-spa",
     color: "bg-[#a70e18]",
-    items: [
-      {
-        title: "Navami Puja & Pushpanjali",
-        time: "9:00 AM onwards",
-        icon: "fa-solid fa-hands-praying",
-      },
-      {
-        title: "Cultural Programme",
-        time: "6:30 PM onwards",
-        icon: "fa-solid fa-masks-theater",
-      },
-    ],
+    schedule: {
+      morning: "Breakfast + Navami Puja & Pushpanjali",
+      afternoon: "Kanya Pujan + Community Lunch",
+      evening: "Grand Cultural Programme",
+      night: "Dinner",
+    },
   },
   {
     day: "VIJAYA DASHAMI",
+    shortDay: "Dashami",
     date: "20 OCTOBER 2026",
-    image:
-      "/images/dashami.webp",
+    image: "/images/dashami.webp",
     icon: "fa-solid fa-flag",
     color: "bg-[#8f1019]",
-    items: [
-      {
-        title: "Dashami Puja & Sindoor Khela",
-        time: "10:00 AM onwards",
-        icon: "fa-solid fa-hands-praying",
-      },
-      {
-        title: "Bhasani / Visarjan",
-        time: "4:00 PM onwards",
-        icon: "fa-solid fa-water",
-      },
-    ],
+    schedule: {
+      morning: "Breakfast + Dashami Puja & Farewell Rituals",
+      afternoon: "Bhasani / Visarjan",
+      evening: "Community Lunch",
+      night: "—",
+    },
   },
 ];
 
-const gallery = [
+const photoGallery = [
   {
-    src:
-      "https://images.unsplash.com/photo-1606293926075-69a00dbfde81?auto=format&fit=crop&w=1200&q=85",
-    alt: "Maa Durga idol",
+    src: "/images/durga-puja-collection.webp",
+    alt: "Maa Durga",
     title: "Maa Durga",
   },
   {
-    src:
-      "/images/dashami.webp",
-    alt: "Durga Puja celebration",
+    src: "/images/saptami-puja.webp",
+    alt: "Saptami Puja",
     title: "Devotion",
   },
   {
-    src:
-      "/images/navami.webp",
-    alt: "Durga Puja festivities",
+    src: "/images/ashtami-puja.webp",
+    alt: "Ashtami Puja",
     title: "Celebration",
   },
   {
-    src:
-      "https://images.unsplash.com/photo-1567591414240-e9c1e59f3e06?auto=format&fit=crop&w=1200&q=85",
-    alt: "Indian cultural celebration",
+    src: "/images/navami.webp",
+    alt: "Navami Celebration",
     title: "Togetherness",
+  },
+  {
+    src: "/images/dashami.webp",
+    alt: "Dashami Celebration",
+    title: "Tradition",
+  },
+];
+
+const videoGallery = [
+  {
+    thumbnail: "/images/durga-puja-collection.webp",
+    title: "BUH Durga Puja Highlights",
+    description: "Moments from our Durga Puja celebrations",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_1",
+  },
+  {
+    thumbnail: "/images/saptami-puja.webp",
+    title: "Saptami Celebration",
+    description: "Devotion, music and togetherness",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_2",
+  },
+  {
+    thumbnail: "/images/ashtami-puja.webp",
+    title: "Ashtami Cultural Evening",
+    description: "A celebration of talent and culture",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_3",
+  },
+  {
+    thumbnail: "/images/navami.webp",
+    title: "Navami Celebration",
+    description: "Beautiful moments from BUH",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_4",
+  },
+  {
+    thumbnail: "/images/dashami.webp",
+    title: "Vijaya Dashami",
+    description: "Farewell to Maa Durga",
+    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_5",
   },
 ];
 
@@ -224,6 +233,562 @@ function Reveal({
   );
 }
 
+function GallerySlider({
+  items,
+  type,
+}: {
+  items: any[];
+  type: "image" | "video";
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [itemsPerSlide, setItemsPerSlide] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
+
+  const [lightboxIndex, setLightboxIndex] =
+    useState<number | null>(null);
+
+  /* -----------------------------------------
+     Responsive items per slide
+  ------------------------------------------ */
+
+  useEffect(() => {
+    const updateItemsPerSlide = () => {
+      if (type === "image") {
+        if (window.innerWidth >= 1024) {
+          setItemsPerSlide(4);
+        } else if (window.innerWidth >= 768) {
+          setItemsPerSlide(2);
+        } else {
+          setItemsPerSlide(1);
+        }
+      } else {
+        if (window.innerWidth >= 1024) {
+          setItemsPerSlide(3);
+        } else if (window.innerWidth >= 768) {
+          setItemsPerSlide(2);
+        } else {
+          setItemsPerSlide(1);
+        }
+      }
+    };
+
+    updateItemsPerSlide();
+
+    window.addEventListener(
+      "resize",
+      updateItemsPerSlide
+    );
+
+    return () =>
+      window.removeEventListener(
+        "resize",
+        updateItemsPerSlide
+      );
+  }, [type]);
+
+  /* -----------------------------------------
+     Reset slider when layout changes
+  ------------------------------------------ */
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [itemsPerSlide]);
+
+  const maxIndex = Math.max(
+    0,
+    items.length - itemsPerSlide
+  );
+
+  /* -----------------------------------------
+     Next / Previous
+  ------------------------------------------ */
+
+  const nextSlide = () => {
+    setCurrentIndex((prev) =>
+      prev >= maxIndex ? 0 : prev + 1
+    );
+  };
+
+  const previousSlide = () => {
+    setCurrentIndex((prev) =>
+      prev <= 0 ? maxIndex : prev - 1
+    );
+  };
+
+  /* -----------------------------------------
+     Auto Slider
+  ------------------------------------------ */
+
+  useEffect(() => {
+    if (isPaused || items.length <= itemsPerSlide) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) =>
+        prev >= maxIndex ? 0 : prev + 1
+      );
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [
+    isPaused,
+    maxIndex,
+    items.length,
+    itemsPerSlide,
+  ]);
+
+  /* -----------------------------------------
+     Fullscreen
+  ------------------------------------------ */
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setIsPaused(true);
+  };
+
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+    setIsPaused(false);
+  };
+
+  const nextLightbox = () => {
+    if (lightboxIndex === null) return;
+
+    setLightboxIndex(
+      lightboxIndex >= items.length - 1
+        ? 0
+        : lightboxIndex + 1
+    );
+  };
+
+  const previousLightbox = () => {
+    if (lightboxIndex === null) return;
+
+    setLightboxIndex(
+      lightboxIndex <= 0
+        ? items.length - 1
+        : lightboxIndex - 1
+    );
+  };
+
+  /* -----------------------------------------
+     ESC key
+  ------------------------------------------ */
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (lightboxIndex === null) return;
+
+      if (event.key === "Escape") {
+        closeLightbox();
+      }
+
+      if (event.key === "ArrowRight") {
+        nextLightbox();
+      }
+
+      if (event.key === "ArrowLeft") {
+        previousLightbox();
+      }
+    };
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+  }, [lightboxIndex]);
+
+  return (
+    <>
+      {/* =================================================
+          SLIDER
+      ================================================== */}
+
+      <div
+        className="relative"
+        onMouseEnter={() =>
+          setIsPaused(true)
+        }
+        onMouseLeave={() =>
+          setIsPaused(false)
+        }
+      >
+
+        <div className="overflow-hidden">
+
+          <div
+            className="flex gap-4 transition-transform duration-700 ease-in-out"
+            style={{
+              transform: `translateX(-${
+                currentIndex *
+                (100 / itemsPerSlide)
+              }%)`,
+            }}
+          >
+
+            {items.map((item, index) => (
+
+              <div
+                key={`${type}-${index}`}
+                className={
+                  type === "image"
+                    ? "min-w-[calc(100%-0px)] md:min-w-[calc(50%-8px)] lg:min-w-[calc(25%-12px)]"
+                    : "min-w-[calc(100%-0px)] md:min-w-[calc(50%-8px)] lg:min-w-[calc(33.333%-10.667px)]"
+                }
+              >
+
+                {type === "image" ? (
+
+                  /* =======================================
+                     IMAGE
+                  ======================================== */
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openLightbox(index)
+                    }
+                    className="group relative block w-full overflow-hidden rounded-2xl bg-[#eadcc9] text-left shadow-md"
+                    aria-label={`View ${item.title} fullscreen`}
+                  >
+
+                    <div className="relative aspect-[4/3]">
+
+                      <img
+                        src={item.src}
+                        alt={item.alt}
+                        className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      />
+
+                      {/* Overlay */}
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#3b090d]/80 via-transparent to-transparent" />
+
+                      {/* Fullscreen icon */}
+
+                      <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white opacity-0 backdrop-blur-sm transition duration-300 group-hover:opacity-100">
+
+                        <i className="fa-solid fa-expand" />
+
+                      </div>
+
+                      {/* Caption */}
+
+                      <div className="absolute bottom-4 left-4 right-4">
+
+                        <div className="flex items-center gap-2">
+
+                          <i className="fa-solid fa-spa text-sm text-[#e8c979]" />
+
+                          <p className="text-[9px] font-bold tracking-[0.15em] text-[#e8c979]">
+                            BUH DURGA PUJA
+                          </p>
+
+                        </div>
+
+                        <p className="mt-1 text-base font-bold text-white">
+                          {item.title}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </button>
+
+                ) : (
+
+                  /* =======================================
+                     VIDEO
+                  ======================================== */
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openLightbox(index)
+                    }
+                    className="group block w-full text-left"
+                  >
+
+                    <div className="relative aspect-video overflow-hidden rounded-2xl bg-[#241b17] shadow-md">
+
+                      <img
+                        src={item.thumbnail}
+                        alt={item.title}
+                        className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                      />
+
+                      <div className="absolute inset-0 bg-black/35 transition group-hover:bg-black/50" />
+
+                      {/* Play */}
+
+                      <div className="absolute inset-0 flex items-center justify-center">
+
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/70 bg-[#a70e18]/90 text-white shadow-xl transition duration-300 group-hover:scale-110">
+
+                          <i className="fa-solid fa-play ml-1 text-lg" />
+
+                        </div>
+
+                      </div>
+
+                      {/* Video Label */}
+
+                      <div className="absolute left-4 top-4">
+
+                        <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-[9px] font-bold tracking-[0.15em] text-white backdrop-blur-md">
+
+                          <i className="fa-solid fa-video text-[#e8c979]" />
+
+                          VIDEO
+
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                    <div className="mt-3">
+
+                      <h3 className="text-base font-bold text-[#761019]">
+                        {item.title}
+                      </h3>
+
+                      <p className="mt-1 text-xs leading-5 text-[#766457]">
+                        {item.description}
+                      </p>
+
+                    </div>
+
+                  </button>
+
+                )}
+
+              </div>
+
+            ))}
+
+          </div>
+
+        </div>
+
+
+        {/* ===============================================
+            SLIDER CONTROLS
+        ================================================ */}
+
+        <div className="mt-5 flex items-center justify-between">
+
+          {/* Dots */}
+
+          <div className="flex gap-1.5">
+
+            {Array.from({
+              length: maxIndex + 1,
+            }).map((_, index) => (
+
+              <button
+                key={index}
+                type="button"
+                onClick={() =>
+                  setCurrentIndex(index)
+                }
+                aria-label={`Go to slide ${
+                  index + 1
+                }`}
+                className={`h-1.5 rounded-full transition-all ${
+                  currentIndex === index
+                    ? "w-7 bg-[#a70e18]"
+                    : "w-1.5 bg-[#d7b66a]"
+                }`}
+              />
+
+            ))}
+
+          </div>
+
+
+          {/* Arrows */}
+
+          <div className="flex items-center gap-2">
+
+            <button
+              type="button"
+              onClick={previousSlide}
+              aria-label="Previous slide"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d7b66a] bg-white text-sm text-[#a70e18] shadow-sm transition hover:bg-[#fff8ec]"
+            >
+              <i className="fa-solid fa-arrow-left" />
+            </button>
+
+            <button
+              type="button"
+              onClick={nextSlide}
+              aria-label="Next slide"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d7b66a] bg-white text-sm text-[#a70e18] shadow-sm transition hover:bg-[#fff8ec]"
+            >
+              <i className="fa-solid fa-arrow-right" />
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* =================================================
+          FULLSCREEN LIGHTBOX
+      ================================================== */}
+
+      {lightboxIndex !== null && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4"
+          onClick={closeLightbox}
+        >
+
+          {/* Close */}
+
+          <button
+            type="button"
+            onClick={closeLightbox}
+            aria-label="Close fullscreen"
+            className="absolute right-5 top-5 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl text-white backdrop-blur-md transition hover:bg-[#a70e18]"
+          >
+            <i className="fa-solid fa-xmark" />
+          </button>
+
+
+          {/* Previous */}
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              previousLightbox();
+            }}
+            aria-label="Previous image"
+            className="absolute left-4 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-[#a70e18] sm:left-8"
+          >
+            <i className="fa-solid fa-chevron-left" />
+          </button>
+
+
+          {/* Next */}
+
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              nextLightbox();
+            }}
+            aria-label="Next image"
+            className="absolute right-4 top-1/2 z-50 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:bg-[#a70e18] sm:right-8"
+          >
+            <i className="fa-solid fa-chevron-right" />
+          </button>
+
+
+          {/* Content */}
+
+          <div
+            className="relative flex max-h-[90vh] max-w-[90vw] flex-col items-center"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+
+            {type === "image" ? (
+
+              <img
+                src={items[lightboxIndex].src}
+                alt={items[lightboxIndex].alt}
+                className="max-h-[80vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+              />
+
+            ) : (
+
+              <div className="w-[90vw] max-w-5xl">
+
+                <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
+
+                  <img
+                    src={
+                      items[lightboxIndex]
+                        .thumbnail
+                    }
+                    alt={
+                      items[lightboxIndex]
+                        .title
+                    }
+                    className="h-full w-full object-cover"
+                  />
+
+                  <a
+                    href={
+                      items[lightboxIndex].url
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#a70e18] text-white shadow-2xl transition hover:scale-110">
+
+                      <i className="fa-solid fa-play ml-1 text-2xl" />
+
+                    </div>
+
+                  </a>
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {/* Caption */}
+
+            <div className="mt-4 text-center">
+
+              <h3 className="text-xl font-bold text-white">
+                {items[lightboxIndex].title}
+              </h3>
+
+              {type === "video" &&
+                items[lightboxIndex]
+                  .description && (
+                  <p className="mt-1 text-sm text-white/60">
+                    {
+                      items[lightboxIndex]
+                        .description
+                    }
+                  </p>
+                )}
+
+              <p className="mt-2 text-[10px] font-semibold tracking-[0.2em] text-[#e8c979]">
+                {lightboxIndex + 1} /{" "}
+                {items.length}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false);
@@ -282,6 +847,7 @@ export default function HomePage() {
 
     return () => clearInterval(interval);
   }, []);
+
 
   const countdownItems = [
     {
@@ -382,6 +948,27 @@ export default function HomePage() {
                 className="transition hover:text-[#a70e18]"
               >
                 Gallery
+              </a>
+
+              <a
+                href="#seva"
+                className="transition hover:text-[#a70e18]"
+              >
+                Offer Seva
+              </a>
+
+              <a
+                href="#cultural-program"
+                className="transition hover:text-[#a70e18]"
+              >
+                Cultural Program Registration
+              </a>
+
+              <a
+                href="#cultural-program"
+                className="transition hover:text-[#a70e18]"
+              >
+                Inventory Help
               </a>
 
               <Link
@@ -598,7 +1185,7 @@ export default function HomePage() {
               </div>
 
               <p className="mt-5 text-xs font-semibold tracking-[0.25em] text-[#8a6c45]">
-                OCTOBER 16 – 21, 2026
+                OCTOBER 16 – 20, 2026
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:justify-start">
@@ -610,14 +1197,14 @@ export default function HomePage() {
                   <i className="fa-solid fa-heart mr-2" />
                   CONTRIBUTE TO PUJA
                 </Link>
-
+                {/* 
                 <Link
                   href="/donate"
                   className="rounded-full border border-[#a70e18] bg-white/60 px-7 py-3.5 text-sm font-bold tracking-wide text-[#8f1019] transition hover:bg-white"
                 >
                   <i className="fa-solid fa-hands-holding-circle mr-2" />
                   SUPPORT US
-                </Link>
+                </Link> */}
 
               </div>
 
@@ -882,56 +1469,107 @@ export default function HomePage() {
                           {event.day}
                         </p>
 
-                        <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-[#a77a2b]">
-                          BUH DURGA PUJA 2026
-                        </p>
+                      </div>
+
+                    </div>
+
+                  {/* Day Schedule */}
+
+                  <div className="mt-7 grid gap-3 sm:grid-cols-2">
+
+                    {/* Morning */}
+                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
+
+                      <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
+                          <i className="fa-solid fa-sun" />
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
+                            Morning
+                          </p>
+
+                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
+                            {event.schedule.morning}
+                          </p>
+                        </div>
 
                       </div>
 
                     </div>
 
-                    {/* Event Items */}
+                    {/* Afternoon */}
+                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
 
-                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center gap-3">
 
-                      {event.items.map((item) => (
-
-                        <div
-                          key={item.title}
-                          className="rounded-2xl bg-[#faf5ed] p-4 transition hover:bg-[#f7ead7]"
-                        >
-
-                          <div className="flex items-center gap-3">
-
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
-
-                              <i className={item.icon} />
-
-                            </div>
-
-                            <div className="flex-1">
-
-                              <p className="text-sm font-bold text-[#392823]">
-                                {item.title}
-                              </p>
-
-                              <p className="mt-1 text-xs text-[#8a7667]">
-
-                                <i className="fa-regular fa-clock mr-1" />
-
-                                {item.time}
-
-                              </p>
-
-                            </div>
-
-                          </div>
-
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
+                          <i className="fa-solid fa-cloud-sun" />
                         </div>
 
-                      ))}
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
+                            Afternoon
+                          </p>
+
+                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
+                            {event.schedule.afternoon}
+                          </p>
+                        </div>
+
+                      </div>
 
                     </div>
+
+                    {/* Evening */}
+                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
+
+                      <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
+                          <i className="fa-solid fa-music" />
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
+                            Evening
+                          </p>
+
+                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
+                            {event.schedule.evening}
+                          </p>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* Night */}
+                    <div className="rounded-2xl border border-[#eadbc6] bg-[#fffaf2] p-4">
+
+                      <div className="flex items-center gap-3">
+
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#a70e18] shadow-sm">
+                          <i className="fa-solid fa-moon" />
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
+                            Night
+                          </p>
+
+                          <p className="mt-1 text-sm font-bold leading-6 text-[#392823]">
+                            {event.schedule.night}
+                          </p>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
 
                   </div>
 
@@ -1105,6 +1743,8 @@ export default function HomePage() {
 
         <div className="mx-auto max-w-6xl">
 
+          {/* Heading */}
+
           <div className="text-center">
 
             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-[#d7b66a] bg-[#fffaf2] text-xl text-[#a70e18]">
@@ -1121,50 +1761,99 @@ export default function HomePage() {
               Moments of Joy
             </h2>
 
-            <p className="mx-auto mt-4 max-w-2xl text-sm text-[#766457]">
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#766457]">
               A glimpse of the memories we create together.
             </p>
 
           </div>
 
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
-            {gallery.map((image) => (
+          {/* =================================================
+              PHOTO GALLERY
+          ================================================== */}
 
-              <div
-                key={image.src}
-                className="group relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-[#eadcc9] shadow-lg"
-              >
+          <div className="mt-14">
 
-                <img
-                  src={image.src}
-                  alt={image.alt}
-                  className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
-                />
+            <div className="mb-6 flex items-end justify-between">
 
-                <div className="absolute inset-0 bg-gradient-to-t from-[#3b090d]/80 via-transparent to-transparent" />
+              <div>
 
-                <div className="absolute bottom-5 left-5 right-5">
+                <div className="flex items-center gap-3">
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a70e18] text-white shadow-sm">
 
-                    <i className="fa-solid fa-spa text-[#e8c979]" />
-
-                    <p className="text-xs font-bold tracking-[0.2em] text-[#e8c979]">
-                      BUH DURGA PUJA
-                    </p>
+                    <i className="fa-solid fa-camera" />
 
                   </div>
 
-                  <p className="mt-1 text-lg font-bold text-white">
-                    {image.title}
-                  </p>
+                  <div>
+
+                    <p className="text-xs font-bold tracking-[0.25em] text-[#a77a2b]">
+                      PHOTO GALLERY
+                    </p>
+
+                    <h3 className="mt-1 text-2xl font-bold text-[#761019]">
+                      Memories in Pictures
+                    </h3>
+
+                  </div>
 
                 </div>
 
               </div>
 
-            ))}
+            </div>
+
+
+            <GallerySlider
+              items={photoGallery}
+              type="image"
+            />
+
+          </div>
+
+
+          {/* =================================================
+              VIDEO GALLERY
+          ================================================== */}
+
+          <div className="mt-20">
+
+            <div className="mb-6 flex items-end justify-between">
+
+              <div>
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a70e18] text-white shadow-sm">
+
+                    <i className="fa-solid fa-video" />
+
+                  </div>
+
+                  <div>
+
+                    <p className="text-xs font-bold tracking-[0.25em] text-[#a77a2b]">
+                      VIDEO GALLERY
+                    </p>
+
+                    <h3 className="mt-1 text-2xl font-bold text-[#761019]">
+                      Relive the Moments
+                    </h3>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <GallerySlider
+              items={videoGallery}
+              type="video"
+            />
 
           </div>
 
@@ -1246,7 +1935,7 @@ export default function HomePage() {
                 </div>
 
                 <p className="text-xs font-bold tracking-[0.35em] text-[#e8c979]">
-                  FOR BUSINESSES & WELL-WISHERS
+                  JOIN THE CELEBRATION
                 </p>
 
               </div>
@@ -1297,18 +1986,18 @@ export default function HomePage() {
               <div>
 
                 <Link
-                  href="/donate"
+                  href="/contribute"
                   className="inline-flex items-center rounded-full bg-[#e2bd62] px-8 py-4 text-sm font-bold text-[#571016] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#f0cf7c]"
                 >
-                  <i className="fa-solid fa-hand-holding-heart mr-3" />
-                  SUPPORT THE PUJA
+                  <i className="fa-solid fa-heart mr-3" />
+                  CONTRIBUTE
                   <i className="fa-solid fa-arrow-right ml-3" />
                 </Link>
 
               </div>
 
               <p className="mt-4 text-xs text-[#e8d4b8]">
-                Your support helps make the celebration bigger.
+                Every contribution helps make our celebration special.
               </p>
 
             </div>
@@ -1432,11 +2121,11 @@ export default function HomePage() {
               </Link>
 
               <Link
-                href="/donate"
+                href="/contribute"
                 className="transition hover:text-[#e5c16b]"
               >
                 <i className="fa-solid fa-hand-holding-heart mr-1.5" />
-                Support Us
+                Contribute
               </Link>
 
             </div>

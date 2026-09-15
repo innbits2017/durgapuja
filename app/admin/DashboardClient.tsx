@@ -87,7 +87,15 @@ type SevaRegistration = {
   block: string;
   flat_no: string;
   mobile: string;
-  materials: Array<{ type?: string; title?: string; quantity?: number | null; unit?: string | null; }>;
+  materials: Array<{
+    type?: string;
+    title?: string;
+    package?: string | null;
+    quantity?: number | string | null;
+    unit?: string | null;
+    price?: number | string | null;
+    day?: string | null;
+  }>;
   volunteer_roles: string[];
   volunteer_role_names: string[];
   volunteer_note: string | null;
@@ -158,6 +166,7 @@ type Section =
   | "contributions"
   | "culturalProgram"
   | "seva"
+  | "inventory"
   | "donations"
   | "expenses"
   | "lastYear";
@@ -230,17 +239,17 @@ function generateFlats(
  */
 const ALL_FLATS = {
   P1: [
-    ...generateFlats(1, 12),
     ...generateFlats(101, 112),
     ...generateFlats(201, 212),
     ...generateFlats(301, 312),
+    ...generateFlats(401, 412),
   ],
 
   P2: [
-    ...generateFlats(1, 67),
     ...generateFlats(101, 167),
     ...generateFlats(201, 267),
     ...generateFlats(301, 367),
+    ...generateFlats(401, 467),
   ],
 
   Villa: [
@@ -1465,6 +1474,32 @@ export default function DashboardClient({
     }
   }
 
+  function getMaterialPrice(material: SevaRegistration["materials"][number]) {
+    return Number(material.price || 0);
+  }
+
+  function getSevaMaterialTotal(item: SevaRegistration) {
+    return (item.materials || []).reduce(
+      (sum, material) => sum + getMaterialPrice(material),
+      0
+    );
+  }
+
+  function formatSevaMaterial(material: SevaRegistration["materials"][number]) {
+    const parts = [
+      material.title || "",
+      material.package || (material.quantity ? `${material.quantity}${material.unit ? ` ${material.unit}` : ""}` : ""),
+      material.day || "",
+    ].filter(Boolean);
+
+    const price = getMaterialPrice(material);
+    if (price > 0) {
+      parts.push(`₹${price.toLocaleString("en-IN")}`);
+    }
+
+    return parts.join(" · ");
+  }
+
   function exportSevaRegistrations() {
     const rows = filteredSevaRegistrations.map((item) => ({
       "Seva ID": item.seva_no,
@@ -1473,10 +1508,9 @@ export default function DashboardClient({
       "Flat No.": item.flat_no,
       Mobile: item.mobile,
       "Material Seva": (item.materials || [])
-        .map((material) =>
-          `${material.title || ""}${material.quantity ? ` - ${material.quantity} ${material.unit || ""}` : ""}`
-        )
+        .map((material) => formatSevaMaterial(material))
         .join("; "),
+      "Material Seva Total": getSevaMaterialTotal(item),
       "Volunteer Seva": (item.volunteer_role_names || []).join("; "),
       "Volunteer Note": item.volunteer_note || "",
       Status: item.status,
@@ -1488,7 +1522,7 @@ export default function DashboardClient({
     const worksheet = XLSX.utils.json_to_sheet(rows);
     worksheet["!cols"] = [
       { wch: 18 }, { wch: 24 }, { wch: 10 }, { wch: 12 }, { wch: 15 },
-      { wch: 55 }, { wch: 55 }, { wch: 35 }, { wch: 14 }, { wch: 35 },
+      { wch: 55 }, { wch: 20 }, { wch: 55 }, { wch: 35 }, { wch: 14 }, { wch: 35 },
       { wch: 22 }, { wch: 22 },
     ];
 
@@ -2409,20 +2443,6 @@ export default function DashboardClient({
               label="Contributions"
             />
 
-                        <NavButton
-              active={
-                section ===
-                "donations"
-              }
-              onClick={() =>
-                setSection(
-                  "donations"
-                )
-              }
-              icon="fa-hand-holding-heart"
-              label="External Support"
-            />
-
             <NavButton
               active={
                 section ===
@@ -2456,6 +2476,27 @@ export default function DashboardClient({
               onClick={() => setSection("seva")}
               icon="fa-hands-praying"
               label="Seva"
+            />
+
+            <NavButton
+              active={section === "inventory"}
+              onClick={() => setSection("inventory")}
+              icon="fa-boxes-stacked"
+              label="Inventory Help"
+            />
+
+            <NavButton
+              active={
+                section ===
+                "donations"
+              }
+              onClick={() =>
+                setSection(
+                  "donations"
+                )
+              }
+              icon="fa-hand-holding-heart"
+              label="External Support"
             />
 
             <NavButton
@@ -4251,13 +4292,26 @@ export default function DashboardClient({
                       </td>
                       <td className="max-w-[320px] px-4 py-4 text-xs">
                         {(item.materials || []).length ? (
-                          <div className="space-y-1">
-                            {(item.materials || []).map((material, index) => (
-                              <div key={`${item.id}-m-${index}`}>
-                                <span className="font-semibold">{material.title}</span>
-                                {material.quantity ? ` · ${material.quantity} ${material.unit || ""}` : ""}
+                          <div>
+                            <div className="space-y-1">
+                              {(item.materials || []).map((material, index) => (
+                                <div key={`${item.id}-m-${index}`} className="rounded-md bg-[#fcf8f1] px-2 py-1.5">
+                                  <div className="font-semibold text-[#292929]">
+                                    {material.type === "annadana" ? "Annadana Seva" : (material.title || "Material Seva")}
+                                  </div>
+                                  <div className="mt-0.5 text-[11px] text-[#666]">
+                                    {material.package || (material.quantity ? `${material.quantity} ${material.unit || ""}` : "")}
+                                    {material.day ? ` · ${material.day}` : ""}
+                                    {getMaterialPrice(material) > 0 ? ` · ₹${getMaterialPrice(material).toLocaleString("en-IN")}` : ""}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {getSevaMaterialTotal(item) > 0 && (
+                              <div className="mt-2 font-bold text-[#a70e18]">
+                                Total: ₹{getSevaMaterialTotal(item).toLocaleString("en-IN")}
                               </div>
-                            ))}
+                            )}
                           </div>
                         ) : <span className="text-[#aaa]">None</span>}
                       </td>
@@ -4303,7 +4357,22 @@ export default function DashboardClient({
                     <div className="font-semibold text-[#a70e18]">{item.seva_no}</div>
                     <div className="mt-2">
                       <span className="text-[#888]">Material Seva</span>
-                      <div className="mt-1 font-medium">{(item.materials || []).map((m) => `${m.title || ""}${m.quantity ? ` - ${m.quantity} ${m.unit || ""}` : ""}`).join(" · ") || "None"}</div>
+                      <div className="mt-1 space-y-1 font-medium">
+                        {(item.materials || []).length ? (
+                          <>
+                            {(item.materials || []).map((m, index) => (
+                              <div key={`${item.id}-mobile-m-${index}`}>
+                                {formatSevaMaterial(m)}
+                              </div>
+                            ))}
+                            {getSevaMaterialTotal(item) > 0 && (
+                              <div className="pt-1 font-bold text-[#a70e18]">
+                                Total: ₹{getSevaMaterialTotal(item).toLocaleString("en-IN")}
+                              </div>
+                            )}
+                          </>
+                        ) : "None"}
+                      </div>
                     </div>
                     <div className="mt-2">
                       <span className="text-[#888]">Volunteer Seva</span>
@@ -4328,6 +4397,14 @@ export default function DashboardClient({
 
             {filteredSevaRegistrations.length === 0 && <EmptyState label="No Seva registrations found." />}
           </section>
+        )}
+
+        {/* ====================================================
+            INVENTORY HELP
+        ==================================================== */}
+
+        {section === "inventory" && (
+          <InventoryManagement />
         )}
 
         {/* ====================================================
@@ -5112,6 +5189,915 @@ export default function DashboardClient({
 }
 
 /* ============================================================
+   INVENTORY MANAGEMENT
+============================================================ */
+
+type DashboardInventoryItem = {
+  id: string;
+  item_key: string;
+  item_name: string;
+  description: string | null;
+  required_quantity: number;
+  unit: string;
+  icon: string | null;
+  display_order: number;
+  active: boolean;
+  received_quantity: number;
+  remaining_quantity: number;
+  completed: boolean;
+};
+
+type DashboardInventoryRequest = {
+  id: string;
+  request_no: string;
+  inventory_item_id: string;
+  name: string;
+  block: string;
+  flat_no: string;
+  mobile: string;
+  brand: string | null;
+  quantity: number;
+  status: "pending" | "verified" | "rejected";
+  admin_note: string | null;
+  created_at: string;
+  verified_at: string | null;
+  inventory_item?: {
+    item_name: string;
+    unit: string;
+  } | null;
+};
+
+function InventoryManagement() {
+  const [items, setItems] = useState<DashboardInventoryItem[]>([]);
+  const [requests, setRequests] = useState<DashboardInventoryRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<DashboardInventoryItem | null>(null);
+
+  const [form, setForm] = useState({
+    itemName: "",
+    description: "",
+    requiredQuantity: "",
+    unit: "piece",
+    icon: "fa-box",
+  });
+
+  const [filter, setFilter] = useState<
+    "all" | "pending" | "verified" | "rejected"
+  >("all");
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadInventory = async () => {
+    try {
+      const response = await fetch(
+        "/api/admin/inventory-help",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to load inventory data."
+        );
+      }
+
+      setItems(data.items || []);
+      setRequests(data.requests || []);
+      setError("");
+    } catch (err) {
+      console.error("Inventory load error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load inventory data."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInventory();
+
+    const interval = window.setInterval(() => {
+      loadInventory();
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const pendingCount = useMemo(
+    () => requests.filter((request) => request.status === "pending").length,
+    [requests]
+  );
+
+  const filteredRequests = useMemo(() => {
+    if (filter === "all") return requests;
+    return requests.filter((request) => request.status === filter);
+  }, [requests, filter]);
+
+  const totalRequired = useMemo(
+    () => items.reduce((sum, item) => sum + Number(item.required_quantity || 0), 0),
+    [items]
+  );
+
+  const totalReceived = useMemo(
+    () => items.reduce((sum, item) => sum + Number(item.received_quantity || 0), 0),
+    [items]
+  );
+
+  const openAddModal = () => {
+    setEditingItem(null);
+    setForm({
+      itemName: "",
+      description: "",
+      requiredQuantity: "",
+      unit: "piece",
+      icon: "fa-box",
+    });
+    setError("");
+    setMessage("");
+    setShowModal(true);
+  };
+
+  const openEditModal = (item: DashboardInventoryItem) => {
+    setEditingItem(item);
+    setForm({
+      itemName: item.item_name || "",
+      description: item.description || "",
+      requiredQuantity: String(item.required_quantity ?? ""),
+      unit: item.unit || "piece",
+      icon: item.icon || "fa-box",
+    });
+    setError("");
+    setMessage("");
+    setShowModal(true);
+  };
+
+  const saveInventory = async () => {
+    setError("");
+    setMessage("");
+
+    const itemName = form.itemName.trim();
+    const description = form.description.trim();
+    const requiredQuantity = Number(form.requiredQuantity);
+    const unit = form.unit.trim();
+    const icon = form.icon.trim() || "fa-box";
+
+    if (!itemName) {
+      setError("Item name is required.");
+      return;
+    }
+
+    if (!Number.isInteger(requiredQuantity) || requiredQuantity < 1) {
+      setError("Required quantity must be a positive integer.");
+      return;
+    }
+
+    if (!unit) {
+      setError("Unit is required.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const isEditing = Boolean(editingItem);
+
+      const response = await fetch(
+        "/api/admin/inventory-help",
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(
+            isEditing
+              ? {
+                  id: editingItem!.id,
+                  itemName,
+                  description: description || null,
+                  requiredQuantity,
+                  unit,
+                  icon,
+                }
+              : {
+                  itemName,
+                  description: description || null,
+                  requiredQuantity,
+                  unit,
+                  icon,
+                }
+          ),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            (isEditing
+              ? "Unable to update inventory."
+              : "Unable to add inventory.")
+        );
+      }
+
+      setShowModal(false);
+      setEditingItem(null);
+
+      setMessage(
+        isEditing
+          ? "Inventory updated successfully."
+          : "Inventory added successfully."
+      );
+
+      await loadInventory();
+    } catch (err) {
+      console.error("Inventory save error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to save inventory."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeInventory = async (item: DashboardInventoryItem) => {
+    const confirmed = window.confirm(
+      `Remove "${item.item_name}" from the inventory requirements?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionId(item.id);
+      setError("");
+      setMessage("");
+
+      const response = await fetch(
+        "/api/admin/inventory-help",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: item.id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to remove inventory."
+        );
+      }
+
+      setMessage("Inventory removed successfully.");
+      await loadInventory();
+    } catch (err) {
+      console.error("Inventory remove error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to remove inventory."
+      );
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const updateRequest = async (
+    request: DashboardInventoryRequest,
+    status: "verified" | "rejected"
+  ) => {
+    let adminNote = "";
+
+    if (status === "rejected") {
+      adminNote =
+        window.prompt("Reason for rejection:", "") || "";
+
+      if (!adminNote.trim()) {
+        const proceed = window.confirm(
+          "No rejection reason entered. Continue?"
+        );
+        if (!proceed) return;
+      }
+    } else {
+      adminNote =
+        window.prompt("Optional admin note:", "") || "";
+    }
+
+    try {
+      setActionId(request.id);
+      setError("");
+      setMessage("");
+
+      const response = await fetch(
+        "/api/admin/inventory-help/verify",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: request.id,
+            status,
+            adminNote: adminNote.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to update help request."
+        );
+      }
+
+      setMessage(
+        status === "verified"
+          ? "Inventory help verified successfully."
+          : "Inventory help request rejected."
+      );
+
+      await loadInventory();
+    } catch (err) {
+      console.error("Inventory request update error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update help request."
+      );
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const progress = (item: DashboardInventoryItem) => {
+    const required = Number(item.required_quantity || 0);
+    const received = Number(item.received_quantity || 0);
+
+    if (!required) return 0;
+    return Math.min(100, Math.round((received / required) * 100));
+  };
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
+      <div className="border-b border-[#eee5db] px-5 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="font-serif text-2xl font-bold text-[#292929]">
+              Inventory Requirements
+            </h2>
+            <p className="mt-1 text-sm text-[#737373]">
+              Add and manage items required for the Puja.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#b40716] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#970612]"
+          >
+            <i className="fa-solid fa-plus" />
+            Add Inventory
+          </button>
+        </div>
+      </div>
+
+      <div className="p-5">
+        {message && (
+          <div className="mb-4 rounded-xl border border-[#ead9b8] bg-[#fff8e9] px-4 py-3 text-sm text-[#7a6243]">
+            <i className="fa-solid fa-circle-info mr-2 text-[#b40716]" />
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-[#f0cccc] bg-[#fff6f6] px-4 py-3 text-sm text-[#a70e18]">
+            <i className="fa-solid fa-circle-exclamation mr-2" />
+            {error}
+          </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[#eadfd2] bg-[#fffaf4] p-4">
+              <div className="text-xs uppercase tracking-wide text-[#888]">
+                Inventory Items
+              </div>
+              <div className="mt-1 text-2xl font-bold text-[#292929]">
+                {items.length}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#eadfd2] bg-[#fffaf4] p-4">
+              <div className="text-xs uppercase tracking-wide text-[#888]">
+                Total Required
+              </div>
+              <div className="mt-1 text-2xl font-bold text-[#292929]">
+                {totalRequired}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#eadfd2] bg-[#fffaf4] p-4">
+              <div className="text-xs uppercase tracking-wide text-[#888]">
+                Verified Received
+              </div>
+              <div className="mt-1 text-2xl font-bold text-[#23753b]">
+                {totalReceived}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="rounded-xl border border-[#eadfd2] bg-[#fffaf4] p-10 text-center">
+            <i className="fa-solid fa-spinner fa-spin text-2xl text-[#b40716]" />
+            <p className="mt-3 text-sm text-[#737373]">
+              Loading inventory...
+            </p>
+          </div>
+        )}
+
+        {!loading && items.length === 0 && !error && (
+          <div className="rounded-xl border border-dashed border-[#dfcfbd] bg-[#fffaf4] p-10 text-center">
+            <i className="fa-solid fa-box-open text-4xl text-[#b40716]" />
+            <h3 className="mt-4 font-serif text-xl font-bold">
+              No inventory requirements yet
+            </h3>
+            <p className="mt-1 text-sm text-[#737373]">
+              Add the items required for the Puja.
+            </p>
+          </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {items.map((item) => {
+              const percentage = progress(item);
+
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-[#eadfd2] bg-[#fffdf9] p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#f8e8e8] text-[#b40716]">
+                      <i
+                        className={`fa-solid ${item.icon || "fa-box"} text-xl`}
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg font-bold text-[#292929]">
+                        {item.item_name}
+                      </h3>
+                      {item.description && (
+                        <p className="mt-1 text-xs leading-5 text-[#737373]">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 rounded-xl bg-[#fcf8f1] p-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Required</span>
+                      <strong>
+                        {item.required_quantity} {item.unit}
+                      </strong>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <span>Verified Received</span>
+                      <strong className="text-[#23753b]">
+                        {item.received_quantity} {item.unit}
+                      </strong>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <span>Remaining</span>
+                      <strong className={item.completed ? "text-[#23753b]" : "text-[#b40716]"}>
+                        {item.remaining_quantity} {item.unit}
+                      </strong>
+                    </div>
+
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#eadfd2]">
+                      <div
+                        className="h-full rounded-full bg-[#b40716] transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-[11px] text-[#888]">
+                      <span>{percentage}% complete</span>
+                      {item.completed && (
+                        <span className="font-bold text-[#23753b]">
+                          ✓ Target Completed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={actionId === item.id}
+                      onClick={() => openEditModal(item)}
+                      className="flex-1 rounded-xl border border-[#ddd2c5] bg-white px-4 py-2.5 text-sm font-semibold text-[#555] transition hover:bg-[#fffaf4] disabled:opacity-50"
+                    >
+                      <i className="fa-solid fa-pen mr-2" />
+                      Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={actionId === item.id}
+                      onClick={() => removeInventory(item)}
+                      className="flex-1 rounded-xl border border-[#f0cccc] bg-[#fff6f6] px-4 py-2.5 text-sm font-semibold text-[#b40716] transition hover:bg-[#ffecec] disabled:opacity-50"
+                    >
+                      <i className="fa-solid fa-trash mr-2" />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ====================================================
+            HELP REQUESTS
+        ==================================================== */}
+
+        {!loading && (
+          <div className="mt-7 overflow-hidden rounded-2xl border border-[#eadfd2] bg-white">
+            <div className="border-b border-[#eee5db] px-5 py-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h3 className="font-serif text-xl font-bold">
+                    Inventory Help Requests
+                  </h3>
+                  <p className="mt-1 text-xs text-[#737373]">
+                    Verify items residents have offered for the Puja.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["all", "All"],
+                      ["pending", "Pending"],
+                      ["verified", "Verified"],
+                      ["rejected", "Rejected"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFilter(value)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                        filter === value
+                          ? "bg-[#b40716] text-white"
+                          : "border border-[#eadfd2] bg-[#fffaf4] text-[#666]"
+                      }`}
+                    >
+                      {label}
+                      {value === "pending" && pendingCount > 0
+                        ? ` (${pendingCount})`
+                        : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {filteredRequests.length === 0 ? (
+              <div className="p-10 text-center">
+                <i className="fa-solid fa-inbox text-3xl text-[#c0b2a4]" />
+                <p className="mt-3 text-sm text-[#737373]">
+                  No inventory help requests found.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#eee5db]">
+                {filteredRequests.map((request) => (
+                  <div key={request.id} className="p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-semibold text-[#292929]">
+                            {request.inventory_item?.item_name || "Inventory Item"}
+                          </h4>
+
+                          <span className="rounded-full bg-[#f8eadb] px-2.5 py-1 text-[11px] font-semibold text-[#8b5c37]">
+                            {request.request_no}
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                              request.status === "verified"
+                                ? "bg-green-100 text-green-700"
+                                : request.status === "rejected"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                            }`}
+                          >
+                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-[#666] sm:grid-cols-2 lg:grid-cols-4">
+                          <div>
+                            <span className="text-[#999]">Resident</span>
+                            <div className="font-semibold text-[#333]">
+                              {request.name}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[#999]">Flat</span>
+                            <div className="font-semibold text-[#333]">
+                              {request.block}-{request.flat_no}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[#999]">Mobile</span>
+                            <div className="font-semibold text-[#333]">
+                              {request.mobile}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[#999]">Quantity</span>
+                            <div className="font-semibold text-[#333]">
+                              {request.quantity} {request.inventory_item?.unit || ""}
+                            </div>
+                          </div>
+                        </div>
+
+                        {request.brand && (
+                          <p className="mt-3 text-xs text-[#737373]">
+                            <strong>Brand:</strong> {request.brand}
+                          </p>
+                        )}
+
+                        {request.admin_note && (
+                          <p className="mt-2 text-xs text-[#737373]">
+                            <strong>Admin Note:</strong> {request.admin_note}
+                          </p>
+                        )}
+
+                        <p className="mt-2 text-[11px] text-[#999]">
+                          Submitted {formatDateTime(request.created_at)}
+                        </p>
+                      </div>
+
+                      {request.status === "pending" && (
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            disabled={actionId === request.id}
+                            onClick={() => updateRequest(request, "verified")}
+                            className="rounded-lg bg-[#23753b] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            <i className="fa-solid fa-check mr-1.5" />
+                            Verify
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={actionId === request.id}
+                            onClick={() => updateRequest(request, "rejected")}
+                            className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-4 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
+                          >
+                            <i className="fa-solid fa-xmark mr-1.5" />
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ====================================================
+          ADD / EDIT MODAL
+      ==================================================== */}
+
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#eee5db] px-6 py-5">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-[#292929]">
+                  {editingItem ? "Edit Inventory" : "Add Inventory"}
+                </h2>
+                <p className="mt-1 text-sm text-[#737373]">
+                  {editingItem
+                    ? "Update the requirement that residents will see."
+                    : "Set the requirement that residents will see."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!saving) setShowModal(false);
+                }}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f7f1e9] text-[#b40716] transition hover:bg-[#f2e7da]"
+              >
+                <i className="fa-solid fa-xmark text-lg" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveInventory();
+              }}
+              className="space-y-5 p-6"
+            >
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#444]">
+                  Item Name *
+                </label>
+                <input
+                  value={form.itemName}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      itemName: event.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Gas Cylinder"
+                  className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#444]">
+                  Description
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  placeholder="Short description"
+                  className="w-full resize-none rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Required Quantity *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.requiredQuantity}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        requiredQuantity: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Unit *
+                  </label>
+                  <select
+                    value={form.unit}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        unit: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                  >
+                    <option value="piece">piece</option>
+                    <option value="pieces">pieces</option>
+                    <option value="can">can</option>
+                    <option value="cans">cans</option>
+                    <option value="cylinder">cylinder</option>
+                    <option value="cylinders">cylinders</option>
+                    <option value="set">set</option>
+                    <option value="sets">sets</option>
+                    <option value="chair">chair</option>
+                    <option value="chairs">chairs</option>
+                    <option value="table">table</option>
+                    <option value="tables">tables</option>
+                    <option value="mat">mat</option>
+                    <option value="mats">mats</option>
+                    <option value="item">item</option>
+                    <option value="items">items</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#444]">
+                  Font Awesome Icon
+                </label>
+                <input
+                  value={form.icon}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      icon: event.target.value,
+                    }))
+                  }
+                  placeholder="fa-box"
+                  className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                />
+                <p className="mt-1.5 text-xs text-[#999]">
+                  Example: fa-chair, fa-table, fa-plug
+                </p>
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-[#f0cccc] bg-[#fff6f6] px-4 py-3 text-sm text-[#a70e18]">
+                  <i className="fa-solid fa-circle-exclamation mr-2" />
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 rounded-xl border border-[#ddd2c5] bg-white px-5 py-3.5 text-sm font-bold text-[#666] transition hover:bg-[#fffaf4] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-[#b40716] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#970612] disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : editingItem ? (
+                    <>
+                      <i className="fa-solid fa-check mr-2" />
+                      Update Inventory
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-plus mr-2" />
+                      Add Inventory
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+/* ============================================================
    NAV BUTTON
 ============================================================ */
 
@@ -5855,11 +6841,25 @@ function SevaDetailsModal({
             <h3 className="font-serif text-lg font-bold">Material Seva</h3>
             <div className="mt-3 space-y-2">
               {(seva.materials || []).length ? (seva.materials || []).map((material, index) => (
-                <div key={`${seva.id}-detail-m-${index}`} className="rounded-lg bg-[#fcf8f1] px-3 py-2.5 text-sm">
-                  <span className="font-semibold">{material.title}</span>
-                  {material.quantity ? <span className="text-[#666]"> · {material.quantity} {material.unit || ""}</span> : null}
+                <div key={`${seva.id}-detail-m-${index}`} className="rounded-lg bg-[#fcf8f1] px-3 py-3 text-sm">
+                  <div className="font-semibold text-[#292929]">{material.title}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[#666]">
+                    {material.package ? <span>{material.package}</span> : material.quantity ? <span>{material.quantity} {material.unit || ""}</span> : null}
+                    {material.day ? <span>· {material.day}</span> : null}
+                    {getMaterialPrice(material) > 0 ? (
+                      <span className="font-bold text-[#a70e18]">· ₹{getMaterialPrice(material).toLocaleString("en-IN")}</span>
+                    ) : null}
+                  </div>
                 </div>
               )) : <div className="text-sm text-[#999]">No material Seva selected.</div>}
+              {getSevaMaterialTotal(seva) > 0 && (
+                <div className="mt-3 rounded-lg border border-[#eadfd2] bg-[#fff7ed] px-3 py-3 text-right">
+                  <span className="text-sm font-semibold text-[#666]">Material Seva Total</span>
+                  <span className="ml-3 text-lg font-bold text-[#a70e18]">
+                    ₹{getSevaMaterialTotal(seva).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
