@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { sendCulturalProgramSubmittedWhatsApp } from "@/lib/whatsapp";
 
 const VALID_BLOCKS = ["P1", "P2", "Villa"];
-
 const VALID_PARTICIPANT_TYPES = [
   "Child",
   "Adult",
   "Senior Citizen",
 ];
-
 const VALID_PERFORMANCE_TYPES = ["Individual", "Group"];
-
 const VALID_CATEGORIES = [
   "Dance",
   "Singing",
@@ -19,7 +17,6 @@ const VALID_CATEGORIES = [
   "Recitation",
   "Other",
 ];
-
 const VALID_DURATIONS = [
   "Up to 3 minutes",
   "3–5 minutes",
@@ -30,6 +27,14 @@ const VALID_DURATIONS = [
 function generateRegistrationNo() {
   const random = Math.floor(100000 + Math.random() * 900000);
   return `CP-2026-${random}`;
+}
+
+function sanitizeWhatsAppParameter(value: string) {
+  return String(value || "")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 900);
 }
 
 export async function POST(request: Request) {
@@ -52,15 +57,9 @@ export async function POST(request: Request) {
       duration,
     } = body;
 
-    // -----------------------------------------
-    // VALIDATION
-    // -----------------------------------------
-
     if (!participantName?.trim()) {
       return NextResponse.json(
-        {
-          error: "Participant name is required.",
-        },
+        { error: "Participant name is required." },
         { status: 400 }
       );
     }
@@ -73,36 +72,28 @@ export async function POST(request: Request) {
       numericAge > 100
     ) {
       return NextResponse.json(
-        {
-          error: "Please enter a valid age.",
-        },
+        { error: "Please enter a valid age." },
         { status: 400 }
       );
     }
 
     if (!VALID_BLOCKS.includes(block)) {
       return NextResponse.json(
-        {
-          error: "Invalid block.",
-        },
+        { error: "Invalid block." },
         { status: 400 }
       );
     }
 
     if (!flatNo?.trim()) {
       return NextResponse.json(
-        {
-          error: "Flat number is required.",
-        },
+        { error: "Flat number is required." },
         { status: 400 }
       );
     }
 
     if (!VALID_PARTICIPANT_TYPES.includes(participantType)) {
       return NextResponse.json(
-        {
-          error: "Invalid participant type.",
-        },
+        { error: "Invalid participant type." },
         { status: 400 }
       );
     }
@@ -111,67 +102,57 @@ export async function POST(request: Request) {
 
     if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
       return NextResponse.json(
-        {
-          error: "Please enter a valid 10-digit mobile number.",
-        },
+        { error: "Please enter a valid 10-digit mobile number." },
         { status: 400 }
       );
     }
 
     if (!VALID_PERFORMANCE_TYPES.includes(performanceType)) {
       return NextResponse.json(
-        {
-          error: "Invalid performance type.",
-        },
+        { error: "Invalid performance type." },
         { status: 400 }
       );
     }
 
     if (!VALID_CATEGORIES.includes(category)) {
       return NextResponse.json(
-        {
-          error: "Invalid program category.",
-        },
+        { error: "Invalid program category." },
         { status: 400 }
       );
     }
 
     if (!performanceTitle?.trim()) {
       return NextResponse.json(
-        {
-          error: "Performance title is required.",
-        },
+        { error: "Performance title is required." },
         { status: 400 }
       );
     }
 
     if (!VALID_DURATIONS.includes(duration)) {
       return NextResponse.json(
-        {
-          error: "Invalid expected duration.",
-        },
+        { error: "Invalid expected duration." },
         { status: 400 }
       );
     }
 
-    // -----------------------------------------
-    // REGISTRATION NUMBER
-    // -----------------------------------------
-
     const registrationNo = generateRegistrationNo();
 
-    // -----------------------------------------
-    // INSERT REGISTRATION
-    //
-    // IMPORTANT:
-    // slot_number is intentionally NOT included.
-    //
-    // Supabase/PostgreSQL will automatically assign
-    // the next slot using:
-    //
-    // cultural_program_slot_seq
-    // -----------------------------------------
+    /*
+      IMPORTANT:
+      slot_number is intentionally NOT supplied here.
 
+      PostgreSQL assigns the slot using the default:
+      nextval('cultural_program_slot_seq')
+
+      This guarantees:
+      Registration 1 -> Slot 1
+      Registration 2 -> Slot 2
+      Registration 3 -> Slot 3
+      ...
+
+      The slot is assigned at registration time and is never
+      recalculated or reused when a registration is rejected.
+    */
     const { data, error } = await supabaseAdmin
       .from("cultural_program_registrations")
       .insert({
@@ -184,35 +165,21 @@ export async function POST(request: Request) {
         mobile: cleanMobile,
         email: email?.trim() || null,
         performance_type: performanceType,
-
         group_name:
           performanceType === "Group"
             ? groupName?.trim() || null
             : null,
-
         category,
         performance_title: performanceTitle.trim(),
         description: description?.trim() || null,
         duration,
-
-        // Registration starts as pending.
-        // Slot is assigned automatically by the database.
         status: "pending",
       })
-      .select(
-        "id, registration_no, slot_number"
-      )
+      .select("id, registration_no, slot_number")
       .single();
 
-    // -----------------------------------------
-    // INSERT ERROR
-    // -----------------------------------------
-
     if (error) {
-      console.error(
-        "Cultural program insert error:",
-        error
-      );
+      console.error("Cultural program insert error:", error);
 
       return NextResponse.json(
         {
@@ -223,27 +190,71 @@ export async function POST(request: Request) {
       );
     }
 
-    // -----------------------------------------
-    // SUCCESS
-    // -----------------------------------------
+    /*
+      WhatsApp submission confirmation.
+
+      The registration is already safely stored in the database.
+      If WhatsApp fails, the registration should NOT fail.
+    */
+    let whatsappSent = false;
+    let whatsappSkipped = false;
+    let whatsappError: string | null = null;
+    let whatsappMessageId: string | null = null;
+
+    try {
+      const result = await sendCulturalProgramSubmittedWhatsApp({
+        mobile: cleanMobile,
+        participantName: sanitizeWhatsAppParameter(
+          data.participant_name ?? participantName.trim()
+        ),
+        registrationNo: sanitizeWhatsAppParameter(
+          data.registration_no ?? registrationNo
+        ),
+        performanceTitle: sanitizeWhatsAppParameter(
+          data.performance_title ?? performanceTitle.trim()
+        ),
+      });
+
+      whatsappSent = Boolean(result.sent);
+      whatsappSkipped = Boolean(result.skipped);
+      whatsappError = result.sent
+        ? null
+        : result.error || null;
+      whatsappMessageId = result.messageId || null;
+
+      if (!result.sent && result.error) {
+        console.error(
+          "Cultural program submitted WhatsApp notification failed:",
+          result.error
+        );
+      }
+    } catch (error) {
+      whatsappError =
+        error instanceof Error
+          ? error.message
+          : "WhatsApp submission message failed.";
+
+      console.error(
+        "Cultural program submitted WhatsApp error:",
+        error
+      );
+    }
 
     return NextResponse.json(
       {
         success: true,
         id: data.id,
         registrationNo: data.registration_no,
-
-        // This is the slot automatically generated
-        // by PostgreSQL.
         slotNumber: data.slot_number,
+        whatsappSent,
+        whatsappSkipped,
+        whatsappMessageId,
+        whatsappError,
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "Cultural program API error:",
-      error
-    );
+    console.error("Cultural program API error:", error);
 
     return NextResponse.json(
       {
