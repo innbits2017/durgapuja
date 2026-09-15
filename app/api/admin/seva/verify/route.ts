@@ -11,103 +11,77 @@ const ALLOWED_STATUSES = [
 
 type AllowedStatus = (typeof ALLOWED_STATUSES)[number];
 
-type MaterialItem = {
-  type?: string;
-  title?: string;
-  quantity?: number | null;
-  unit?: string | null;
-};
-
-function sanitizeWhatsAppParameter(value: string) {
-  return String(value || "")
+function sanitizeWhatsAppParameter(value: unknown) {
+  return String(value ?? "")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 900);
 }
 
-function formatSevaDetails(
-  materials: unknown,
-  volunteerRoleNames: unknown,
-  volunteerNote: unknown
-) {
+function formatSevaDetails(seva: {
+  materials?: unknown;
+  volunteer_role_names?: unknown;
+  amount?: number | string | null;
+  payment_method?: string | null;
+  utr?: string | null;
+}) {
   const parts: string[] = [];
 
-  // ---------------------------------------------------------
-  // Material Seva
-  // ---------------------------------------------------------
+  const materials = Array.isArray(seva.materials)
+    ? seva.materials
+    : [];
 
-  if (Array.isArray(materials) && materials.length > 0) {
-    const materialDetails = materials
-      .filter(
-        (item): item is MaterialItem =>
-          item !== null && typeof item === "object"
-      )
-      .map((item) => {
-        const title = String(item.title || "").trim();
-        const type = String(item.type || "").trim();
+  for (const raw of materials) {
+    if (!raw || typeof raw !== "object") continue;
 
-        if (
-          type === "full_prasad" ||
-          type === "cylinder"
-        ) {
-          return title || type;
-        }
+    const item = raw as Record<string, unknown>;
+    const title = String(item.title || item.type || "").trim();
+    const pkg = String(item.package || "").trim();
+    const day = String(item.day || "").trim();
+    const price = Number(item.price || 0);
 
-        if (
-          item.quantity !== null &&
-          item.quantity !== undefined &&
-          Number.isFinite(Number(item.quantity))
-        ) {
-          return `${title || type}: ${item.quantity}${
-            item.unit ? ` ${item.unit}` : ""
-          }`;
-        }
+    if (!title) continue;
 
-        return title || type;
-      })
-      .filter(Boolean);
+    const detailParts = [
+      title,
+      pkg,
+      day,
+      price > 0
+        ? `Rs.${price.toLocaleString("en-IN")}`
+        : "",
+    ].filter(Boolean);
 
-    if (materialDetails.length > 0) {
-      parts.push(
-        `Material Seva: ${materialDetails.join(", ")}`
-      );
-    }
+    parts.push(detailParts.join(": ").replace(": " + day, `, ${day}`));
   }
 
-  // ---------------------------------------------------------
-  // Volunteer Seva
-  // ---------------------------------------------------------
+  const volunteerRoles = Array.isArray(seva.volunteer_role_names)
+    ? seva.volunteer_role_names
+    : [];
 
-  if (
-    Array.isArray(volunteerRoleNames) &&
-    volunteerRoleNames.length > 0
-  ) {
-    const roles = volunteerRoleNames
-      .filter((role): role is string => typeof role === "string")
-      .map((role) => role.trim())
-      .filter(Boolean);
-
-    if (roles.length > 0) {
-      parts.push(
-        `Volunteer Seva: ${roles.join(", ")}`
-      );
-    }
+  for (const role of volunteerRoles) {
+    const name = String(role || "").trim();
+    if (name) parts.push(`${name}: Volunteer`);
   }
 
-  // ---------------------------------------------------------
-  // Volunteer note
-  // ---------------------------------------------------------
+  const amount = Number(seva.amount || 0);
 
-  if (
-    typeof volunteerNote === "string" &&
-    volunteerNote.trim()
-  ) {
-    parts.push(`Note: ${volunteerNote.trim()}`);
+  if (amount > 0) {
+    parts.push(
+      `Total Sponsorship: Rs.${amount.toLocaleString("en-IN")}`
+    );
+
+    if (seva.payment_method) {
+      parts.push(`Payment: ${String(seva.payment_method).toUpperCase()}`);
+    }
+
+    if (seva.utr) {
+      parts.push(`UTR: ${String(seva.utr).trim()}`);
+    }
   }
 
   return sanitizeWhatsAppParameter(
-    parts.join(" | ")
+    parts.join("; ") || "Seva registration confirmed."
   );
 }
 
@@ -122,91 +96,47 @@ export async function POST(request: Request) {
 
     const status = body.status as AllowedStatus;
 
-    // ---------------------------------------------------------
-    // Validate ID
-    // ---------------------------------------------------------
-
     if (!id) {
       return NextResponse.json(
-        {
-          error: "Seva registration ID is required.",
-        },
+        { error: "Seva registration ID is required." },
         { status: 400 }
       );
     }
-
-    // ---------------------------------------------------------
-    // Validate status
-    // ---------------------------------------------------------
 
     if (!ALLOWED_STATUSES.includes(status)) {
       return NextResponse.json(
-        {
-          error: "Invalid Seva status.",
-        },
+        { error: "Invalid Seva status." },
         { status: 400 }
       );
     }
 
-    // ---------------------------------------------------------
-    // Get existing Seva
-    //
-    // We need the complete record because WhatsApp confirmation
-    // requires the Seva details.
-    // ---------------------------------------------------------
-
+    // Fetch the complete existing record first.
+    // We need the previous status so the confirmation WhatsApp
+    // is sent only when the registration moves INTO confirmed.
     const { data: existing, error: lookupError } =
       await supabaseAdmin
         .from("seva_registrations")
         .select(
-          `
-          id,
-          seva_no,
-          name,
-          block,
-          flat_no,
-          mobile,
-          materials,
-          volunteer_roles,
-          volunteer_role_names,
-          volunteer_note,
-          status,
-          admin_note,
-          created_at,
-          updated_at
-          `
+          "id, seva_no, name, mobile, status, materials, volunteer_role_names, amount, payment_method, utr"
         )
         .eq("id", id)
         .maybeSingle();
 
     if (lookupError) {
-      console.error(
-        "Seva lookup error:",
-        lookupError
-      );
+      console.error("Seva lookup error:", lookupError);
 
       return NextResponse.json(
-        {
-          error:
-            "Unable to find Seva registration.",
-        },
+        { error: "Unable to find Seva registration." },
         { status: 500 }
       );
     }
 
     if (!existing) {
       return NextResponse.json(
-        {
-          error:
-            "Seva registration not found.",
-        },
+        { error: "Seva registration not found." },
         { status: 404 }
       );
     }
-
-    // ---------------------------------------------------------
-    // Prevent rejected → active
-    // ---------------------------------------------------------
 
     if (
       existing.status === "rejected" &&
@@ -221,22 +151,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // ---------------------------------------------------------
-    // Remember previous status
-    //
-    // WhatsApp confirmation should be sent only when the Seva
-    // actually changes to "confirmed".
-    //
-    // This prevents sending duplicate WhatsApp messages if the
-    // admin clicks Confirm again.
-    // ---------------------------------------------------------
-
-    const wasAlreadyConfirmed =
-      existing.status === "confirmed";
-
-    // ---------------------------------------------------------
-    // Update status
-    // ---------------------------------------------------------
+    const wasConfirmed = existing.status === "confirmed";
+    const isBeingConfirmed = status === "confirmed";
+    const shouldSendConfirmationWhatsApp =
+      isBeingConfirmed && !wasConfirmed;
 
     const { data, error } = await supabaseAdmin
       .from("seva_registrations")
@@ -246,146 +164,88 @@ export async function POST(request: Request) {
       })
       .eq("id", id)
       .select(
-        `
-        id,
-        seva_no,
-        name,
-        block,
-        flat_no,
-        mobile,
-        materials,
-        volunteer_roles,
-        volunteer_role_names,
-        volunteer_note,
-        status,
-        admin_note,
-        created_at,
-        updated_at
-        `
+        "id, seva_no, name, block, flat_no, mobile, materials, volunteer_roles, volunteer_role_names, volunteer_note, amount, payment_method, utr, payment_status, status, admin_note, created_at, updated_at"
       )
       .single();
 
     if (error) {
-      console.error(
-        "Seva status update error:",
-        error
-      );
+      console.error("Seva status update error:", error);
 
       return NextResponse.json(
-        {
-          error:
-            "Unable to update Seva registration.",
-        },
+        { error: "Unable to update Seva registration." },
         { status: 500 }
       );
     }
 
-    // ---------------------------------------------------------
-    // WhatsApp confirmation
-    //
-    // Only send when:
-    //
-    // previous status != confirmed
-    // AND
-    // new status == confirmed
-    // ---------------------------------------------------------
-
     let whatsappSent = false;
+    let whatsappSkipped = false;
     let whatsappMessageId: string | null = null;
     let whatsappError: string | null = null;
 
-    if (
-      status === "confirmed" &&
-      !wasAlreadyConfirmed
-    ) {
+    if (shouldSendConfirmationWhatsApp) {
       try {
-        const sevaDetails = formatSevaDetails(
-          data.materials,
-          data.volunteer_role_names,
-          data.volunteer_note
-        );
+        const sevaDetails = formatSevaDetails(data);
 
-        console.log(
-          "Sending Seva confirmation WhatsApp:",
-          {
-            sevaNo: data.seva_no,
-            mobile: data.mobile,
-            name: data.name,
-            details: sevaDetails,
-          }
-        );
-
-        const whatsappResult =
+        const result =
           await sendSevaConfirmedWhatsApp({
             mobile: data.mobile,
-            name: data.name,
-            sevaNo: data.seva_no,
+            name: sanitizeWhatsAppParameter(data.name),
+            sevaNo: sanitizeWhatsAppParameter(data.seva_no),
             sevaDetails,
           });
 
-        whatsappSent = Boolean(
-          whatsappResult?.sent
-        );
+        whatsappSent = Boolean(result.sent);
+        whatsappSkipped = Boolean(result.skipped);
+        whatsappMessageId = result.messageId || null;
+        whatsappError = result.sent
+          ? null
+          : result.error || null;
 
-        whatsappMessageId =
-          whatsappResult?.messageId || null;
-
-        if (
-          !whatsappSent &&
-          whatsappResult?.error
-        ) {
-          whatsappError =
-            whatsappResult.error;
+        if (result.sent) {
+          console.log(
+            "Seva confirmation WhatsApp sent:",
+            {
+              sevaNo: data.seva_no,
+              recipient: data.mobile,
+              messageId: result.messageId,
+            }
+          );
+        } else {
+          console.error(
+            "Seva confirmation WhatsApp was not sent:",
+            result.error
+          );
         }
-
-        console.log(
-          "Seva confirmation WhatsApp result:",
-          {
-            sevaNo: data.seva_no,
-            mobile: data.mobile,
-            sent: whatsappSent,
-            messageId: whatsappMessageId,
-            error: whatsappError,
-          }
-        );
-      } catch (error) {
+      } catch (whatsappErrorValue) {
         whatsappError =
-          error instanceof Error
-            ? error.message
-            : String(error);
+          whatsappErrorValue instanceof Error
+            ? whatsappErrorValue.message
+            : "Seva confirmation WhatsApp failed.";
 
         console.error(
-          "Seva confirmation WhatsApp failed:",
-          error
+          "Seva confirmation WhatsApp error:",
+          whatsappErrorValue
         );
-
-        // IMPORTANT:
-        // Do not fail the admin status update just
-        // because WhatsApp failed.
       }
     }
-
-    // ---------------------------------------------------------
-    // Response
-    // ---------------------------------------------------------
 
     return NextResponse.json({
       success: true,
       seva: data,
       whatsappSent,
+      whatsappSkipped,
       whatsappMessageId,
       whatsappError,
     });
   } catch (error) {
-    console.error(
-      "Admin Seva API error:",
-      error
-    );
+    console.error("Admin Seva API error:", error);
 
     return NextResponse.json(
       {
         error:
-          "Something went wrong. Please try again.",
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
       },
       { status: 500 }
     );
