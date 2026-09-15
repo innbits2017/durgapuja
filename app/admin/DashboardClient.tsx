@@ -2409,6 +2409,20 @@ export default function DashboardClient({
               label="Contributions"
             />
 
+                        <NavButton
+              active={
+                section ===
+                "donations"
+              }
+              onClick={() =>
+                setSection(
+                  "donations"
+                )
+              }
+              icon="fa-hand-holding-heart"
+              label="External Support"
+            />
+
             <NavButton
               active={
                 section ===
@@ -2442,20 +2456,6 @@ export default function DashboardClient({
               onClick={() => setSection("seva")}
               icon="fa-hands-praying"
               label="Seva"
-            />
-
-            <NavButton
-              active={
-                section ===
-                "donations"
-              }
-              onClick={() =>
-                setSection(
-                  "donations"
-                )
-              }
-              icon="fa-hand-holding-heart"
-              label="External Support"
             />
 
             <NavButton
