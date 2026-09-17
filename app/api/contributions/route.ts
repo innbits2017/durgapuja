@@ -255,7 +255,7 @@ export async function POST(request: Request) {
     // CASH or UPI
     // UPI -> UTR REQUIRED
     // CASH -> PAID TO REQUIRED
-    // COLLECTED BY REQUIRED
+    // CASH -> COLLECTED BY REQUIRED
     // STATUS = VERIFIED
     // =========================================================
 
@@ -277,11 +277,15 @@ export async function POST(request: Request) {
         );
       }
 
-      if (!cleanCollectedBy) {
+      // Collected By is mandatory only for CASH.
+      if (
+        paymentMethod === "cash" &&
+        !cleanCollectedBy
+      ) {
         return NextResponse.json(
           {
             error:
-              "Committee member name is required.",
+              "Committee member name is required for cash payments.",
           },
           {
             status: 400,
@@ -562,7 +566,8 @@ export async function POST(request: Request) {
           channel,
 
         collected_by:
-          channel === "committee"
+          channel === "committee" &&
+          paymentMethod === "cash"
             ? cleanCollectedBy
             : null,
 

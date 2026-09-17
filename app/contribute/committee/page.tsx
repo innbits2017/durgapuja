@@ -37,10 +37,10 @@ const COLLECTION_STATUSES: CollectionStatus[] = [
 ];
 
 const CASH_RECEIVERS = [
-  "Shakti Swaro",
+  "Debadutta Mishra",
+  "Brajesh Kumar",
+  "Hira Lal",
   "Rahul Kumar",
-  "Vivek Sharma",
-  "Govind Choudhary",
 ];
 
 function generateFlats(
@@ -99,7 +99,6 @@ export default function CommitteeContributePage() {
     useState<PaymentMethod>("upi");
 
   const [utr, setUtr] = useState("");
-  const [paidTo, setPaidTo] = useState("");
 
   const [flatSearch, setFlatSearch] = useState("");
   const [showFlatDropdown, setShowFlatDropdown] =
@@ -422,19 +421,8 @@ export default function CommitteeContributePage() {
       return;
     }
 
-    if (
-      paymentMethod === "cash" &&
-      !paidTo
-    ) {
-      setError(
-        "Please select who received the cash."
-      );
-      return;
-    }
-
-    if (!collectedBy) {
-      setError("Please select the committee member collecting the contribution.");
-      setStep(1);
+    if (paymentMethod === "cash" && !collectedBy) {
+      setError("Please select the committee member who collected the cash.");
       return;
     }
 
@@ -464,10 +452,13 @@ export default function CommitteeContributePage() {
                 : null,
             paidTo:
               paymentMethod === "cash"
-                ? paidTo
+                ? collectedBy
                 : null,
             collectionChannel: "committee",
-            collectedBy,
+            collectedBy:
+              paymentMethod === "cash"
+                ? collectedBy
+                : null,
           }),
         }
       );
@@ -948,17 +939,6 @@ export default function CommitteeContributePage() {
                     </div>
                   </div>
 
-                  {/* COLLECTED BY */}
-
-                  <SelectField
-                    icon="fa-user-check"
-                    label="Collected By"
-                    value={collectedBy}
-                    placeholder="Select committee member"
-                    options={CASH_RECEIVERS}
-                    onChange={setCollectedBy}
-                  />
-
                   {/* ERROR */}
 
                   {error && (
@@ -1063,7 +1043,7 @@ export default function CommitteeContributePage() {
                         setPaymentMethod(
                           "upi"
                         );
-                        setPaidTo("");
+                        setCollectedBy("");
                         setError("");
                       }}
                       className={`flex min-h-[58px] items-center justify-center gap-3 rounded-[11px] border text-[13px] font-bold transition ${
@@ -1082,7 +1062,6 @@ export default function CommitteeContributePage() {
                         setPaymentMethod(
                           "cash"
                         );
-                        setPaidTo(collectedBy);
                         setUtr("");
                         setError("");
                       }}
@@ -1236,12 +1215,16 @@ export default function CommitteeContributePage() {
 
                       <SelectField
                         icon="fa-user-check"
-                        label="Paid To"
-                        value={paidTo}
+                        label="Collected By"
+                        value={collectedBy}
                         placeholder="Select committee member"
                         options={CASH_RECEIVERS}
-                        onChange={setPaidTo}
+                        onChange={setCollectedBy}
                       />
+
+                      <p className="mt-2 text-[11px] text-[#8a776a]">
+                        * Please select the committee member who collected this cash contribution.
+                      </p>
 
                     </div>
 
@@ -1267,7 +1250,7 @@ export default function CommitteeContributePage() {
                     (paymentMethod === "upi" &&
                       !utr.trim()) ||
                     (paymentMethod === "cash" &&
-                      !paidTo)
+                      !collectedBy)
                   }
                   onClick={
                     submitContribution
