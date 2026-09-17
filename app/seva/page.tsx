@@ -1,7 +1,6 @@
  "use client";
 
 import { useMemo, useState } from "react";
-import Navbar from "@/components/Navbar";
 
 const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 
@@ -239,14 +238,17 @@ function FlatSearchSelect({
           <i className="fa-solid fa-house" />
         </span>
         <input
-          value={search}
+          value={open ? search : value}
           disabled={!block}
           onFocus={() => {
-            if (block) onToggle();
+            if (block) {
+              setSearch("");
+              onToggle();
+            }
           }}
           onChange={(e) => {
             setSearch(e.target.value);
-            onToggle();
+            if (!open) onToggle();
           }}
           placeholder={block ? "Search and select your flat" : "Select block first"}
           className="w-full bg-transparent text-[13px] text-[#292929] outline-none placeholder:text-[#aaa09a] disabled:cursor-not-allowed"
@@ -660,9 +662,6 @@ export default function SevaPage() {
         onClick={() => setOpenDropdown(null)}
         className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_50%_10%,#fffaf2_0%,#f8eddd_48%,#efdfca_100%)] px-4 py-[24px] pb-[36px] text-[#292929] max-[600px]:px-2 max-[600px]:py-2 max-[600px]:pb-5"
       >
-        <div className="-mt-4 mb-2 rounded-2xl border border-[#ead8bd]/70 bg-[#fffaf2]/95 shadow-[0_8px_30px_rgba(120,70,20,0.08)] backdrop-blur-sm">
-          <Navbar />
-        </div>
         <div className="pointer-events-none fixed left-[-290px] top-[150px] h-[420px] w-[420px] rounded-full opacity-[0.12] bg-[repeating-radial-gradient(circle,transparent_0px,transparent_18px,#c99336_19px,transparent_21px)]" />
 
         <div className="pointer-events-none fixed right-[-290px] bottom-[100px] h-[420px] w-[420px] rounded-full opacity-[0.12] bg-[repeating-radial-gradient(circle,transparent_0px,transparent_18px,#c99336_19px,transparent_21px)]" />
@@ -681,7 +680,7 @@ export default function SevaPage() {
 
         <div className="relative z-[5] mx-auto mt-[30px] w-full max-w-[650px] max-[850px]:max-w-[760px]">
           {/* HERO */}
-          <section className="relative min-h-[250px] overflow-visible rounded-[24px] border border-[#ead9c7] bg-gradient-to-br from-white/[0.97] to-[#fff9ef]/[0.98] px-7 pb-5 pt-5 shadow-[0_18px_50px_rgba(77,48,20,0.10)] max-[600px]:min-h-[285px] max-[600px]:rounded-[18px] max-[600px]:px-3 max-[600px]:pb-3 max-[600px]:pt-3 mt-[75px]">
+          <section className="relative min-h-[250px] overflow-visible rounded-[24px] border border-[#ead9c7] bg-gradient-to-br from-white/[0.97] to-[#fff9ef]/[0.98] px-7 pb-5 pt-5 shadow-[0_18px_50px_rgba(77,48,20,0.10)] max-[600px]:min-h-[285px] max-[600px]:rounded-[18px] max-[600px]:px-3 max-[600px]:pb-3 max-[600px]:pt-3">
             <div className="pointer-events-none absolute inset-0 opacity-[0.12] bg-[radial-gradient(circle_at_15%_25%,#d3a044_1px,transparent_2px)] bg-[size:30px_30px]" />
 
             <div className="absolute left-[55px] top-[105px] z-[5] flex flex-col gap-0 text-left text-[10px] font-bold leading-[1.8] tracking-[4px] text-[#73594b] max-[850px]:left-6 max-[600px]:hidden">
@@ -799,7 +798,7 @@ export default function SevaPage() {
                       }}
                       onChange={(value) => {
                         setFlatNo(value);
-                        setFlatSearch("");
+                        setFlatSearch(value);
                         setOpenDropdown(null);
                       }}
                     />
