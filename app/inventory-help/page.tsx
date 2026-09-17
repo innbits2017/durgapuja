@@ -53,6 +53,12 @@ const FLATS: Record<Block, string[]> = {
   ],
 };
 
+type InventoryHelper = {
+  name: string;
+  block: Block;
+  flat_no: string;
+};
+
 type InventoryItem = {
   id: string;
   item_key: string;
@@ -64,6 +70,7 @@ type InventoryItem = {
   received_quantity: number;
   remaining_quantity: number;
   completed: boolean;
+  helpers: InventoryHelper[];
 };
 
 function InputField({
@@ -433,9 +440,36 @@ export default function InventoryHelpPage() {
         );
       }
 
-      setItems(
-        data.items || []
+      // Helpers are loaded through a server endpoint so public visitors
+      // can see verified contributors without requiring direct SELECT
+      // access to inventory_help_requests from the browser.
+      const helpersResponse = await fetch(
+        "/api/inventory-help/helpers",
+        { cache: "no-store" }
       );
+
+      const helpersData = helpersResponse.ok
+        ? await helpersResponse.json()
+        : { helpersByItem: {} };
+
+      if (!helpersResponse.ok) {
+        console.error(
+          "Unable to load inventory helpers:",
+          helpersData?.error || "Unable to load helpers."
+        );
+      }
+
+      setItems(
+        (data.items || []).map(
+          (item: InventoryItem) => ({
+            ...item,
+            helpers: Array.isArray(helpersData.helpersByItem?.[item.id])
+              ? helpersData.helpersByItem[item.id]
+              : [],
+          })
+        )
+      );
+
     } catch (error) {
       console.error(error);
     } finally {
@@ -913,6 +947,34 @@ export default function InventoryHelpPage() {
                               {progress}% arranged
                             </div>
                           </div>
+
+                          {item.helpers.length > 0 && (
+                            <div className="mt-3 rounded-[10px] border border-[#eee1d2] bg-[#fffaf3] px-3 py-2.5">
+                              <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.8px] text-[#a70e18]">
+                                <i className="fa-solid fa-heart" />
+                                Helped By
+                              </div>
+
+                              <div className="space-y-1">
+                                {item.helpers.map(
+                                  (helper) => (
+                                    <div
+                                      key={`${helper.block}-${helper.flat_no}`}
+                                      className="flex items-center justify-between gap-2 text-[11px]"
+                                    >
+                                      <span className="min-w-0 truncate font-semibold text-[#3b312d]">
+                                        {helper.name}
+                                      </span>
+
+                                      <span className="shrink-0 font-semibold text-[#8a7b70]">
+                                        {helper.block}-{helper.flat_no}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {item.completed ? (
                             <div className="mt-3 flex items-center justify-center gap-2 rounded-[10px] bg-[#f0f8f1] py-2.5 text-[10px] font-bold text-[#287638]">

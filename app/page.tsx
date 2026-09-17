@@ -11,7 +11,7 @@ const events = [
     day: "MAHA SHASHTI",
     shortDay: "Shashthi",
     date: "16 OCTOBER 2026",
-    image: "/images/gallery/durga-puja-dandia.webp",
+    image: "/images/Maha-Shashti.webp",
     icon: "fa-solid fa-hands-praying",
     color: "bg-[#8f1019]",
     schedule: {
@@ -25,7 +25,7 @@ const events = [
     day: "MAHA SAPTAMI",
     shortDay: "Saptami",
     date: "17 OCTOBER 2026",
-    image: "/images/saptami-puja.webp",
+    image: "/images/maha-saptami.webp",
     icon: "fa-solid fa-fire-flame-curved",
     color: "bg-[#a70e18]",
     schedule: {
@@ -39,7 +39,7 @@ const events = [
     day: "MAHA ASHTAMI",
     shortDay: "Ashtami",
     date: "18 OCTOBER 2026",
-    image: "/images/ashtami-puja.webp",
+    image: "/images/maha-ashtami.webp",
     icon: "fa-solid fa-om",
     color: "bg-[#8f1019]",
     schedule: {
@@ -53,7 +53,7 @@ const events = [
     day: "MAHA NAVAMI",
     shortDay: "Navami",
     date: "19 OCTOBER 2026",
-    image: "/images/navami.webp",
+    image: "/images/maha-navami.webp",
     icon: "fa-solid fa-spa",
     color: "bg-[#a70e18]",
     schedule: {
@@ -67,7 +67,7 @@ const events = [
     day: "VIJAYA DASHAMI",
     shortDay: "Dashami",
     date: "20 OCTOBER 2026",
-    image: "/images/dashami.webp",
+    image: "/images/buh-vijayadashami.webp",
     icon: "fa-solid fa-flag",
     color: "bg-[#8f1019]",
     schedule: {
@@ -186,19 +186,19 @@ const getYouTubeEmbedUrl = (url: string) => {
 
 const videoGallery = [
   {
-    thumbnail: "/images/durga-puja-collection.webp",
+    thumbnail: "/images/durga-puja-2025.webp",
     title: "BUH Durga Puja 2025",
     description: "Moments from our Durga Puja celebrations",
     url: "https://youtu.be/Lky6t5c3lFQ?si=5WzFgXPe23A3k_Sv",
   },
   {
-    thumbnail: "/images/saptami-puja.webp",
+    thumbnail: "/images/visarjan-1.webp",
     title: "Visarjan 2025",
     description: "Devotion, music and togetherness",
     url: "https://youtube.com/shorts/3yRCgSsqW1Q?feature=share",
   },
   {
-    thumbnail: "/images/ashtami-puja.webp",
+    thumbnail: "/images/durgapuja25.webp",
     title: "Visarjan 2025",
     description: "A celebration of talent and culture",
     url: "https://youtube.com/shorts/0m4UV7WoBP0?feature=share",
