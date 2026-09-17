@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
 
 const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 
@@ -155,6 +156,33 @@ const photoGallery = [
     title: "Tradition",
   },
 ];
+
+const getYouTubeEmbedUrl = (url: string) => {
+  try {
+    const parsedUrl = new URL(url);
+    let videoId = "";
+
+    if (parsedUrl.hostname.includes("youtu.be")) {
+      videoId = parsedUrl.pathname.replace("/", "").split("/")[0];
+    } else if (parsedUrl.hostname.includes("youtube.com")) {
+      videoId = parsedUrl.searchParams.get("v") || "";
+
+      if (!videoId && parsedUrl.pathname.startsWith("/shorts/")) {
+        videoId = parsedUrl.pathname.split("/shorts/")[1]?.split("/")[0] || "";
+      }
+
+      if (!videoId && parsedUrl.pathname.startsWith("/embed/")) {
+        videoId = parsedUrl.pathname.split("/embed/")[1]?.split("/")[0] || "";
+      }
+    }
+
+    return videoId
+      ? `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`
+      : "";
+  } catch {
+    return "";
+  }
+};
 
 const videoGallery = [
   {
@@ -769,34 +797,29 @@ function GallerySlider({
 
                 <div className="relative aspect-video overflow-hidden rounded-xl bg-black shadow-2xl">
 
-                  <img
-                    src={
-                      items[lightboxIndex]
-                        .thumbnail
-                    }
-                    alt={
-                      items[lightboxIndex]
-                        .title
-                    }
-                    className="h-full w-full object-cover"
-                  />
-
-                  <a
-                    href={
-                      items[lightboxIndex].url
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#a70e18] text-white shadow-2xl transition hover:scale-110">
-
-                      <i className="fa-solid fa-play ml-1 text-2xl" />
-
+                  {getYouTubeEmbedUrl(
+                    items[lightboxIndex].url
+                  ) ? (
+                    <iframe
+                      src={getYouTubeEmbedUrl(
+                        items[lightboxIndex].url
+                      )}
+                      title={
+                        items[lightboxIndex]
+                          .title
+                      }
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center text-sm text-white/70">
+                        <i className="fa-solid fa-circle-exclamation mb-2 text-2xl" />
+                        <p>Video unavailable</p>
+                      </div>
                     </div>
-
-                  </a>
+                  )}
 
                 </div>
 
@@ -840,9 +863,6 @@ function GallerySlider({
 }
 
 export default function HomePage() {
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
-
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -945,169 +965,7 @@ export default function HomePage() {
           ॐ
         </div>
 
-        {/* Navbar */}
-
-        <header className="page-load-navbar relative z-30 mx-auto max-w-7xl px-5 py-5 lg:px-8">
-
-          <div className="flex items-center justify-between">
-
-            <Link
-              href="/"
-              className="flex items-center gap-3"
-              onClick={() =>
-                setMobileMenuOpen(false)
-              }
-            >
-
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b8892d] bg-[#fff8ed] text-xl text-[#a70e18] shadow-sm">
-                <i className="fa-solid fa-om" />
-              </div>
-
-              <div>
-                <p className="text-lg font-bold tracking-[0.15em] text-[#8f1019]">
-                  BUH
-                </p>
-
-                <p className="text-[9px] font-semibold tracking-[0.25em] text-[#8a6c45]">
-                  DURGA PUJA
-                </p>
-              </div>
-
-            </Link>
-
-            {/* Desktop Navigation */}
-
-            <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
-
-              <a
-                href="#about"
-                className="transition hover:text-[#a70e18]"
-              >
-                About
-              </a>
-
-              <a
-                href="#events"
-                className="transition hover:text-[#a70e18]"
-              >
-                Events
-              </a>
-
-              <a
-                href="#gallery"
-                className="transition hover:text-[#a70e18]"
-              >
-                Gallery
-              </a>
-
-              <a
-                href="/seva"
-                className="transition hover:text-[#a70e18]"
-              >
-                Offer Seva
-              </a>
-
-              <a
-                href="/cultural-program"
-                className="transition hover:text-[#a70e18]"
-              >
-                Cultural Program Registration
-              </a>
-
-              <a
-                href="/inventory-help"
-                className="transition hover:text-[#a70e18]"
-              >
-                Inventory Help
-              </a>
-
-              <Link
-                href="/contribute"
-                className="rounded-full bg-[#a70e18] px-6 py-3 font-semibold text-white shadow-lg transition hover:bg-[#7f0b13]"
-              >
-                Contribute
-              </Link>
-
-            </nav>
-
-            {/* Mobile Menu */}
-
-            <button
-              type="button"
-              aria-label="Open menu"
-              onClick={() =>
-                setMobileMenuOpen(
-                  !mobileMenuOpen
-                )
-              }
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-[#b8892d] bg-white/70 text-[#8f1019] md:hidden"
-            >
-              <i
-                className={
-                  mobileMenuOpen
-                    ? "fa-solid fa-xmark"
-                    : "fa-solid fa-bars"
-                }
-              />
-            </button>
-
-          </div>
-
-          {mobileMenuOpen && (
-            <div className="mt-4 rounded-3xl border border-[#e3d1b7] bg-white/95 p-5 shadow-xl backdrop-blur-md md:hidden">
-
-              <div className="flex flex-col gap-2">
-
-                <a
-                  href="#about"
-                  onClick={() =>
-                    setMobileMenuOpen(false)
-                  }
-                  className="rounded-xl px-4 py-3 text-sm font-semibold text-[#5d3f34] hover:bg-[#faf3e8]"
-                >
-                  <i className="fa-solid fa-circle-info mr-3 text-[#a70e18]" />
-                  About
-                </a>
-
-                <a
-                  href="#events"
-                  onClick={() =>
-                    setMobileMenuOpen(false)
-                  }
-                  className="rounded-xl px-4 py-3 text-sm font-semibold text-[#5d3f34] hover:bg-[#faf3e8]"
-                >
-                  <i className="fa-solid fa-calendar-days mr-3 text-[#a70e18]" />
-                  Events
-                </a>
-
-                <a
-                  href="#gallery"
-                  onClick={() =>
-                    setMobileMenuOpen(false)
-                  }
-                  className="rounded-xl px-4 py-3 text-sm font-semibold text-[#5d3f34] hover:bg-[#faf3e8]"
-                >
-                  <i className="fa-solid fa-images mr-3 text-[#a70e18]" />
-                  Gallery
-                </a>
-
-                <Link
-                  href="/contribute"
-                  onClick={() =>
-                    setMobileMenuOpen(false)
-                  }
-                  className="mt-2 rounded-full bg-[#a70e18] px-5 py-3 text-center text-sm font-bold text-white"
-                >
-                  <i className="fa-solid fa-heart mr-2" />
-                  CONTRIBUTE
-                </Link>
-
-              </div>
-
-            </div>
-          )}
-
-        </header>
+        <Navbar />
 
         {/* Hero Content */}
 
