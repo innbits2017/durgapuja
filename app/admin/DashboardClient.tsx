@@ -5243,6 +5243,19 @@ function InventoryManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<DashboardInventoryItem | null>(null);
 
+  const [showHelperModal, setShowHelperModal] = useState(false);
+  const [selectedHelperItem, setSelectedHelperItem] =
+    useState<DashboardInventoryItem | null>(null);
+  const [helperSaving, setHelperSaving] = useState(false);
+
+  const [helperForm, setHelperForm] = useState({
+    name: "",
+    block: "",
+    flatNo: "",
+    mobile: "",
+    quantity: "1",
+  });
+
   const [form, setForm] = useState({
     itemName: "",
     description: "",
@@ -5487,6 +5500,117 @@ function InventoryManagement() {
     }
   };
 
+  const openAddHelperModal = (item: DashboardInventoryItem) => {
+    setSelectedHelperItem(item);
+    setHelperForm({
+      name: "",
+      block: "",
+      flatNo: "",
+      mobile: "",
+      quantity: "1",
+    });
+    setError("");
+    setMessage("");
+    setShowHelperModal(true);
+  };
+
+  const closeAddHelperModal = () => {
+    if (helperSaving) return;
+    setShowHelperModal(false);
+    setSelectedHelperItem(null);
+  };
+
+  const saveMemberHelp = async () => {
+    setError("");
+    setMessage("");
+
+    if (!selectedHelperItem) return;
+
+    const name = helperForm.name.trim();
+    const block = helperForm.block.trim();
+    const flatNo = helperForm.flatNo.trim();
+    const mobile = helperForm.mobile.replace(/\D/g, "");
+    const quantity = Number(helperForm.quantity);
+
+    if (!name) {
+      setError("Member name is required.");
+      return;
+    }
+
+    if (!block) {
+      setError("Block is required.");
+      return;
+    }
+
+    if (!flatNo) {
+      setError("Flat number is required.");
+      return;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setError("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setError("Quantity must be a positive integer.");
+      return;
+    }
+
+    if (quantity > selectedHelperItem.remaining_quantity) {
+      setError(
+        `Only ${selectedHelperItem.remaining_quantity} ${selectedHelperItem.unit} still required.`
+      );
+      return;
+    }
+
+    try {
+      setHelperSaving(true);
+
+      const response = await fetch(
+        "/api/admin/inventory-help/member",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            inventoryItemId: selectedHelperItem.id,
+            name,
+            block,
+            flatNo,
+            mobile,
+            quantity,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to add member help."
+        );
+      }
+
+      setShowHelperModal(false);
+      setSelectedHelperItem(null);
+      setMessage(
+        `${name} added against ${selectedHelperItem.item_name} successfully.`
+      );
+      await loadInventory();
+    } catch (err) {
+      console.error("Member help save error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to add member help."
+      );
+    } finally {
+      setHelperSaving(false);
+    }
+  };
+
   const updateRequest = async (
     request: DashboardInventoryRequest,
     status: "verified" | "rejected"
@@ -5722,7 +5846,69 @@ function InventoryManagement() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 rounded-xl border border-[#eadfd2] bg-[#fffaf4] p-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-wide text-[#888]">
+                          Members Helped
+                        </div>
+                        <div className="mt-0.5 text-sm font-bold text-[#292929]">
+                          {requests.filter(
+                            (request) =>
+                              request.inventory_item_id === item.id &&
+                              request.status === "verified"
+                          ).length}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={item.remaining_quantity <= 0 || helperSaving}
+                        onClick={() => openAddHelperModal(item)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#b40716] px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-[#970612] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <i className="fa-solid fa-user-plus" />
+                        Add Member Help
+                      </button>
+                    </div>
+
+                    {requests.filter(
+                      (request) =>
+                        request.inventory_item_id === item.id &&
+                        request.status === "verified"
+                    ).length > 0 && (
+                      <div className="mt-3 space-y-2 border-t border-[#eadfd2] pt-3">
+                        {requests
+                          .filter(
+                            (request) =>
+                              request.inventory_item_id === item.id &&
+                              request.status === "verified"
+                          )
+                          .map((request) => (
+                            <div
+                              key={request.id}
+                              className="rounded-lg bg-white px-3 py-2.5"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-[#292929]">
+                                    {request.name}
+                                  </div>
+                                  <div className="mt-0.5 text-xs text-[#777]">
+                                    {request.block}-{request.flat_no} · {request.mobile}
+                                  </div>
+                                </div>
+                                <span className="shrink-0 text-xs font-semibold text-[#23753b]">
+                                  {request.quantity} {item.unit}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
                     <button
                       type="button"
                       disabled={actionId === item.id}
@@ -5908,6 +6094,203 @@ function InventoryManagement() {
           </div>
         )}
       </div>
+
+      {/* ====================================================
+          ADD MEMBER HELP MODAL
+      ==================================================== */}
+
+      {showHelperModal && selectedHelperItem && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#eee5db] px-6 py-5">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-[#292929]">
+                  Add Member Help
+                </h2>
+                <p className="mt-1 text-sm text-[#737373]">
+                  Record a member who has helped with {selectedHelperItem.item_name}.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAddHelperModal}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f7f1e9] text-[#b40716] transition hover:bg-[#f2e7da]"
+              >
+                <i className="fa-solid fa-xmark text-lg" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveMemberHelp();
+              }}
+              className="space-y-5 p-6"
+            >
+              <div className="rounded-xl border border-[#eadfd2] bg-[#fffaf4] px-4 py-3">
+                <div className="text-xs uppercase tracking-wide text-[#888]">
+                  Inventory Item
+                </div>
+                <div className="mt-1 font-bold text-[#292929]">
+                  {selectedHelperItem.item_name}
+                </div>
+                <div className="mt-1 text-xs text-[#737373]">
+                  {selectedHelperItem.remaining_quantity} {selectedHelperItem.unit} still required
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#444]">
+                  Member Name *
+                </label>
+                <input
+                  value={helperForm.name}
+                  onChange={(event) =>
+                    setHelperForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter member name"
+                  autoFocus
+                  className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Block *
+                  </label>
+                  <select
+                    value={helperForm.block}
+                    onChange={(event) =>
+                      setHelperForm((current) => ({
+                        ...current,
+                        block: event.target.value,
+                        flatNo: "",
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                  >
+                    <option value="">Select block</option>
+                    <option value="P1">P1</option>
+                    <option value="P2">P2</option>
+                    <option value="Villa">Villa</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Flat Number *
+                  </label>
+                  <select
+                    value={helperForm.flatNo}
+                    disabled={!helperForm.block}
+                    onChange={(event) =>
+                      setHelperForm((current) => ({
+                        ...current,
+                        flatNo: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-base outline-none focus:border-[#b40716] disabled:bg-[#f7f4ef] disabled:text-[#aaa]"
+                  >
+                    <option value="">
+                      {helperForm.block ? "Select flat" : "Select block first"}
+                    </option>
+                    {(helperForm.block
+                      ? ALL_FLATS[helperForm.block as keyof typeof ALL_FLATS]
+                      : []
+                    ).map((flat) => (
+                      <option key={flat} value={flat}>
+                        {flat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={helperForm.mobile}
+                    onChange={(event) =>
+                      setHelperForm((current) => ({
+                        ...current,
+                        mobile: event.target.value.replace(/\D/g, "").slice(0, 10),
+                      }))
+                    }
+                    placeholder="10-digit mobile"
+                    className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Quantity *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={Math.max(1, selectedHelperItem.remaining_quantity)}
+                    value={helperForm.quantity}
+                    onChange={(event) =>
+                      setHelperForm((current) => ({
+                        ...current,
+                        quantity: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-base outline-none focus:border-[#b40716]"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-[#f0cccc] bg-[#fff6f6] px-4 py-3 text-sm text-[#a70e18]">
+                  <i className="fa-solid fa-circle-exclamation mr-2" />
+                  {error}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                <button
+                  type="button"
+                  disabled={helperSaving}
+                  onClick={closeAddHelperModal}
+                  className="flex-1 rounded-xl border border-[#ddd2c5] bg-white px-5 py-3.5 text-sm font-bold text-[#666] transition hover:bg-[#fffaf4] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={helperSaving}
+                  className="flex-1 rounded-xl bg-[#b40716] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#970612] disabled:opacity-50"
+                >
+                  {helperSaving ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-user-plus mr-2" />
+                      Add Member
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ====================================================
           ADD / EDIT MODAL
