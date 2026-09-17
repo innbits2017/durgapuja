@@ -255,17 +255,17 @@ function generateFlats(
  */
 const ALL_FLATS = {
   P1: [
+    ...generateFlats(1, 12),
     ...generateFlats(101, 112),
     ...generateFlats(201, 212),
     ...generateFlats(301, 312),
-    ...generateFlats(401, 412),
   ],
 
   P2: [
+    ...generateFlats(1, 67),
     ...generateFlats(101, 167),
     ...generateFlats(201, 267),
     ...generateFlats(301, 367),
-    ...generateFlats(401, 467),
   ],
 
   Villa: [
