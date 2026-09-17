@@ -187,33 +187,21 @@ const getYouTubeEmbedUrl = (url: string) => {
 const videoGallery = [
   {
     thumbnail: "/images/durga-puja-collection.webp",
-    title: "BUH Durga Puja Highlights",
+    title: "BUH Durga Puja 2025",
     description: "Moments from our Durga Puja celebrations",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_1",
+    url: "https://youtu.be/Lky6t5c3lFQ?si=5WzFgXPe23A3k_Sv",
   },
   {
     thumbnail: "/images/saptami-puja.webp",
-    title: "Saptami Celebration",
+    title: "Visarjan 2025",
     description: "Devotion, music and togetherness",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_2",
+    url: "https://youtube.com/shorts/3yRCgSsqW1Q?feature=share",
   },
   {
     thumbnail: "/images/ashtami-puja.webp",
-    title: "Ashtami Cultural Evening",
+    title: "Visarjan 2025",
     description: "A celebration of talent and culture",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_3",
-  },
-  {
-    thumbnail: "/images/navami.webp",
-    title: "Navami Celebration",
-    description: "Beautiful moments from BUH",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_4",
-  },
-  {
-    thumbnail: "/images/dashami.webp",
-    title: "Vijaya Dashami",
-    description: "Farewell to Maa Durga",
-    url: "https://www.youtube.com/watch?v=YOUR_VIDEO_ID_5",
+    url: "https://youtube.com/shorts/0m4UV7WoBP0?feature=share",
   },
 ];
 
@@ -2033,6 +2021,10 @@ export default function HomePage() {
             <p className="mt-8 text-[10px] text-[#756658]">
               © 2026 BUH Durga Puja Committee.
               All rights reserved.
+            </p>
+
+            <p className="mt-2 text-[10px] text-[#756658]">
+              Made with <i className="fa-solid fa-heart" /> by <a href="https://innbits.com">Innbits</a>
             </p>
 
           </div>
