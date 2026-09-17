@@ -819,14 +819,17 @@ export default function DashboardClient({
               }
             }
 
+            // The Contributions tab should contain only actual
+            // current-year contribution records, not empty flats.
+            if (!contribution) {
+              return;
+            }
+
             rows.push({
-              id:
-                contribution?.id ||
-                `flat-${block}-${flat}`,
+              id: contribution.id,
 
               name:
-                contribution?.name ||
-                "—",
+                contribution.name || "—",
 
               block,
 
@@ -2888,11 +2891,8 @@ export default function DashboardClient({
                       <strong>
                         {filteredContributions.length}
                       </strong>{" "}
-                      of{" "}
-                      <strong>
-                        {allFlatRows.length}
-                      </strong>{" "}
-                      flats
+                      fresh contribution
+                      {filteredContributions.length === 1 ? "" : "s"}
                     </p>
 
                   </div>
@@ -3130,11 +3130,6 @@ export default function DashboardClient({
                             {item.name}
                           </div>
 
-                          {!item.contribution && (
-                            <div className="mt-1 text-[10px] font-medium text-[#aaa]">
-                              No 2026 contribution
-                            </div>
-                          )}
 
                         </td>
 
@@ -3364,11 +3359,6 @@ export default function DashboardClient({
                           {item.flat_no}
                         </div>
 
-                        {!item.contribution && (
-                          <div className="mt-1 text-[10px] text-[#a70e18]">
-                            No 2026 contribution
-                          </div>
-                        )}
 
                       </div>
 
