@@ -281,18 +281,28 @@ const ALL_FLATS = {
 ============================================================ */
 
 const EXPENSE_CATEGORIES = [
-  "Puja & Rituals",
-  "Decoration",
-  "Pandal",
-  "Sound & Lighting",
-  "Food & Prasad",
-  "Cultural Program",
-  "Security",
-  "Electrical",
-  "Cleaning",
-  "Printing & Promotion",
-  "Transportation",
-  "Miscellaneous",
+"Cups & Plates",
+"Cleaning",
+"Cook",
+"Cultural Program",
+"Decoration",
+"Dhol",
+"DJ",
+"Electrical",
+"Gifts",
+"Grocery",
+"Idol",
+"LPG",
+"Miscellaneous",
+"Printing & Promotion",
+"Prizes",
+"Puja Items",
+"Pujari",
+"Sound & Lighting",
+"Tent",
+"Transportation",
+"Vegetables",
+"Water"
 ];
 
 const PAYMENT_MODES = [
