@@ -177,6 +177,8 @@ type FlatRow = {
   status: string | null;
 
   contribution: Contribution | null;
+
+  
 };
 
 type Section =
@@ -3667,34 +3669,6 @@ export default function DashboardClient({
                       </div>
 
                       <div>
-
-                        <span className="text-[#888]">
-                          Paid By
-                        </span>
-
-                        <strong className="mt-1 block font-medium">
-                          {item.paid_by ||
-                            "—"}
-                        </strong>
-
-                        {item.paid_by && (
-                          <span
-                            className={`mt-1 block text-[10px] font-semibold ${
-                              item.refund_id
-                                ? "text-[#23753b]"
-                                : "text-[#9a6a00]"
-                            }`}
-                          >
-                            {item.refund_id
-                              ? "Refunded"
-                              : "Pending Refund"}
-                          </span>
-                        )}
-
-                      </div>
-
-                      <div>
-
                         <span className="text-[#888]">
                           Date
                         </span>
@@ -5122,7 +5096,7 @@ export default function DashboardClient({
                         </td>
 
                         <td className="px-4 py-4 text-sm capitalize">
-                          {item.payment_mode}
+                          {item.payment_mode === "upi" ? "UPI" : item.payment_mode}
                         </td>
 
                         <td className="px-4 py-4 text-xs text-[#666]">
@@ -5280,7 +5254,7 @@ export default function DashboardClient({
                         </span>
 
                         <strong className="mt-1 block capitalize font-medium">
-                          {item.payment_mode}
+                          {item.payment_mode === "upi" ? "UPI" : item.payment_mode}
                         </strong>
 
                       </div>
@@ -8235,7 +8209,7 @@ function RefundModal({
                                 key={mode}
                                 value={mode}
                               >
-                                {mode}
+                                {mode === "upi" ? "UPI" : mode}
                               </option>
                             )
                           )}
@@ -8665,7 +8639,7 @@ function ExpenseModal({
                       key={item}
                       value={item}
                     >
-                      {item}
+                      {item === "upi" ? "UPI" : item}
                     </option>
                   )
                 )}
