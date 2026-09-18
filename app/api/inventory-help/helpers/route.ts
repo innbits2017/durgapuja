@@ -8,7 +8,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from("inventory_help_requests")
       .select(
-        "inventory_item_id, name, block, flat_no, created_at"
+        "inventory_item_id, name, block, flat_no, quantity, created_at"
       )
       .eq("status", "verified")
       .order("created_at", { ascending: false });
@@ -27,6 +27,7 @@ export async function GET() {
         name: string;
         block: string;
         flat_no: string;
+        quantity: number;
       }>
     > = {};
 
@@ -52,6 +53,7 @@ export async function GET() {
         name: String(request.name || "Member"),
         block,
         flat_no: flatNo,
+        quantity: Number(request.quantity || 0),
       });
     }
 

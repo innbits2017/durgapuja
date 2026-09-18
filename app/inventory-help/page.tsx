@@ -57,6 +57,7 @@ type InventoryHelper = {
   name: string;
   block: Block;
   flat_no: string;
+  quantity: number;
 };
 
 type InventoryItem = {
@@ -722,7 +723,7 @@ export default function InventoryHelpPage() {
 
           {/* HERO */}
 
-          <section className="relative min-h-[250px] overflow-visible rounded-[24px] border border-[#ead9c7] bg-gradient-to-br from-white/[0.97] to-[#fff9ef]/[0.98] px-7 pb-5 pt-5 shadow-[0_18px_50px_rgba(77,48,20,0.10)] max-[600px]:min-h-[285px] max-[600px]:rounded-[18px] max-[600px]:px-3 mt-[70px]">
+          <section className="relative min-h-[250px] overflow-visible rounded-[24px] border border-[#ead9c7] bg-gradient-to-br from-white/[0.97] to-[#fff9ef]/[0.98] px-7 pb-5 pt-5 shadow-[0_18px_50px_rgba(77,48,20,0.10)] max-[600px]:min-h-[285px] max-[600px]:rounded-[18px] max-[600px]:px-3 mt-[100px]">
 
             <div className="absolute left-1/2 top-[-50px] z-10 flex h-[270px] w-[270px] -translate-x-1/2 justify-center max-[600px]:top-[-10px] max-[600px]:h-[170px] max-[600px]:w-[170px]">
 
@@ -966,9 +967,14 @@ export default function InventoryHelpPage() {
                                         {helper.name}
                                       </span>
 
-                                      <span className="shrink-0 font-semibold text-[#8a7b70]">
-                                        {helper.block}-{helper.flat_no}
-                                      </span>
+                                      <div className="flex shrink-0 items-center gap-1.5">
+                                        <span className="font-semibold text-[#8a7b70]">
+                                          {helper.block}-{helper.flat_no}
+                                        </span>
+                                        <span className="rounded-full bg-[#fff1d9] px-2 py-0.5 text-[9px] font-bold text-[#a70e18]">
+                                          Qty: {helper.quantity}
+                                        </span>
+                                      </div>
                                     </div>
                                   )
                                 )}

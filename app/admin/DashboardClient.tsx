@@ -255,17 +255,17 @@ function generateFlats(
  */
 const ALL_FLATS = {
   P1: [
-    ...generateFlats(1, 12),
     ...generateFlats(101, 112),
     ...generateFlats(201, 212),
     ...generateFlats(301, 312),
+    ...generateFlats(401, 412),
   ],
 
   P2: [
-    ...generateFlats(1, 67),
     ...generateFlats(101, 167),
     ...generateFlats(201, 267),
     ...generateFlats(301, 367),
+    ...generateFlats(401, 467),
   ],
 
   Villa: [
@@ -281,28 +281,18 @@ const ALL_FLATS = {
 ============================================================ */
 
 const EXPENSE_CATEGORIES = [
-"Cups & Plates",
-"Cleaning",
-"Cook",
-"Cultural Program",
-"Decoration",
-"Dhol",
-"DJ",
-"Electrical",
-"Gifts",
-"Grocery",
-"Idol",
-"LPG",
-"Miscellaneous",
-"Printing & Promotion",
-"Prizes",
-"Puja Items",
-"Pujari",
-"Sound & Lighting",
-"Tent",
-"Transportation",
-"Vegetables",
-"Water"
+  "Puja & Rituals",
+  "Decoration",
+  "Pandal",
+  "Sound & Lighting",
+  "Food & Prasad",
+  "Cultural Program",
+  "Security",
+  "Electrical",
+  "Cleaning",
+  "Printing & Promotion",
+  "Transportation",
+  "Miscellaneous",
 ];
 
 const PAYMENT_MODES = [
@@ -5256,6 +5246,8 @@ function InventoryManagement() {
   const [showHelperModal, setShowHelperModal] = useState(false);
   const [selectedHelperItem, setSelectedHelperItem] =
     useState<DashboardInventoryItem | null>(null);
+  const [editingHelperRequest, setEditingHelperRequest] =
+    useState<DashboardInventoryRequest | null>(null);
   const [helperSaving, setHelperSaving] = useState(false);
 
   const [helperForm, setHelperForm] = useState({
@@ -5512,6 +5504,7 @@ function InventoryManagement() {
 
   const openAddHelperModal = (item: DashboardInventoryItem) => {
     setSelectedHelperItem(item);
+    setEditingHelperRequest(null);
     setHelperForm({
       name: "",
       block: "",
@@ -5524,10 +5517,29 @@ function InventoryManagement() {
     setShowHelperModal(true);
   };
 
+  const openEditHelperModal = (
+    item: DashboardInventoryItem,
+    request: DashboardInventoryRequest
+  ) => {
+    setSelectedHelperItem(item);
+    setEditingHelperRequest(request);
+    setHelperForm({
+      name: request.name || "",
+      block: request.block || "",
+      flatNo: request.flat_no || "",
+      mobile: request.mobile || "",
+      quantity: String(request.quantity || 1),
+    });
+    setError("");
+    setMessage("");
+    setShowHelperModal(true);
+  };
+
   const closeAddHelperModal = () => {
     if (helperSaving) return;
     setShowHelperModal(false);
     setSelectedHelperItem(null);
+    setEditingHelperRequest(null);
   };
 
   const saveMemberHelp = async () => {
@@ -5541,6 +5553,8 @@ function InventoryManagement() {
     const flatNo = helperForm.flatNo.trim();
     const mobile = helperForm.mobile.replace(/\D/g, "");
     const quantity = Number(helperForm.quantity);
+    const currentQuantity = Number(editingHelperRequest?.quantity || 0);
+    const maxQuantity = selectedHelperItem.remaining_quantity + currentQuantity;
 
     if (!name) {
       setError("Member name is required.");
@@ -5567,9 +5581,9 @@ function InventoryManagement() {
       return;
     }
 
-    if (quantity > selectedHelperItem.remaining_quantity) {
+    if (quantity > maxQuantity) {
       setError(
-        `Only ${selectedHelperItem.remaining_quantity} ${selectedHelperItem.unit} still required.`
+        `Maximum allowed quantity is ${maxQuantity} ${selectedHelperItem.unit}.`
       );
       return;
     }
@@ -5580,18 +5594,29 @@ function InventoryManagement() {
       const response = await fetch(
         "/api/admin/inventory-help/member",
         {
-          method: "POST",
+          method: editingHelperRequest ? "PATCH" : "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            inventoryItemId: selectedHelperItem.id,
-            name,
-            block,
-            flatNo,
-            mobile,
-            quantity,
-          }),
+          body: JSON.stringify(
+            editingHelperRequest
+              ? {
+                  id: editingHelperRequest.id,
+                  name,
+                  block,
+                  flatNo,
+                  mobile,
+                  quantity,
+                }
+              : {
+                  inventoryItemId: selectedHelperItem.id,
+                  name,
+                  block,
+                  flatNo,
+                  mobile,
+                  quantity,
+                }
+          ),
         }
       );
 
@@ -5599,14 +5624,21 @@ function InventoryManagement() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Unable to add member help."
+          data?.error ||
+            (editingHelperRequest
+              ? "Unable to update member help."
+              : "Unable to add member help.")
         );
       }
 
+      const itemName = selectedHelperItem.item_name;
       setShowHelperModal(false);
       setSelectedHelperItem(null);
+      setEditingHelperRequest(null);
       setMessage(
-        `${name} added against ${selectedHelperItem.item_name} successfully.`
+        editingHelperRequest
+          ? `${name}'s details updated against ${itemName} successfully.`
+          : `${name} added against ${itemName} successfully.`
       );
       await loadInventory();
     } catch (err) {
@@ -5614,7 +5646,9 @@ function InventoryManagement() {
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to add member help."
+          : editingHelperRequest
+            ? "Unable to update member help."
+            : "Unable to add member help."
       );
     } finally {
       setHelperSaving(false);
@@ -5908,9 +5942,23 @@ function InventoryManagement() {
                                     {request.block}-{request.flat_no} · {request.mobile}
                                   </div>
                                 </div>
-                                <span className="shrink-0 text-xs font-semibold text-[#23753b]">
-                                  {request.quantity} {item.unit}
-                                </span>
+
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <span className="text-xs font-semibold text-[#23753b]">
+                                    {request.quantity} {item.unit}
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    disabled={helperSaving}
+                                    onClick={() => openEditHelperModal(item, request)}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#eadfd2] bg-[#fffaf4] text-[#8a6a4a] transition hover:bg-[#fff1df] disabled:cursor-not-allowed disabled:opacity-50"
+                                    title="Edit member details"
+                                    aria-label={`Edit ${request.name}`}
+                                  >
+                                    <i className="fa-solid fa-pen text-[11px]" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -6115,10 +6163,12 @@ function InventoryManagement() {
             <div className="flex items-center justify-between border-b border-[#eee5db] px-6 py-5">
               <div>
                 <h2 className="font-serif text-2xl font-bold text-[#292929]">
-                  Add Member Help
+                  {editingHelperRequest ? "Edit Member Help" : "Add Member Help"}
                 </h2>
                 <p className="mt-1 text-sm text-[#737373]">
-                  Record a member who has helped with {selectedHelperItem.item_name}.
+                  {editingHelperRequest
+                    ? `Update the member details recorded for ${selectedHelperItem.item_name}.`
+                    : `Record a member who has helped with ${selectedHelperItem.item_name}.`}
                 </p>
               </div>
 
@@ -6146,7 +6196,9 @@ function InventoryManagement() {
                   {selectedHelperItem.item_name}
                 </div>
                 <div className="mt-1 text-xs text-[#737373]">
-                  {selectedHelperItem.remaining_quantity} {selectedHelperItem.unit} still required
+                  {editingHelperRequest
+                    ? `${selectedHelperItem.remaining_quantity + Number(editingHelperRequest.quantity || 0)} ${selectedHelperItem.unit} maximum for this member`
+                    : `${selectedHelperItem.remaining_quantity} ${selectedHelperItem.unit} still required`}
                 </div>
               </div>
 
@@ -6249,7 +6301,11 @@ function InventoryManagement() {
                   <input
                     type="number"
                     min="1"
-                    max={Math.max(1, selectedHelperItem.remaining_quantity)}
+                    max={Math.max(
+                      1,
+                      selectedHelperItem.remaining_quantity +
+                        Number(editingHelperRequest?.quantity || 0)
+                    )}
                     value={helperForm.quantity}
                     onChange={(event) =>
                       setHelperForm((current) => ({
@@ -6291,8 +6347,12 @@ function InventoryManagement() {
                     </>
                   ) : (
                     <>
-                      <i className="fa-solid fa-user-plus mr-2" />
-                      Add Member
+                      <i
+                        className={`fa-solid ${
+                          editingHelperRequest ? "fa-check" : "fa-user-plus"
+                        } mr-2`}
+                      />
+                      {editingHelperRequest ? "Save Changes" : "Add Member"}
                     </>
                   )}
                 </button>

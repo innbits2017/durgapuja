@@ -184,3 +184,186 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const user = await checkAdmin();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+
+    const id = String(body?.id || "").trim();
+    const name = String(body?.name || "").trim();
+    const block = String(body?.block || "").trim();
+    const flatNo = String(body?.flatNo || "").trim();
+    const mobile = String(body?.mobile || "").replace(/\D/g, "");
+    const quantity = Number(body?.quantity);
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Member help record is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Member name is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!["P1", "P2", "Villa"].includes(block)) {
+      return NextResponse.json(
+        { error: "Invalid block." },
+        { status: 400 }
+      );
+    }
+
+    if (!flatNo) {
+      return NextResponse.json(
+        { error: "Flat number is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      return NextResponse.json(
+        { error: "Please enter a valid 10-digit phone number." },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return NextResponse.json(
+        { error: "Quantity must be a positive integer." },
+        { status: 400 }
+      );
+    }
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("inventory_help_requests")
+      .select("id, inventory_item_id, quantity, status")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("Member help lookup error:", existingError);
+      return NextResponse.json(
+        { error: "Unable to find the member help record." },
+        { status: 500 }
+      );
+    }
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Member help record not found." },
+        { status: 404 }
+      );
+    }
+
+    if (existing.status !== "verified") {
+      return NextResponse.json(
+        { error: "Only verified member help records can be edited here." },
+        { status: 400 }
+      );
+    }
+
+    const { data: item, error: itemError } = await supabaseAdmin
+      .from("inventory_items")
+      .select("id, item_name, required_quantity, active")
+      .eq("id", existing.inventory_item_id)
+      .maybeSingle();
+
+    if (itemError) {
+      console.error("Inventory item lookup error:", itemError);
+      return NextResponse.json(
+        { error: "Unable to find the inventory item." },
+        { status: 500 }
+      );
+    }
+
+    if (!item || item.active === false) {
+      return NextResponse.json(
+        { error: "Inventory item not found." },
+        { status: 404 }
+      );
+    }
+
+    const { data: verifiedRequests, error: requestsError } =
+      await supabaseAdmin
+        .from("inventory_help_requests")
+        .select("id, quantity")
+        .eq("inventory_item_id", existing.inventory_item_id)
+        .eq("status", "verified");
+
+    if (requestsError) {
+      console.error("Inventory requests lookup error:", requestsError);
+      return NextResponse.json(
+        { error: "Unable to check current inventory received quantity." },
+        { status: 500 }
+      );
+    }
+
+    const receivedExcludingCurrent = (verifiedRequests || []).reduce(
+      (sum, request) =>
+        request.id === existing.id
+          ? sum
+          : sum + Number(request.quantity || 0),
+      0
+    );
+
+    const remainingForThisMember = Math.max(
+      Number(item.required_quantity || 0) - receivedExcludingCurrent,
+      0
+    );
+
+    if (quantity > remainingForThisMember) {
+      return NextResponse.json(
+        {
+          error: `Only ${remainingForThisMember} item${remainingForThisMember === 1 ? "" : "s"} can be assigned to this member without exceeding the ${item.item_name} requirement.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("inventory_help_requests")
+      .update({
+        name,
+        block,
+        flat_no: flatNo,
+        mobile,
+        quantity,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("Member help update error:", error);
+      return NextResponse.json(
+        { error: error.message || "Unable to update member help." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      request: data,
+    });
+  } catch (error) {
+    console.error("Member help PATCH API error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to update member help." },
+      { status: 500 }
+    );
+  }
+}
