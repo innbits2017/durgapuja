@@ -30,7 +30,7 @@ export default async function DurgaPujaDashboard() {
     supabaseAdmin
       .from("expenses")
       .select(
-        "id, title, category, paid_to, amount, expense_date, payment_mode, reference_no, notes, created_at, updated_at"
+        "id, title, category, paid_to, paid_by, amount, expense_date, payment_mode, reference_no, notes, refund_id, created_at, updated_at"
       )
       .order("expense_date", { ascending: false }),
 

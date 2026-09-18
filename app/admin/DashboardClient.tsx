@@ -134,11 +134,13 @@ type Expense = {
   title: string;
   category: string;
   paid_to: string | null;
+  paid_by: string | null;
   amount: number;
   expense_date: string;
   payment_mode: string;
   reference_no: string | null;
   notes: string | null;
+  refund_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -307,7 +309,7 @@ const EXPENSE_CATEGORIES = [
 
 const PAYMENT_MODES = [
   "cash",
-  "upi",
+  "UPI",
   "bank transfer",
   "cheque",
 ];
@@ -432,6 +434,12 @@ export default function DashboardClient({
   const [editingExpense, setEditingExpense] =
     useState<Expense | null>(null);
 
+  const [showRefundModal, setShowRefundModal] =
+    useState(false);
+
+  const [refundPerson, setRefundPerson] =
+    useState<string | null>(null);
+
   const [comparisonFilter, setComparisonFilter] =
   useState<ComparisonFilter>("all");
 
@@ -444,6 +452,10 @@ export default function DashboardClient({
   useEffect(() => {
     setContributions(initialContributions);
   }, [initialContributions]);
+
+  useEffect(() => {
+    setExpenses(initialExpenses);
+  }, [initialExpenses]);
 
   useEffect(() => {
     setCulturalPrograms(initialCulturalPrograms);
@@ -621,8 +633,17 @@ export default function DashboardClient({
 
   const expenseStats =
     useMemo(() => {
+      // Personally paid expenses are not counted until refunded.
+      // Committee-paid expenses (no paid_by) count immediately.
+      const actualExpenses =
+        expenses.filter(
+          (item) =>
+            !item.paid_by ||
+            Boolean(item.refund_id)
+        );
+
       const total =
-        expenses.reduce(
+        actualExpenses.reduce(
           (sum, item) =>
             sum +
             Number(
@@ -632,7 +653,7 @@ export default function DashboardClient({
         );
 
       return {
-        count: expenses.length,
+        count: actualExpenses.length,
         total,
       };
     }, [expenses]);
@@ -1091,6 +1112,7 @@ export default function DashboardClient({
             item.title,
             item.category,
             item.paid_to || "",
+            item.paid_by || "",
             item.payment_mode,
             item.reference_no ||
               "",
@@ -1769,6 +1791,143 @@ export default function DashboardClient({
   }
 
   /* ==========================================================
+     REFUND HELPERS
+  ========================================================== */
+
+  const refundPeople = useMemo(() => {
+    const names = expenses
+      .map((item) => item.paid_by?.trim())
+      .filter(
+        (name): name is string =>
+          Boolean(name)
+      );
+
+    return Array.from(
+      new Set(names)
+    ).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [expenses]);
+
+  const pendingRefundExpenses = useMemo(() => {
+    if (!refundPerson) {
+      return [];
+    }
+
+    return expenses.filter(
+      (item) =>
+        item.paid_by === refundPerson &&
+        !item.refund_id
+    );
+  }, [expenses, refundPerson]);
+
+  const pendingRefundTotal = useMemo(
+    () =>
+      pendingRefundExpenses.reduce(
+        (sum, item) =>
+          sum +
+          Number(item.amount || 0),
+        0
+      ),
+    [pendingRefundExpenses]
+  );
+
+  function openRefundModal(
+    paidBy?: string | null
+  ) {
+    const cleanName =
+      paidBy?.trim() || "";
+
+    setRefundPerson(
+      cleanName ||
+        refundPeople[0] ||
+        null
+    );
+    setShowRefundModal(true);
+    setMessage("");
+  }
+
+  function closeRefundModal() {
+    setShowRefundModal(false);
+    setRefundPerson(null);
+  }
+
+  async function confirmRefund(
+    paidBy: string,
+    paymentMode: string,
+    referenceNo: string
+  ) {
+    setLoadingId(`refund:${paidBy}`);
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        "/api/expenses",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            action: "refund",
+            paidBy,
+            paymentMode,
+            referenceNo,
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Unable to confirm refund."
+        );
+      }
+
+      const updatedExpenses =
+        (result.expenses ||
+          []) as Expense[];
+
+      setExpenses((current) =>
+        current.map((item) => {
+          const updated =
+            updatedExpenses.find(
+              (expense) =>
+                expense.id === item.id
+            );
+
+          return updated || item;
+        })
+      );
+
+      closeRefundModal();
+
+      setMessage(
+        `Refund of ${money(
+          Number(result.refund?.amount || 0)
+        )} to ${paidBy} confirmed successfully.`
+      );
+    } catch (err) {
+      console.error(
+        "Refund confirmation error:",
+        err
+      );
+
+      setMessage(
+        err instanceof Error
+          ? err.message
+          : "Unable to confirm refund."
+      );
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  /* ==========================================================
      DELETE EXPENSE
   ========================================================== */
 
@@ -2104,8 +2263,18 @@ export default function DashboardClient({
           "Paid To":
             item.paid_to || "",
 
+          "Paid By":
+            item.paid_by || "",
+
           Amount:
             Number(item.amount),
+
+          "Expense Status":
+            item.paid_by
+              ? item.refund_id
+                ? "Refunded / Paid"
+                : "Pending Refund"
+              : "Paid by Committee",
 
           Date:
             item.expense_date,
@@ -2313,8 +2482,18 @@ export default function DashboardClient({
           "Paid To":
             item.paid_to || "",
 
+          "Paid By":
+            item.paid_by || "",
+
           Amount:
             Number(item.amount),
+
+          "Expense Status":
+            item.paid_by
+              ? item.refund_id
+                ? "Refunded / Paid"
+                : "Pending Refund"
+              : "Paid by Committee",
 
           Date:
             item.expense_date,
@@ -3484,6 +3663,33 @@ export default function DashboardClient({
                               ? "UPI / Online"
                               : "—"}
                         </strong>
+
+                      </div>
+
+                      <div>
+
+                        <span className="text-[#888]">
+                          Paid By
+                        </span>
+
+                        <strong className="mt-1 block font-medium">
+                          {item.paid_by ||
+                            "—"}
+                        </strong>
+
+                        {item.paid_by && (
+                          <span
+                            className={`mt-1 block text-[10px] font-semibold ${
+                              item.refund_id
+                                ? "text-[#23753b]"
+                                : "text-[#9a6a00]"
+                            }`}
+                          >
+                            {item.refund_id
+                              ? "Refunded"
+                              : "Pending Refund"}
+                          </span>
+                        )}
 
                       </div>
 
@@ -4832,6 +5038,10 @@ export default function DashboardClient({
                     </th>
 
                     <th className="px-4 py-3">
+                      Paid By
+                    </th>
+
+                    <th className="px-4 py-3">
                       Amount
                     </th>
 
@@ -4886,6 +5096,25 @@ export default function DashboardClient({
                             "—"}
                         </td>
 
+                        <td className="px-4 py-4 text-sm">
+                          {item.paid_by ? (
+                            <div>
+                              <div className="font-medium">
+                                {item.paid_by}
+                              </div>
+                              <div className="mt-1 text-[11px] text-[#999]">
+                                {item.refund_id
+                                  ? "Refunded"
+                                  : "Pending Refund"}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[#aaa]">
+                              —
+                            </span>
+                          )}
+                        </td>
+
                         <td className="px-4 py-4 text-sm font-bold text-[#a70e18]">
                           {money(
                             item.amount
@@ -4905,6 +5134,37 @@ export default function DashboardClient({
                         <td className="px-5 py-4 text-right">
 
                           <div className="flex justify-end gap-2">
+
+                            {item.paid_by && (
+                              <button
+                                type="button"
+                                disabled={
+                                  loadingId ===
+                                  `refund:${item.paid_by}`
+                                }
+                                onClick={() =>
+                                  openRefundModal(
+                                    item.paid_by
+                                  )
+                                }
+                                className={`rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${
+                                  item.refund_id
+                                    ? "border-[#23753b] bg-[#f3fbf5] text-[#23753b]"
+                                    : "border-[#ead3a2] bg-[#fffaf0] text-[#9a6a00]"
+                                }`}
+                              >
+                                <i
+                                  className={`fa-solid ${
+                                    item.refund_id
+                                      ? "fa-check"
+                                      : "fa-rotate"
+                                  } mr-1`}
+                                />
+                                {item.refund_id
+                                  ? "Paid"
+                                  : "Refund"}
+                              </button>
+                            )}
 
                             <button
                               type="button"
@@ -5042,6 +5302,37 @@ export default function DashboardClient({
 
                     <div className="mt-3 flex gap-2">
 
+                      {item.paid_by && (
+                        <button
+                          type="button"
+                          disabled={
+                            loadingId ===
+                            `refund:${item.paid_by}`
+                          }
+                          onClick={() =>
+                            openRefundModal(
+                              item.paid_by
+                            )
+                          }
+                          className={`flex-1 rounded-lg border py-2.5 text-xs font-semibold disabled:opacity-50 ${
+                            item.refund_id
+                              ? "border-[#23753b] bg-[#f3fbf5] text-[#23753b]"
+                              : "border-[#ead3a2] bg-[#fffaf0] text-[#9a6a00]"
+                          }`}
+                        >
+                          <i
+                            className={`fa-solid ${
+                              item.refund_id
+                                ? "fa-check"
+                                : "fa-rotate"
+                            } mr-1`}
+                          />
+                          {item.refund_id
+                            ? "Paid"
+                            : "Refund"}
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -5132,6 +5423,24 @@ export default function DashboardClient({
                 "rejected"
               )
             }
+          />
+        )}
+
+        {showRefundModal && (
+          <RefundModal
+            people={refundPeople}
+            selectedPerson={refundPerson}
+            expenses={pendingRefundExpenses}
+            total={pendingRefundTotal}
+            loading={
+              refundPerson
+                ? loadingId ===
+                  `refund:${refundPerson}`
+                : false
+            }
+            onPersonChange={setRefundPerson}
+            onClose={closeRefundModal}
+            onConfirm={confirmRefund}
           />
         )}
 
@@ -7619,6 +7928,382 @@ function DetailItem({
 ============================================================ */
 
 
+function RefundModal({
+  people,
+  selectedPerson,
+  expenses,
+  total,
+  loading,
+  onPersonChange,
+  onClose,
+  onConfirm,
+}: {
+  people: string[];
+  selectedPerson: string | null;
+  expenses: Expense[];
+  total: number;
+  loading: boolean;
+  onPersonChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: (
+    paidBy: string,
+    paymentMode: string,
+    referenceNo: string
+  ) => Promise<void>;
+}) {
+  const formatMoney = (value: number) =>
+    `₹${Number(value).toLocaleString("en-IN")}`;
+
+  const formatRefundDate = (value: string) => {
+    if (!value) return "—";
+
+    return new Date(
+      value
+    ).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const [paid, setPaid] =
+    useState(false);
+
+  const [paymentMode, setPaymentMode] =
+    useState("upi");
+
+  const [referenceNo, setReferenceNo] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  useEffect(() => {
+    setPaid(false);
+    setPaymentMode("upi");
+    setReferenceNo("");
+    setError("");
+  }, [selectedPerson]);
+
+  const canConfirm =
+    Boolean(selectedPerson) &&
+    expenses.length > 0 &&
+    total > 0 &&
+    paid &&
+    Boolean(paymentMode.trim()) &&
+    Boolean(referenceNo.trim()) &&
+    !loading;
+
+  async function handleConfirm() {
+    setError("");
+
+    if (!selectedPerson) {
+      setError(
+        "Please select a Paid By name."
+      );
+      return;
+    }
+
+    if (expenses.length === 0) {
+      setError(
+        "There are no pending expenses to refund for this person."
+      );
+      return;
+    }
+
+    if (!paid) {
+      setError(
+        "Please confirm that the refund has been paid."
+      );
+      return;
+    }
+
+    if (!paymentMode.trim()) {
+      setError(
+        "Please select the mode of payment."
+      );
+      return;
+    }
+
+    if (!referenceNo.trim()) {
+      setError(
+        "Please enter the UTR / Transaction ID."
+      );
+      return;
+    }
+
+    await onConfirm(
+      selectedPerson,
+      paymentMode.trim(),
+      referenceNo.trim()
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+
+        <div className="sticky top-0 flex items-center justify-between border-b border-[#eee5db] bg-white px-5 py-4">
+
+          <div>
+            <h2 className="font-serif text-xl font-bold">
+              Refund
+            </h2>
+
+            <p className="mt-1 text-xs text-[#888]">
+              Reimburse the member who paid the expense.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f2eb] text-[#666] disabled:opacity-50"
+          >
+            <i className="fa-solid fa-xmark" />
+          </button>
+
+        </div>
+
+        <div className="space-y-4 p-5">
+
+          {error && (
+            <div className="rounded-lg bg-[#fff0f0] px-3 py-2 text-sm text-[#a70e18]">
+              {error}
+            </div>
+          )}
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-[#666]">
+              Paid By
+            </span>
+
+            <select
+              value={
+                selectedPerson || ""
+              }
+              onChange={(e) =>
+                onPersonChange(
+                  e.target.value
+                )
+              }
+              disabled={
+                loading ||
+                people.length === 0
+              }
+              className="form-input"
+            >
+              <option value="">
+                Select member
+              </option>
+
+              {people.map(
+                (person) => (
+                  <option
+                    key={person}
+                    value={person}
+                  >
+                    {person}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+
+          {selectedPerson && (
+            <>
+              <div className="rounded-xl border border-[#eadfd2] bg-[#fcf8f1] p-4">
+
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-[#888]">
+                      Pending refund for
+                    </div>
+
+                    <div className="mt-1 text-base font-semibold text-[#333]">
+                      {selectedPerson}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-xs text-[#888]">
+                      Total
+                    </div>
+
+                    <div className="mt-1 text-xl font-bold text-[#a70e18]">
+                      {formatMoney(total)}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {expenses.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-[#eee5db]">
+
+                  <div className="bg-[#fcf8f1] px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-[#777]">
+                    Pending Expenses
+                  </div>
+
+                  <div className="divide-y divide-[#eee5db]">
+                    {expenses.map(
+                      (expense) => (
+                        <div
+                          key={expense.id}
+                          className="flex items-center justify-between gap-4 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-[#333]">
+                              {expense.title}
+                            </div>
+
+                            <div className="mt-1 text-[11px] text-[#888]">
+                              {formatRefundDate(expense.expense_date)}
+                              {expense.paid_to
+                                ? ` · ${expense.paid_to}`
+                                : ""}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-sm font-semibold text-[#a70e18]">
+                            {formatMoney(Number(expense.amount))}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                </div>
+              ) : (
+                <div className="rounded-xl border border-[#e1e1e1] bg-[#fafafa] px-4 py-4 text-sm text-[#777]">
+                  No pending expenses for this member.
+                </div>
+              )}
+
+              {expenses.length > 0 && (
+                <>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#eadfd2] bg-white p-4">
+
+                    <input
+                      type="checkbox"
+                      checked={paid}
+                      onChange={(e) =>
+                        setPaid(
+                          e.target.checked
+                        )
+                      }
+                      disabled={loading}
+                      className="mt-0.5 h-4 w-4 accent-[#a70e18]"
+                    />
+
+                    <span>
+                      <span className="block text-sm font-semibold text-[#333]">
+                        Refund paid
+                      </span>
+
+                      <span className="mt-1 block text-xs text-[#888]">
+                        Tick this after the reimbursement has actually been made.
+                      </span>
+                    </span>
+
+                  </label>
+
+                  {paid && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+
+                      <FormField
+                        label="Mode of Payment"
+                        required
+                      >
+                        <select
+                          value={
+                            paymentMode
+                          }
+                          onChange={(e) =>
+                            setPaymentMode(
+                              e.target.value
+                            )
+                          }
+                          disabled={loading}
+                          className="form-input capitalize"
+                        >
+                          {PAYMENT_MODES.map(
+                            (mode) => (
+                              <option
+                                key={mode}
+                                value={mode}
+                              >
+                                {mode}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      </FormField>
+
+                      <FormField
+                        label="UTR / Transaction ID"
+                        required
+                      >
+                        <input
+                          value={
+                            referenceNo
+                          }
+                          onChange={(e) =>
+                            setReferenceNo(
+                              e.target.value
+                            )
+                          }
+                          disabled={loading}
+                          placeholder="Enter transaction ID"
+                          className="form-input"
+                        />
+                      </FormField>
+
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          <div className="flex gap-3 border-t border-[#eee5db] pt-4">
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 rounded-lg border border-[#ddd] bg-white py-3 text-sm font-semibold text-[#666] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              className="flex-1 rounded-lg bg-[#a70e18] py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {loading
+                ? "Confirming..."
+                : "Confirm Refund"}
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
+   EXPENSE MODAL
+============================================================ */
+
+
 function ExpenseModal({
   expense,
   categories,
@@ -7649,6 +8334,12 @@ function ExpenseModal({
   const [paidTo, setPaidTo] =
     useState(
       expense?.paid_to ||
+        ""
+    );
+
+  const [paidBy, setPaidBy] =
+    useState(
+      expense?.paid_by ||
         ""
     );
 
@@ -7755,6 +8446,7 @@ function ExpenseModal({
               title,
               category,
               paidTo,
+              paidBy,
               amount:
                 numericAmount,
               expenseDate,
@@ -7914,6 +8606,25 @@ function ExpenseModal({
 
             </FormField>
 
+            <FormField label="Paid By">
+
+              <input
+                value={paidBy}
+                onChange={(e) =>
+                  setPaidBy(
+                    e.target.value
+                  )
+                }
+                placeholder="Optional — Person who paid"
+                className="form-input"
+              />
+
+            </FormField>
+
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+
             <FormField
               label="Expense Date"
               required
@@ -7933,10 +8644,6 @@ function ExpenseModal({
               />
 
             </FormField>
-
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
 
             <FormField label="Payment Mode">
 
@@ -7966,6 +8673,10 @@ function ExpenseModal({
               </select>
 
             </FormField>
+
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
 
             <FormField label="Reference No.">
 
