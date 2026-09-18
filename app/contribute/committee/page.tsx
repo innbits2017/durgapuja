@@ -1707,9 +1707,9 @@ function Benefits() {
       <div className="flex min-h-[70px] flex-col items-center justify-center gap-2 text-center max-[600px]:min-h-[80px]">
         <i className="text-[23px] text-[#a70e18] fa-solid fa-leaf" />
         <span className="text-[12px] font-semibold leading-[1.4] text-[#555]">
-          A Cleaner
+          Celebrating the Spirit
           <br />
-          Brighter Tomorrow
+          of Durga Puja
         </span>
       </div>
 
