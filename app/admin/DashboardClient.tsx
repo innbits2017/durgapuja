@@ -281,18 +281,28 @@ const ALL_FLATS = {
 ============================================================ */
 
 const EXPENSE_CATEGORIES = [
-  "Puja & Rituals",
-  "Decoration",
-  "Pandal",
-  "Sound & Lighting",
-  "Food & Prasad",
-  "Cultural Program",
-  "Security",
-  "Electrical",
-  "Cleaning",
-  "Printing & Promotion",
-  "Transportation",
-  "Miscellaneous",
+"Cups & Plates",
+"Cleaning",
+"Cook",
+"Cultural Program",
+"Decoration",
+"Dhol",
+"DJ",
+"Electrical",
+"Gifts",
+"Grocery",
+"Idol",
+"LPG",
+"Miscellaneous",
+"Printing & Promotion",
+"Prizes",
+"Puja Items",
+"Pujari",
+"Sound & Lighting",
+"Tent",
+"Transportation",
+"Vegetables",
+"Water"
 ];
 
 const PAYMENT_MODES = [
@@ -6575,10 +6585,10 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-normal transition ${
         active
           ? "bg-[#a70e18] text-white"
-          : "text-[#666] hover:bg-[#fcf8f1]"
+          : "text-[#000] hover:bg-[#fcf8f1]"
       }`}
     >
       <i
