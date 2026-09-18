@@ -10,13 +10,6 @@ type Block = "P1" | "P2" | "Villa";
 type ResidentType = "Owner" | "Tenant";
 
 
-type LastYearPaidRecord = {
-  block: string;
-  flat_no: string;
-  amount: number;
-  resident_type?: string | null;
-};
-
 const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 
 const BLOCKS: Block[] = ["P1", "P2", "Villa"];
@@ -82,10 +75,6 @@ export default function ContributePage() {
     []
   );
 
-  const [lastYearPaid, setLastYearPaid] = useState<
-    LastYearPaidRecord[]
-  >([]);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -137,38 +126,6 @@ export default function ContributePage() {
 
     loadPaidFlats();
 
-    async function loadLastYearPaid() {
-      try {
-        const response = await fetch(
-          "/api/lastyearpaid",
-          { cache: "no-store" }
-        );
-
-        if (!response.ok) {
-          return;
-        }
-
-        const data = await response.json();
-
-        setLastYearPaid(
-          (data ?? []).map(
-            (item: LastYearPaidRecord) => ({
-              block: item.block,
-              flat_no: item.flat_no,
-              amount: Number(item.amount),
-              resident_type: item.resident_type ?? null,
-            })
-          )
-        );
-      } catch (error) {
-        console.error(
-          "Unable to load last year paid data:",
-          error
-        );
-      }
-    }
-
-    loadLastYearPaid();
   }, []);
 
   /*
@@ -241,44 +198,6 @@ export default function ContributePage() {
     );
   }
 
-  function getLastYearPaid(flat: string) {
-    if (!block || !flat) {
-      return null;
-    }
-
-    // Prefer a resident-specific record (used where a flat has
-    // separate Owner/Tenant historical payments), then fall back
-    // to the normal block + flat record.
-    if (residentType) {
-      const residentRecord = lastYearPaid.find(
-        (item) =>
-          item.block === block &&
-          item.flat_no === flat &&
-          item.resident_type === residentType
-      );
-
-      if (residentRecord) {
-        return residentRecord;
-      }
-    }
-
-    return (
-      lastYearPaid.find(
-        (item) =>
-          item.block === block &&
-          item.flat_no === flat &&
-          !item.resident_type
-      ) ||
-      lastYearPaid.find(
-        (item) =>
-          item.block === block &&
-          item.flat_no === flat
-      ) ||
-      null
-    );
-  }
-
-  const selectedLastYearPaid = getLastYearPaid(flatNo);
 
   function selectFlat(flat: string) {
     if (isFlatPaid(flat)) {
@@ -738,40 +657,6 @@ export default function ContributePage() {
 
                     </div>
                   </div>
-
-                  {/* LAST YEAR PAID */}
-                  {block && flatNo && (
-                    <div className="flex items-center justify-between rounded-[11px] border border-[#ead9c7] bg-[#fcf8f1] px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f8e9d1] text-[#a70e18]">
-                          <i className="fa-solid fa-clock-rotate-left text-[13px]" />
-                        </div>
-                        <div>
-                          <p className="text-[12px] font-semibold text-[#555]">
-                            Last Year Paid
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-[#999]">
-                            Durga Puja 2025
-                          </p>
-                        </div>
-                      </div>
-
-                      {selectedLastYearPaid ? (
-                        <div className="text-right">
-                          <p className="text-[16px] font-bold text-[#a70e18]">
-                            ₹{Number(selectedLastYearPaid.amount).toLocaleString("en-IN")}
-                          </p>
-                          <p className="text-[10px] font-semibold text-[#4f8a5b]">
-                            Paid
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="rounded-full bg-[#f1f1f1] px-3 py-1.5 text-[11px] font-semibold text-[#777]">
-                          Not Paid
-                        </span>
-                      )}
-                    </div>
-                  )}
 
                   {/* OWNER / TENANT */}
 
