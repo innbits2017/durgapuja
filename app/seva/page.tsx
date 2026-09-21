@@ -34,9 +34,9 @@ const MATERIAL_SEVAS = [
     subtitle: "Sponsor rice for Bhog & Prasad.",
     icon: "fa-bowl-rice",
     options: [
-      { id: "rice_10", label: "10 kg", price: 601 },
-      { id: "rice_25", label: "25 kg", price: 1501 },
-      { id: "rice_50", label: "50 kg", price: 3001 },
+      { id: "rice_10", label: "10 kg", price: 701 },
+      { id: "rice_25", label: "26 kg", price: 1751 },
+      { id: "rice_50", label: "52 kg", price: 3501 },
     ],
   },
   {
@@ -54,8 +54,8 @@ const MATERIAL_SEVAS = [
     subtitle: "Sponsor fresh vegetables for Puja meals.",
     icon: "fa-carrot",
     options: [
-      { id: "vegetables_10", label: "10 kg", price: 801 },
-      { id: "vegetables_20", label: "20 kg", price: 1501 },
+      { id: "vegetables_10", label: "10 kg", price: 1001 },
+      { id: "vegetables_20", label: "20 kg", price: 2001 },
     ],
   },
   {

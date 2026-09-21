@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { sendExternalDonationConfirmedWhatsApp } from "@/lib/whatsapp";
 
 export async function POST(request: Request) {
   try {
@@ -19,9 +20,7 @@ export async function POST(request: Request) {
 
     if (!donorName || !donorType || !mobile || !amount || !utr) {
       return NextResponse.json(
-        {
-          error: "Please fill all required fields.",
-        },
+        { error: "Please fill all required fields." },
         { status: 400 }
       );
     }
@@ -30,16 +29,23 @@ export async function POST(request: Request) {
 
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return NextResponse.json(
-        {
-          error: "Please enter a valid donation amount.",
-        },
+        { error: "Please enter a valid donation amount." },
+        { status: 400 }
+      );
+    }
+
+    const cleanMobile = String(mobile).trim();
+
+    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+      return NextResponse.json(
+        { error: "Please enter a valid 10-digit mobile number." },
         { status: 400 }
       );
     }
 
     const cleanUtr = String(utr).trim();
 
-    // Check whether this UTR has already been submitted
+    // Check duplicate UTR
     const { data: existing, error: checkError } =
       await supabaseAdmin
         .from("donations")
@@ -51,9 +57,7 @@ export async function POST(request: Request) {
       console.error("Donation UTR check error:", checkError);
 
       return NextResponse.json(
-        {
-          error: checkError.message,
-        },
+        { error: checkError.message },
         { status: 500 }
       );
     }
@@ -68,15 +72,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Insert donation
+    // Save donation
     const { data, error } = await supabaseAdmin
       .from("donations")
       .insert({
         donor_name: String(donorName).trim(),
-        organisation_name:
-          organisationName?.trim() || null,
+        organisation_name: organisationName?.trim() || null,
         donor_type: donorType,
-        mobile: String(mobile).trim(),
+        mobile: cleanMobile,
         email: email?.trim() || null,
         location: location?.trim() || null,
         amount: numericAmount,
@@ -91,10 +94,48 @@ export async function POST(request: Request) {
       console.error("Donation insert error:", error);
 
       return NextResponse.json(
-        {
-          error: error.message,
-        },
+        { error: error.message },
         { status: 500 }
+      );
+    }
+
+    /*
+     * WhatsApp confirmation
+     *
+     * This uses the existing helper from lib/whatsapp.ts.
+     * The approved template expects:
+     * {{1}} Contact Person
+     * {{2}} Organisation / Donor
+     * {{3}} Amount
+     * {{4}} Payment Mode
+     * {{5}} Payment ID / UTR
+     */
+    const whatsappName =
+      organisationName?.trim() || String(donorName).trim();
+
+    try {
+      const whatsappResult =
+        await sendExternalDonationConfirmedWhatsApp({
+          mobile: cleanMobile,
+          contactName: String(donorName).trim(),
+          donorName: whatsappName,
+          amount: numericAmount,
+          paymentMode: "UPI",
+          paymentId: cleanUtr,
+        });
+
+      console.log(
+        "Donation WhatsApp result:",
+        whatsappResult
+      );
+    } catch (whatsappError) {
+      /*
+       * IMPORTANT:
+       * Do not fail the donation just because WhatsApp failed.
+       */
+      console.error(
+        "Donation WhatsApp notification failed:",
+        whatsappError
       );
     }
 
