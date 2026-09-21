@@ -1179,7 +1179,7 @@ export default function InventoryHelpPage() {
               </p>
 
               <p className="mt-2 text-xs leading-6 text-[#707070]">
-                Your inventory support request has been successfully submitted to the BUH Durga Puja Committee.
+                Your inventory support request has been successfully submitted to the BUH Durga Puja Committee. It will be updated after the approval.
               </p>
 
               <div className="mx-auto my-6 max-w-[380px] rounded-[13px] bg-[#fcf7ed] p-4 text-left">

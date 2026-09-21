@@ -872,6 +872,9 @@ export default function HomePage() {
     seconds: 0,
   });
 
+  const [showContributionNotice, setShowContributionNotice] =
+    useState(false);
+
   useEffect(() => {
     const targetDate = new Date(
       "2026-10-16T00:00:00"
@@ -1763,14 +1766,15 @@ export default function HomePage() {
 
             
 
-            <Link
-              href="/contribute"
+            <button
+              type="button"
+              onClick={() => setShowContributionNotice(true)}
               className="inline-flex items-center rounded-full bg-[#a70e18] px-8 py-4 text-sm font-bold tracking-wide text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#7d0b13]"
             >
               <i className="fa-solid fa-heart mr-3" />
               CONTRIBUTE TO PUJA
               <i className="fa-solid fa-arrow-right ml-3" />
-            </Link>
+            </button>
 
           </div>
 
@@ -1853,14 +1857,15 @@ export default function HomePage() {
 
               <div>
 
-                <Link
-                  href="/contribute"
+                <button
+                  type="button"
+                  onClick={() => setShowContributionNotice(true)}
                   className="inline-flex items-center rounded-full bg-[#e2bd62] px-8 py-4 text-sm font-bold text-[#571016] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#f0cf7c]"
                 >
                   <i className="fa-solid fa-heart mr-3" />
                   CONTRIBUTE
                   <i className="fa-solid fa-arrow-right ml-3" />
-                </Link>
+                </button>
 
               </div>
 
@@ -2065,6 +2070,62 @@ export default function HomePage() {
 
       </footer>
 
+
+      {/* =====================================================
+          CONTRIBUTION NOTICE MODAL
+      ====================================================== */}
+
+      {showContributionNotice && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+          onClick={() => setShowContributionNotice(false)}
+        >
+          <div
+            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#e5cfaa] bg-[#fffaf2] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="bg-gradient-to-br from-[#fff4df] via-[#fffaf2] to-[#f8e8d2] px-6 pb-5 pt-7 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#a70e18] text-2xl text-white shadow-lg">
+                <i className="fa-solid fa-heart" />
+              </div>
+
+              <h2 className="text-xl font-bold text-[#7f0b13]">
+                Contribution Collection Will Open Soon
+              </h2>
+            </div>
+
+            <div className="px-6 pb-6 pt-5 text-center">
+
+              <p className="text-sm leading-6 text-[#6b5044]">
+                We request all residents to kindly wait until
+                the collection drive begins. Your support means
+                a lot to us.
+              </p>
+
+              <p className="mt-4 text-sm font-semibold text-[#7f0b13]">
+                🙏 Thank you for your support and cooperation.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowContributionNotice(false)}
+                className="mt-6 w-full rounded-full bg-[#a70e18] px-5 py-3 font-semibold text-white shadow-md transition hover:bg-[#7f0b13]"
+              >
+                Okay, Thank You
+              </button>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={() => setShowContributionNotice(false)}
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-[#7f0b13] shadow-sm transition hover:bg-white"
+            >
+              <i className="fa-solid fa-xmark" />
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
