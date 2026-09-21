@@ -746,7 +746,7 @@ export default function InventoryHelpPage() {
                 BUH Durga Puja 2026
               </h1>
 
-              <p className="mt-2 font-serif text-[15px] italic text-[#7b5b4e] max-[600px]:text-[11px]">
+              <p className="mt-2 font-serif text-[15px] italic text-[#7b5b4e] max-[600px]:text-[12px]">
                 Help us arrange the essentials needed for our Durga Puja celebrations.
               </p>
 
@@ -811,7 +811,7 @@ export default function InventoryHelpPage() {
                 Inventory Requirements
               </h2>
 
-              <p className="mt-1 text-[13px] text-[#737983]">
+              <p className="mt-1 text-[14px] text-[#737983]">
                 Help us arrange the essential items required for the Puja.
               </p>
 
@@ -858,7 +858,6 @@ export default function InventoryHelpPage() {
                           key={item.id}
                           className="rounded-[14px] border border-[#eadfd2] bg-[#fffdf9] p-3.5"
                         >
-
                           <div className="flex items-start gap-3">
 
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
@@ -877,7 +876,7 @@ export default function InventoryHelpPage() {
                             <div className="min-w-0 flex-1">
 
                               <div className="flex justify-between gap-2">
-                                <h3 className="text-[14px] font-bold text-[#3b312d]">
+                                <h3 className="text-[16px] font-bold text-[#3b312d]">
                                   {item.item_name}
                                 </h3>
 
@@ -951,7 +950,7 @@ export default function InventoryHelpPage() {
 
                           {item.helpers.length > 0 && (
                             <div className="mt-3 rounded-[10px] border border-[#eee1d2] bg-[#fffaf3] px-3 py-2.5">
-                              <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.8px] text-[#a70e18]">
+                              <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.8px] text-[#a70e18]">
                                 <i className="fa-solid fa-heart" />
                                 Helped By
                               </div>
@@ -961,7 +960,7 @@ export default function InventoryHelpPage() {
                                   (helper) => (
                                     <div
                                       key={`${helper.block}-${helper.flat_no}`}
-                                      className="flex items-center justify-between gap-2 text-[11px]"
+                                      className="flex items-center justify-between gap-2 text-[14px]"
                                     >
                                       <span className="min-w-0 truncate font-semibold text-[#3b312d]">
                                         {helper.name}

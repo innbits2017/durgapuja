@@ -8,6 +8,20 @@ const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 
 const events = [
   {
+    day: "KALASH PUJA",
+    shortDay: "Day 1 to Day 5",
+    date: "11th to 15th OCTOBER 2026",
+    image: "/images/kalash-puja.webp",
+    icon: "fa-solid fa-hands-praying",
+    color: "bg-[#8f1019]",
+    schedule: {
+      morning: "Morning Puja",
+      afternoon: "-",
+      evening: "Evening Puja",
+      night: "-",
+    },
+  },
+  {
     day: "MAHA SHASHTI",
     shortDay: "Shashthi",
     date: "16 OCTOBER 2026",
@@ -15,7 +29,7 @@ const events = [
     icon: "fa-solid fa-hands-praying",
     color: "bg-[#8f1019]",
     schedule: {
-      morning: "—",
+      morning: "Puja Preparation",
       afternoon: "Maa Durga Welcome & Shashthi Puja",
       evening: "Kids Drawing + Family Tambola",
       night: "Dinner",
@@ -30,7 +44,7 @@ const events = [
     color: "bg-[#a70e18]",
     schedule: {
       morning: "Breakfast + Saptami Puja & Pushpanjali",
-      afternoon: "Kids Carnival + Family Treasure Hunt",
+      afternoon: "Kids Carnival",
       evening: "Dandia Night",
       night: "Dinner",
     },
@@ -1043,6 +1057,10 @@ export default function HomePage() {
                 </span>
               </h1>
 
+              <p className="mt-5 text-xs font-semibold tracking-[0.25em] text-[#8a6c45]">
+                OCTOBER 11 – 20, 2026
+              </p>
+
               <div className="my-6 flex items-center justify-center gap-3 lg:justify-start">
 
                 <div className="h-px w-12 bg-[#b8892d]" />
@@ -1080,19 +1098,15 @@ export default function HomePage() {
 
               </div>
 
-              <p className="mt-5 text-xs font-semibold tracking-[0.25em] text-[#8a6c45]">
-                OCTOBER 16 – 20, 2026
-              </p>
-
               <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:justify-start">
 
-                <Link
+                {/* <Link
                   href="/contribute"
                   className="rounded-full bg-[#a70e18] px-7 py-3.5 text-sm font-bold tracking-wide text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#7d0b13]"
                 >
                   <i className="fa-solid fa-heart mr-2" />
                   CONTRIBUTE TO PUJA
-                </Link>
+                </Link> */}
                 {/* 
                 <Link
                   href="/donate"
@@ -1232,7 +1246,7 @@ export default function HomePage() {
           </h2>
 
           <p className="mt-3 text-sm text-[#f3dfbd]">
-            October 16, 2026
+            October 11, 2026
           </p>
 
           <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5">
@@ -1711,6 +1725,14 @@ export default function HomePage() {
 
       <section className="relative overflow-hidden bg-[#fffaf2] px-5 py-24">
 
+        <div className="absolute left-[8%] top-12 hidden text-7xl text-[#a70e18]/10 md:block">
+          <i className="fa-solid fa-spa" />
+        </div>
+
+        <div className="absolute right-[8%] bottom-12 hidden text-7xl text-[#a70e18]/10 md:block">
+          <i className="fa-solid fa-spa" />
+        </div>
+
         <div className="absolute left-[-120px] top-20 h-72 w-72 rounded-full bg-[#b8892d]/10 blur-3xl" />
 
         <div className="absolute bottom-[-120px] right-[-80px] h-72 w-72 rounded-full bg-[#a70e18]/10 blur-3xl" />
@@ -1739,6 +1761,8 @@ export default function HomePage() {
 
           <div className="mt-9">
 
+            
+
             <Link
               href="/contribute"
               className="inline-flex items-center rounded-full bg-[#a70e18] px-8 py-4 text-sm font-bold tracking-wide text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#7d0b13]"
@@ -1757,7 +1781,7 @@ export default function HomePage() {
       {/* =====================================================
           EXTERNAL SUPPORT
       ====================================================== */}
-
+{/* 
       <section className="relative overflow-hidden bg-[#7d0c15] px-5 py-24 text-white">
 
         <div className="absolute right-[-150px] top-[-100px] h-96 w-96 rounded-full border border-[#e8c979]/10" />
@@ -1850,12 +1874,12 @@ export default function HomePage() {
 
         </div>
 
-      </section>
+      </section> */}
 
       {/* =====================================================
           COMMUNITY MESSAGE
       ====================================================== */}
-
+{/* 
       <section className="relative overflow-hidden bg-[radial-gradient(circle_at_center,_#fffaf0,_#ecd7b7)] px-5 py-28 text-center">
 
         <div className="absolute left-[8%] top-12 hidden text-7xl text-[#a70e18]/10 md:block">
@@ -1892,7 +1916,7 @@ export default function HomePage() {
 
         </div>
 
-      </section>
+      </section> */}
 
       {/* =====================================================
           FOOTER
@@ -1957,19 +1981,27 @@ export default function HomePage() {
               </a>
 
               <Link
-                href="/contribute"
-                className="transition hover:text-[#e5c16b]"
-              >
-                <i className="fa-solid fa-heart mr-1.5" />
-                Contribute
-              </Link>
-
-              <Link
-                href="/contribute"
+                href="/seva"
                 className="transition hover:text-[#e5c16b]"
               >
                 <i className="fa-solid fa-hand-holding-heart mr-1.5" />
-                Contribute
+                Offer Seva
+              </Link>
+
+              <Link
+                href="/cultural-program"
+                className="transition hover:text-[#e5c16b]"
+              >
+                <i className="fa-solid fa-heart mr-1.5" />
+                Inventory Help
+              </Link>
+
+                            <Link
+                href="/cultural-program"
+                className="transition hover:text-[#e5c16b]"
+              >
+                <i className="fa-solid fa-heart mr-1.5" />
+                Cultural Program
               </Link>
 
             </div>

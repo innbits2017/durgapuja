@@ -868,24 +868,24 @@ export default function SevaPage() {
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="flex items-center justify-between gap-2">
-                                <span className="text-[15px] font-bold text-[#3b312d]">{item.title}</span>
-                                <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[9px] ${
+                                <span className="text-[16px] font-bold text-[#3b312d]">{item.title}</span>
+                                <span className={`flex h-5 w-5 items-center justify-center rounded-full border text-[12px] ${
                                   selected ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#d8d0c8] text-transparent"
                                 }`}>
                                   <i className="fa-solid fa-check" />
                                 </span>
                               </span>
-                              <span className="mt-0.5 block text-[12px] leading-[1.45] text-[#81766f]">{item.subtitle}</span>
+                              <span className="mt-0.5 block text-[14px] leading-[1.45] text-[#81766f]">{item.subtitle}</span>
                             </span>
                           </button>
 
                           <div className="mt-3 grid gap-2">
                             <div>
-                              <div className="mb-1 text-[12px] font-semibold text-[#756961]">Sponsorship Option</div>
+                              <div className="mb-1 text-[14px] font-semibold text-[#756961]">Sponsorship Option</div>
                               <div className="grid grid-cols-1 gap-1.5">
                                 {item.options.map((option) => (
                                   <button key={option.id} type="button" disabled={!selected} onClick={() => updateMaterialOption(item.id, option.id)}
-                                    className={`flex items-center justify-between rounded-[9px] border px-2.5 py-2.5 text-left text-[12px] transition ${
+                                    className={`flex items-center justify-between rounded-[9px] border px-2.5 py-2.5 text-left text-[14px] transition ${
                                       selectedOption?.id === option.id
                                         ? "border-[#c79531] bg-[#fff1d9] font-bold text-[#a70e18]"
                                         : "border-[#eadfd2] bg-white text-[#555]"
@@ -898,7 +898,7 @@ export default function SevaPage() {
                             </div>
 
                             <div>
-                              <div className="mb-1 text-[12px] font-semibold text-[#756961]">Puja Day</div>
+                              <div className="mb-1 text-[14px] font-semibold text-[#756961]">Puja Day</div>
                               <div className="grid grid-cols-5 gap-1">
                                 {PUJA_DAYS.map((day) => (
                                   <button key={day} type="button" disabled={!selected} onClick={() => updateMaterialDay(item.id, day)}
@@ -953,7 +953,7 @@ export default function SevaPage() {
 
                     <div className="mt-3 grid gap-2">
                       <div>
-                        <div className="mb-1 text-[12px] font-semibold text-[#756961]">Sponsorship Amount</div>
+                        <div className="mb-1 text-[14px] font-semibold text-[#756961]">Sponsorship Amount</div>
                         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
                           {ANNADANA_OPTIONS.map((option) => (
                             <button key={option.id} type="button" disabled={!annadanaSelection.selected} onClick={() => updateAnnadanaOption(option.id)}
@@ -967,7 +967,7 @@ export default function SevaPage() {
                       </div>
 
                       <div>
-                        <div className="mb-1 text-[12px] font-semibold text-[#756961]">Puja Day</div>
+                        <div className="mb-1 text-[14px] font-semibold text-[#756961]">Puja Day</div>
                         <div className="grid grid-cols-5 gap-1">
                           {PUJA_DAYS.map((day) => (
                             <button key={day} type="button" disabled={!annadanaSelection.selected} onClick={() => updateAnnadanaDay(day)}
@@ -1019,7 +1019,7 @@ export default function SevaPage() {
                           >
                             <i className={`fa-solid ${role.icon} text-[11px]`} />
                           </span>
-                          <span className="flex-1 text-[13px] font-semibold leading-[1.35] text-[#4b403a]">
+                          <span className="flex-1 text-[14px] font-semibold leading-[1.35] text-[#4b403a]">
                             {role.title}
                           </span>
                           <span
