@@ -1252,7 +1252,7 @@ export default function SevaPage() {
                 </p>
 
                 <p className="mt-2 text-[12px] text-[#707070] sm:text-[13px]">
-                  Your Seva registration has been successfully submitted to the BUH Durga Puja Committee.
+                  Your Seva registration has been successfully submitted to the BUH Durga Puja Committee. 
                 </p>
 
                 <div className="mx-auto my-[25px] max-w-[380px] rounded-[13px] bg-[#fcf7ed] p-[17px]">
