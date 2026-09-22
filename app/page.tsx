@@ -31,7 +31,7 @@ const events = [
     schedule: {
       morning: "Puja Preparation",
       afternoon: "Maa Durga Welcome & Shashthi Puja",
-      evening: "Kids Drawing + Family Tambola",
+      evening: "Carnival (Food Stall + Flea Market + Games)",
       night: "Dinner",
     },
   },
@@ -44,7 +44,7 @@ const events = [
     color: "bg-[#a70e18]",
     schedule: {
       morning: "Breakfast + Saptami Puja & Pushpanjali",
-      afternoon: "Kids Carnival",
+      afternoon: "Kids Drawing & Painting",
       evening: "Dandia Night",
       night: "Dinner",
     },
@@ -58,7 +58,7 @@ const events = [
     color: "bg-[#8f1019]",
     schedule: {
       morning: "Breakfast + Maha Ashtami Puja & Pushpanjali",
-      afternoon: "Family Games + Kids Fun Zone",
+      afternoon: "Tambola",
       evening: "Cultural Programme",
       night: "Dinner",
     },

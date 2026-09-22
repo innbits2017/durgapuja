@@ -99,8 +99,12 @@ const VOLUNTEER_ROLES = [
 
 type MaterialSelection = {
   selected: boolean;
-  optionId: string;
-  day: PujaDay | "";
+  options: Record<string, { selected: boolean; day: PujaDay | "" }>;
+};
+
+type AnnadanaSelection = {
+  selected: boolean;
+  options: Record<string, { selected: boolean; day: PujaDay | "" }>;
 };
 
 function InputField({
@@ -348,28 +352,34 @@ export default function SevaPage() {
   const [utr, setUtr] = useState("");
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  const [materialSelections, setMaterialSelections] = useState<Record<string, MaterialSelection>>(
-    Object.fromEntries(
-      MATERIAL_SEVAS.map((item) => [
-        item.id,
-        {
-          selected: false,
-          optionId: item.options[0]?.id || "",
-          day: "",
-        },
-      ])
-    )
-  );
+  const [materialSelections, setMaterialSelections] =
+    useState<Record<string, MaterialSelection>>(
+      Object.fromEntries(
+        MATERIAL_SEVAS.map((item) => [
+          item.id,
+          {
+            selected: false,
+            options: Object.fromEntries(
+              item.options.map((option) => [
+                option.id,
+                { selected: false, day: "" },
+              ])
+            ),
+          },
+        ])
+      )
+    );
 
-  const [annadanaSelection, setAnnadanaSelection] = useState<{
-    selected: boolean;
-    optionId: string;
-    day: PujaDay | "";
-  }>({
-    selected: false,
-    optionId: ANNADANA_OPTIONS[0].id,
-    day: "",
-  });
+  const [annadanaSelection, setAnnadanaSelection] =
+    useState<AnnadanaSelection>({
+      selected: false,
+      options: Object.fromEntries(
+        ANNADANA_OPTIONS.map((option) => [
+          option.id,
+          { selected: false, day: "" },
+        ])
+      ),
+    });
 
   const [volunteerRoles, setVolunteerRoles] = useState<string[]>([]);
   const [volunteerNote, setVolunteerNote] = useState("");
@@ -386,15 +396,28 @@ export default function SevaPage() {
 
   const selectedMaterialTotal = selectedMaterials.reduce((sum, item) => {
     const selection = materialSelections[item.id];
-    const option = item.options.find((entry) => entry.id === selection?.optionId);
-    return sum + Number(option?.price || 0);
+
+    return (
+      sum +
+      item.options.reduce((optionSum, option) => {
+        return (
+          optionSum +
+          (selection?.options[option.id]?.selected
+            ? Number(option.price || 0)
+            : 0)
+        );
+      }, 0)
+    );
   }, 0);
 
   const annadanaTotal = annadanaSelection.selected
-    ? Number(
-        ANNADANA_OPTIONS.find(
-          (option) => option.id === annadanaSelection.optionId
-        )?.price || 0
+    ? ANNADANA_OPTIONS.reduce(
+        (sum, option) =>
+          sum +
+          (annadanaSelection.options[option.id]?.selected
+            ? Number(option.price || 0)
+            : 0),
+        0
       )
     : 0;
 
@@ -432,22 +455,38 @@ export default function SevaPage() {
     }));
   }
 
-  function updateMaterialOption(id: string, optionId: string) {
+  function toggleMaterialOption(id: string, optionId: string) {
     setMaterialSelections((current) => ({
       ...current,
       [id]: {
         ...current[id],
-        optionId,
+        options: {
+          ...current[id].options,
+          [optionId]: {
+            ...current[id].options[optionId],
+            selected: !current[id].options[optionId]?.selected,
+          },
+        },
       },
     }));
   }
 
-  function updateMaterialDay(id: string, day: PujaDay) {
+  function updateMaterialDay(
+    id: string,
+    optionId: string,
+    day: PujaDay
+  ) {
     setMaterialSelections((current) => ({
       ...current,
       [id]: {
         ...current[id],
-        day,
+        options: {
+          ...current[id].options,
+          [optionId]: {
+            ...current[id].options[optionId],
+            day,
+          },
+        },
       },
     }));
   }
@@ -455,14 +494,26 @@ export default function SevaPage() {
   function updateAnnadanaOption(optionId: string) {
     setAnnadanaSelection((current) => ({
       ...current,
-      optionId,
+      options: {
+        ...current.options,
+        [optionId]: {
+          ...current.options[optionId],
+          selected: !current.options[optionId]?.selected,
+        },
+      },
     }));
   }
 
-  function updateAnnadanaDay(day: PujaDay) {
+  function updateAnnadanaDay(optionId: string, day: PujaDay) {
     setAnnadanaSelection((current) => ({
       ...current,
-      day,
+      options: {
+        ...current.options,
+        [optionId]: {
+          ...current.options[optionId],
+          day,
+        },
+      },
     }));
   }
 
@@ -502,21 +553,43 @@ export default function SevaPage() {
 
     for (const item of selectedMaterials) {
       const selection = materialSelections[item.id];
+      const selectedOptions = item.options.filter(
+        (option) => selection?.options[option.id]?.selected
+      );
 
-      if (!selection?.optionId) {
-        setError(`Please select a package for ${item.title}.`);
+      if (!selectedOptions.length) {
+        setError(`Please select at least one package for ${item.title}.`);
         return;
       }
 
-      if (!selection.day) {
-        setError(`Please select the Puja day for ${item.title}.`);
-        return;
+      for (const option of selectedOptions) {
+        if (!selection?.options[option.id]?.day) {
+          setError(
+            `Please select the Puja day for ${item.title} - ${option.label}.`
+          );
+          return;
+        }
       }
     }
 
-    if (annadanaSelection.selected && !annadanaSelection.day) {
-      setError("Please select the Puja day for Annadana Seva.");
-      return;
+    if (annadanaSelection.selected) {
+      const selectedAnnadana = ANNADANA_OPTIONS.filter(
+        (option) => annadanaSelection.options[option.id]?.selected
+      );
+
+      if (!selectedAnnadana.length) {
+        setError("Please select at least one Annadana sponsorship amount.");
+        return;
+      }
+
+      for (const option of selectedAnnadana) {
+        if (!annadanaSelection.options[option.id]?.day) {
+          setError(
+            `Please select the Puja day for Annadana ${option.label}.`
+          );
+          return;
+        }
+      }
     }
 
     setOpenDropdown(null);
@@ -544,46 +617,49 @@ export default function SevaPage() {
           flatNo,
           mobile,
           materials: [
-            ...selectedMaterials.map((item) => {
+            ...selectedMaterials.flatMap((item) => {
               const selection = materialSelections[item.id];
-              const option = item.options.find(
-                (entry) => entry.id === selection.optionId
-              );
 
-              const quantityMatch =
-                option?.label.match(/^(\d+)/);
+              return item.options
+                .filter(
+                  (option) =>
+                    selection?.options[option.id]?.selected
+                )
+                .map((option) => {
+                  const quantityMatch =
+                    option.label.match(/^(\d+)/);
 
-              return {
-                type: item.id,
-                title: item.title,
-                package: option?.label || "",
-                quantity: quantityMatch
-                  ? Number(quantityMatch[1])
-                  : null,
-                unit:
-                  item.id === "sukha_prasad"
-                    ? "time"
-                    : "kg",
-                price: Number(option?.price || 0),
-                day: selection.day,
-              };
+                  return {
+                    type: item.id,
+                    title: item.title,
+                    package: option.label,
+                    quantity: quantityMatch
+                      ? Number(quantityMatch[1])
+                      : null,
+                    unit:
+                      item.id === "sukha_prasad"
+                        ? "time"
+                        : "kg",
+                    price: Number(option.price || 0),
+                    day:
+                      selection?.options[option.id]?.day || "",
+                  };
+                });
             }),
             ...(annadanaSelection.selected
-              ? [
-                  {
-                    type: "annadana",
-                    title: "Annadana Seva",
-                    package:
-                      ANNADANA_OPTIONS.find(
-                        (option) =>
-                          option.id === annadanaSelection.optionId
-                      )?.label || "",
-                    quantity: null,
-                    unit: "service",
-                    price: annadanaTotal,
-                    day: annadanaSelection.day,
-                  },
-                ]
+              ? ANNADANA_OPTIONS.filter(
+                  (option) =>
+                    annadanaSelection.options[option.id]?.selected
+                ).map((option) => ({
+                  type: "annadana",
+                  title: "Annadana Seva",
+                  package: option.label,
+                  quantity: null,
+                  unit: "service",
+                  price: Number(option.price || 0),
+                  day:
+                    annadanaSelection.options[option.id]?.day || "",
+                }))
               : []),
           ],
           volunteerRoles,
@@ -634,16 +710,24 @@ export default function SevaPage() {
           item.id,
           {
             selected: false,
-            optionId: item.options[0]?.id || "",
-            day: "",
+            options: Object.fromEntries(
+              item.options.map((option) => [
+                option.id,
+                { selected: false, day: "" },
+              ])
+            ),
           },
         ])
       )
     );
     setAnnadanaSelection({
       selected: false,
-      optionId: ANNADANA_OPTIONS[0].id,
-      day: "",
+      options: Object.fromEntries(
+        ANNADANA_OPTIONS.map((option) => [
+          option.id,
+          { selected: false, day: "" },
+        ])
+      ),
     });
     setVolunteerRoles([]);
     setVolunteerNote("");
@@ -837,7 +921,7 @@ export default function SevaPage() {
                     <div>
                       <h3 className="font-serif text-[21px] text-[#292929]">Material Seva</h3>
                       <p className="mt-1 text-[11px] text-[#777] sm:text-[12px]">
-                        Sponsor the required materials. The committee will purchase and arrange the items.
+                        Select one or more sponsorship options. The committee will purchase and arrange the items.
                       </p>
                     </div>
                     <span className="rounded-full bg-[#fff3e9] px-2.5 py-1 text-[10px] font-bold text-[#a70e18]">OPTIONAL</span>
@@ -852,7 +936,6 @@ export default function SevaPage() {
                     {MATERIAL_SEVAS.map((item) => {
                       const selection = materialSelections[item.id];
                       const selected = selection?.selected;
-                      const selectedOption = item.options.find((option) => option.id === selection?.optionId);
 
                       return (
                         <div key={item.id} className={`rounded-[13px] border p-3 transition ${
@@ -883,31 +966,105 @@ export default function SevaPage() {
                             <div>
                               <div className="mb-1 text-[14px] font-semibold text-[#756961]">Sponsorship Option</div>
                               <div className="grid grid-cols-1 gap-1.5">
-                                {item.options.map((option) => (
-                                  <button key={option.id} type="button" disabled={!selected} onClick={() => updateMaterialOption(item.id, option.id)}
-                                    className={`flex items-center justify-between rounded-[9px] border px-2.5 py-2.5 text-left text-[14px] transition ${
-                                      selectedOption?.id === option.id
-                                        ? "border-[#c79531] bg-[#fff1d9] font-bold text-[#a70e18]"
-                                        : "border-[#eadfd2] bg-white text-[#555]"
-                                    } ${!selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff8ed]"}`}>
-                                    <span>{option.label}</span>
-                                    <span>₹{option.price.toLocaleString("en-IN")}</span>
-                                  </button>
-                                ))}
+                                {item.options.map((option) => {
+                                  const optionSelection =
+                                    selection?.options[option.id];
+                                  const optionSelected =
+                                    optionSelection?.selected;
+
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      disabled={!selected}
+                                      onClick={() =>
+                                        toggleMaterialOption(
+                                          item.id,
+                                          option.id
+                                        )
+                                      }
+                                      className={`flex items-center justify-between rounded-[9px] border px-2.5 py-2.5 text-left text-[14px] transition ${
+                                        optionSelected
+                                          ? "border-[#c79531] bg-[#fff1d9] font-bold text-[#a70e18]"
+                                          : "border-[#eadfd2] bg-white text-[#555]"
+                                      } ${
+                                        !selected
+                                          ? "cursor-not-allowed opacity-50"
+                                          : "hover:bg-[#fff8ed]"
+                                      }`}
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        <span
+                                          className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                                            optionSelected
+                                              ? "border-[#a70e18] bg-[#a70e18] text-white"
+                                              : "border-[#d8d0c8] text-transparent"
+                                          }`}
+                                        >
+                                          <i className="fa-solid fa-check" />
+                                        </span>
+                                        <span>{option.label}</span>
+                                      </span>
+                                      <span>
+                                        ₹{option.price.toLocaleString("en-IN")}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
 
                             <div>
                               <div className="mb-1 text-[14px] font-semibold text-[#756961]">Puja Day</div>
-                              <div className="grid grid-cols-5 gap-1">
-                                {PUJA_DAYS.map((day) => (
-                                  <button key={day} type="button" disabled={!selected} onClick={() => updateMaterialDay(item.id, day)}
-                                    className={`rounded-[8px] border px-1 py-2 text-[11px] font-semibold transition ${
-                                      selection?.day === day ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#eadfd2] bg-white text-[#6f6259]"
-                                    } ${!selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff1e9]"}`}>
-                                    {day}
-                                  </button>
-                                ))}
+                              <div className="flex flex-wrap gap-1.5">
+                                {item.options
+                                  .filter(
+                                    (option) =>
+                                      selection?.options[option.id]?.selected
+                                  )
+                                  .map((option) => {
+                                    const optionDay =
+                                      selection?.options[option.id]?.day;
+
+                                    return (
+                                      <div
+                                        key={`${option.id}-day`}
+                                        className="rounded-[9px] border border-[#eadfd2] bg-white p-2"
+                                      >
+                                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                                          <span className="text-[11px] font-bold text-[#5f5149]">
+                                            {option.label}
+                                          </span>
+                                          <span className="text-[10px] font-semibold text-[#a70e18]">
+                                            ₹{option.price.toLocaleString("en-IN")}
+                                          </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-5 gap-1">
+                                          {PUJA_DAYS.map((day) => (
+                                            <button
+                                              key={`${option.id}-${day}`}
+                                              type="button"
+                                              onClick={() =>
+                                                updateMaterialDay(
+                                                  item.id,
+                                                  option.id,
+                                                  day
+                                                )
+                                              }
+                                              className={`rounded-[7px] border px-1 py-1.5 text-[10px] font-semibold transition ${
+                                                optionDay === day
+                                                  ? "border-[#a70e18] bg-[#a70e18] text-white"
+                                                  : "border-[#eadfd2] bg-[#fffdf9] text-[#6f6259]"
+                                              } hover:bg-[#fff1e9]`}
+                                            >
+                                              {day}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                               </div>
                             </div>
                           </div>
@@ -947,7 +1104,7 @@ export default function SevaPage() {
                             <i className="fa-solid fa-check" />
                           </span>
                         </span>
-                        <span className="mt-0.5 block text-[12px] leading-[1.45] text-[#81766f]">Choose a sponsorship amount and the day you wish to support.</span>
+                        <span className="mt-0.5 block text-[12px] leading-[1.45] text-[#81766f]">Select one or more sponsorship amounts and choose a Puja day for each.</span>
                       </span>
                     </button>
 
@@ -955,28 +1112,91 @@ export default function SevaPage() {
                       <div>
                         <div className="mb-1 text-[14px] font-semibold text-[#756961]">Sponsorship Amount</div>
                         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-                          {ANNADANA_OPTIONS.map((option) => (
-                            <button key={option.id} type="button" disabled={!annadanaSelection.selected} onClick={() => updateAnnadanaOption(option.id)}
-                              className={`rounded-[9px] border px-2.5 py-2.5 text-[12px] font-bold transition ${
-                                annadanaSelection.optionId === option.id ? "border-[#c79531] bg-[#fff1d9] text-[#a70e18]" : "border-[#eadfd2] bg-white text-[#555]"
-                              } ${!annadanaSelection.selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff8ed]"}`}>
-                              {option.label}
-                            </button>
-                          ))}
+                          {ANNADANA_OPTIONS.map((option) => {
+                            const optionSelected =
+                              annadanaSelection.options[option.id]?.selected;
+
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                disabled={!annadanaSelection.selected}
+                                onClick={() =>
+                                  updateAnnadanaOption(option.id)
+                                }
+                                className={`flex items-center justify-center gap-1.5 rounded-[9px] border px-2.5 py-2.5 text-[12px] font-bold transition ${
+                                  optionSelected
+                                    ? "border-[#c79531] bg-[#fff1d9] text-[#a70e18]"
+                                    : "border-[#eadfd2] bg-white text-[#555]"
+                                } ${
+                                  !annadanaSelection.selected
+                                    ? "cursor-not-allowed opacity-50"
+                                    : "hover:bg-[#fff8ed]"
+                                }`}
+                              >
+                                <span
+                                  className={`flex h-4 w-4 items-center justify-center rounded-full border text-[8px] ${
+                                    optionSelected
+                                      ? "border-[#a70e18] bg-[#a70e18] text-white"
+                                      : "border-[#d8d0c8] text-transparent"
+                                  }`}
+                                >
+                                  <i className="fa-solid fa-check" />
+                                </span>
+                                {option.label}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
                       <div>
                         <div className="mb-1 text-[14px] font-semibold text-[#756961]">Puja Day</div>
-                        <div className="grid grid-cols-5 gap-1">
-                          {PUJA_DAYS.map((day) => (
-                            <button key={day} type="button" disabled={!annadanaSelection.selected} onClick={() => updateAnnadanaDay(day)}
-                              className={`rounded-[8px] border px-1 py-2 text-[11px] font-semibold transition ${
-                                annadanaSelection.day === day ? "border-[#a70e18] bg-[#a70e18] text-white" : "border-[#eadfd2] bg-white text-[#6f6259]"
-                              } ${!annadanaSelection.selected ? "cursor-not-allowed opacity-50" : "hover:bg-[#fff1e9]"}`}>
-                              {day}
-                            </button>
-                          ))}
+                        <div className="space-y-2">
+                          {ANNADANA_OPTIONS
+                            .filter(
+                              (option) =>
+                                annadanaSelection.options[option.id]?.selected
+                            )
+                            .map((option) => {
+                              const optionDay =
+                                annadanaSelection.options[option.id]?.day;
+
+                              return (
+                                <div
+                                  key={`${option.id}-day`}
+                                  className="rounded-[9px] border border-[#eadfd2] bg-white p-2"
+                                >
+                                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                                    <span className="text-[11px] font-bold text-[#5f5149]">
+                                      {option.label}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-[#a70e18]">
+                                      ₹{option.price.toLocaleString("en-IN")}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {PUJA_DAYS.map((day) => (
+                                      <button
+                                        key={`${option.id}-${day}`}
+                                        type="button"
+                                        onClick={() =>
+                                          updateAnnadanaDay(option.id, day)
+                                        }
+                                        className={`rounded-[7px] border px-1 py-1.5 text-[10px] font-semibold transition ${
+                                          optionDay === day
+                                            ? "border-[#a70e18] bg-[#a70e18] text-white"
+                                            : "border-[#eadfd2] bg-[#fffdf9] text-[#6f6259]"
+                                        } hover:bg-[#fff1e9]`}
+                                      >
+                                        {day}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
                         </div>
                       </div>
                     </div>

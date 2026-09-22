@@ -30,9 +30,9 @@ const MATERIAL_PRICING: Record<
   rice: {
     title: "Rice",
     packages: {
-      "10 kg": 601,
-      "25 kg": 1501,
-      "50 kg": 3001,
+      "10 kg": 701,
+      "26 kg": 1751,
+      "52 kg": 3501,
     },
   },
   dal: {
@@ -44,8 +44,8 @@ const MATERIAL_PRICING: Record<
   vegetables: {
     title: "Vegetables",
     packages: {
-      "10 kg": 801,
-      "20 kg": 1501,
+      "10 kg": 1001,
+      "20 kg": 2001,
     },
   },
   sukha_prasad: {
@@ -152,8 +152,15 @@ export async function POST(request: Request) {
       day: string | null;
     }> = [];
 
+    // Multiple material / Annadana options are intentionally supported.
+    // Each selected option is stored as its own entry in the materials array.
     for (const item of materials) {
-      if (!item || typeof item !== "object") continue;
+      if (!item || typeof item !== "object") {
+        return NextResponse.json(
+          { error: "Invalid Material Seva option." },
+          { status: 400 }
+        );
+      }
 
       const type = String(item.type || "").trim();
       const pricing = MATERIAL_PRICING[type];
@@ -168,7 +175,7 @@ export async function POST(request: Request) {
       const packageLabel = String(item.package || "").trim();
       const expectedPrice = pricing.packages[packageLabel];
 
-      if (!expectedPrice) {
+      if (expectedPrice === undefined) {
         return NextResponse.json(
           {
             error: `Invalid sponsorship option for ${pricing.title}.`,
@@ -197,7 +204,12 @@ export async function POST(request: Request) {
         title: pricing.title,
         package: packageLabel,
         quantity: quantityMatch ? Number(quantityMatch[1]) : null,
-        unit: type === "sukha_prasad" ? "time" : type === "annadana" ? "service" : "kg",
+        unit:
+          type === "sukha_prasad"
+            ? "time"
+            : type === "annadana"
+              ? "service"
+              : "kg",
         price: expectedPrice,
         day,
       });
