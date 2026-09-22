@@ -191,7 +191,7 @@ export default function Navbar() {
                           : item.label === "Gallery"
                           ? "fa-solid fa-images"
                           : item.label === "Offer Seva"
-                          ? "fa-solid fa-hands-holding-heart"
+                          ? "fa-solid fa-hands-praying"
                           : item.label ===
                             "Cultural Program Registration"
                           ? "fa-solid fa-masks-theater"
@@ -205,7 +205,7 @@ export default function Navbar() {
               })}
 
               {/* Financials */}
-
+{/* 
               <Link
                 href="/financials"
                 onClick={closeMenu}
@@ -217,7 +217,7 @@ export default function Navbar() {
               >
                 <i className="fa-solid fa-chart-pie mr-3 text-[#a70e18]" />
                 Financials
-              </Link>
+              </Link> */}
 
               {/* Contribute */}
 
