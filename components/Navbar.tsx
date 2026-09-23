@@ -14,8 +14,8 @@ const navItems = [
     href: "/#events",
   },
   {
-    label: "Gallery",
-    href: "/#gallery",
+    label: "Games",
+    href: "/games",
   },
   {
     label: "Offer Seva",
@@ -201,6 +201,8 @@ export default function Navbar() {
                           ? "fa-solid fa-masks-theater"
                           : item.label === "Book Stall"
                           ? "fa-solid fa-store"
+                          : item.label === "Games"
+                          ? "fa-solid fa-game"
                           : "fa-solid fa-boxes-stacked"
                       } text-[#a70e18]`}
                     />

@@ -130,17 +130,7 @@ const photoGallery = [
     title: "Tradition",
   },
   {
-    src: "/images/gallery/durgapuga9.webp",
-    alt: "Dashami Celebration",
-    title: "Tradition",
-  },
-  {
     src: "/images/gallery/durgapuga10.webp",
-    alt: "Dashami Celebration",
-    title: "Tradition",
-  },
-  {
-    src: "/images/gallery/durgapuga11.webp",
     alt: "Dashami Celebration",
     title: "Tradition",
   },
@@ -206,6 +196,18 @@ const videoGallery = [
     url: "https://youtu.be/Lky6t5c3lFQ?si=5WzFgXPe23A3k_Sv",
   },
   {
+    thumbnail: "/images/gallery/durga-puja-dandia.webp",
+    title: "Visarjan 2025",
+    description: "A celebration of talent and culture",
+    url: "https://youtube.com/shorts/nNjzyhhkPkE",
+  },
+  {
+    thumbnail: "/images/durgapuja25.webp",
+    title: "Visarjan 2025",
+    description: "A celebration of talent and culture",
+    url: "https://youtube.com/shorts/0m4UV7WoBP0?feature=share",
+  },
+    {
     thumbnail: "/images/visarjan-1.webp",
     title: "Visarjan 2025",
     description: "Devotion, music and togetherness",
@@ -215,8 +217,8 @@ const videoGallery = [
     thumbnail: "/images/durgapuja25.webp",
     title: "Visarjan 2025",
     description: "A celebration of talent and culture",
-    url: "https://youtube.com/shorts/0m4UV7WoBP0?feature=share",
-  },
+    url: "https://youtube.com/shorts/FEve9AbtJXc",
+  }
 ];
 
 const aboutItems = [
@@ -265,6 +267,15 @@ const supportTypes = [
     title: "Individuals",
     icon: "fa-solid fa-user",
   },
+];
+
+const participationItems = [
+  { title: "Offer Seva", description: "Choose a seva and be part of the Puja with devotion.", icon: "fa-solid fa-hands-praying", href: "/seva" },
+  { title: "Join Cultural Program", description: "Share your talent and make the celebrations memorable.", icon: "fa-solid fa-masks-theater", href: "/cultural-program" },
+  { title: "Offer Inventory Help", description: "Help the committee with items needed during the celebrations.", icon: "fa-solid fa-box-open", href: "/inventory-help" },
+  { title: "Book a Stall", description: "Bring your food, product or brand to the community carnival.", icon: "fa-solid fa-store", href: "/stall-booking" },
+  { title: "Volunteer", description: "Lend your time and help us make the Puja run smoothly.", icon: "fa-solid fa-people-group", href: "/seva" },
+  { title: "Make a Donation", description: "Support the celebration and help us create something special together.", icon: "fa-solid fa-heart", href: "/donate" },
 ];
 
 function Reveal({
@@ -877,7 +888,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const targetDate = new Date(
-      "2026-10-16T00:00:00"
+      "2026-10-11T00:00:00"
     );
 
     const updateCountdown = () => {
@@ -1470,127 +1481,105 @@ export default function HomePage() {
       </section>
 
       {/* =====================================================
-          CELEBRATION HIGHLIGHT
+          PARTICIPATE
       ====================================================== */}
-
-      <section className="bg-[#fffaf2] px-5 py-24">
-
-        <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[2rem] bg-[#8f1019] shadow-2xl lg:grid-cols-2">
-
-          <div className="flex items-center p-10 sm:p-14">
-
-            <div>
-
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e8c979]/40 text-[#e8c979]">
-
-                  <i className="fa-solid fa-star" />
-
-                </div>
-
-                <p className="text-xs font-bold tracking-[0.35em] text-[#e8c979]">
-                  CELEBRATE • PARTICIPATE • ENJOY
-                </p>
-
-              </div>
-
-              <h2 className="mt-5 text-4xl font-bold text-white sm:text-5xl">
-                Something Special
-                <br />
-                Every Evening
-              </h2>
-
-              <p className="mt-6 max-w-lg text-sm leading-7 text-[#f2ddc0]">
-                From traditional rituals and Pushpanjali
-                to Dandiya nights and cultural performances,
-                there is something for everyone at BUH Durga Puja.
-              </p>
-
-              <div className="mt-8 grid grid-cols-3 gap-3">
-
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-center">
-
-                  <i className="fa-solid fa-hands-praying text-2xl text-[#e8c979]" />
-
-                  <p className="mt-2 text-xs font-semibold">
-                    Puja
-                  </p>
-
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-center">
-
-                  <i className="fa-solid fa-drum text-2xl text-[#e8c979]" />
-
-                  <p className="mt-2 text-xs font-semibold">
-                    Dandiya
-                  </p>
-
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-center">
-
-                  <i className="fa-solid fa-masks-theater text-2xl text-[#e8c979]" />
-
-                  <p className="mt-2 text-xs font-semibold">
-                    Culture
-                  </p>
-
-                </div>
-
-              </div>
-
-            </div>
-
+      <section id="participate" className="relative overflow-hidden bg-[#fffaf2] px-5 py-24">
+        <div className="pointer-events-none absolute left-[-120px] top-20 h-72 w-72 rounded-full bg-[#b8892d]/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-[-120px] right-[-100px] h-80 w-80 rounded-full bg-[#a70e18]/10 blur-3xl" />
+        <div className="relative mx-auto max-w-6xl">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#d7b66a] bg-[#fff8ec] text-xl text-[#a70e18] shadow-sm"><i className="fa-solid fa-people-group" /></div>
+            <p className="text-xs font-bold tracking-[0.4em] text-[#a77a2b]">BE PART OF THE CELEBRATION</p>
+            <h2 className="mt-4 text-4xl font-bold text-[#761019] sm:text-5xl">Participate With Us</h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#766457]">Durga Puja becomes special when everyone brings something to it. Choose how you would like to participate and be part of our community celebration.</p>
           </div>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {participationItems.map((item) => {
+              const isDonation = item.title === "Make a Donation";
 
-          <div className="relative min-h-[420px] overflow-hidden">
+              const cardContent = (
+                <>
+                  <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-[#a70e18]/5 transition group-hover:scale-125" />
 
-            <img
-              src="https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=85"
-              alt="Cultural celebration"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+                  <div className="relative flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#d7b66a] bg-[#fff8ec] text-lg text-[#a70e18] transition group-hover:bg-[#a70e18] group-hover:text-white">
+                      <i className={item.icon} />
+                    </div>
 
-            <div className="absolute inset-0 bg-[#6d0911]/45" />
+                    <div className="min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-lg font-bold text-[#761019]">
+                          {item.title}
+                        </h3>
 
-            <div className="absolute inset-0 flex items-center justify-center">
+                        <i
+                          className={`fa-solid ${
+                            isDonation
+                              ? "fa-heart"
+                              : "fa-arrow-up-right-from-square"
+                          } text-xs text-[#b8892d] opacity-0 transition group-hover:opacity-100`}
+                        />
+                      </div>
 
-              <div className="flex h-32 w-32 items-center justify-center rounded-full border border-[#e8c979]/60 bg-[#7d0c15]/60 backdrop-blur-sm">
+                      <p className="mt-2 text-xs leading-6 text-[#766457]">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
 
-                <i className="fa-solid fa-music text-5xl text-[#e8c979]" />
+                  <div className="relative mt-5 flex items-center gap-2 text-[10px] font-bold tracking-[0.16em] text-[#a70e18]">
+                    {isDonation ? "CONTRIBUTE" : "PARTICIPATE"}
+                    <i className="fa-solid fa-arrow-right transition group-hover:translate-x-1" />
+                  </div>
+                </>
+              );
 
-              </div>
-
-            </div>
-
-            <div className="absolute bottom-6 left-6 right-6">
-
-              <div className="rounded-2xl border border-white/20 bg-black/25 p-5 backdrop-blur-md">
-
-                <div className="flex items-center gap-2">
-
-                  <i className="fa-solid fa-sparkles text-[#e8c979]" />
-
-                  <p className="text-xs font-bold tracking-[0.3em] text-[#e8c979]">
-                    CELEBRATION HIGHLIGHTS
-                  </p>
-
-                </div>
-
-                <p className="mt-2 text-xl font-bold text-white">
-                  Dance • Music • Culture • Togetherness
-                </p>
-
-              </div>
-
-            </div>
-
+              return isDonation ? (
+                <button
+                  key={item.title}
+                  type="button"
+                  onClick={() => setShowContributionNotice(true)}
+                  className="group relative w-full overflow-hidden rounded-3xl border border-[#e5d7c4] bg-white p-6 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#d7b66a] hover:shadow-xl"
+                >
+                  {cardContent}
+                </button>
+              ) : (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  className="group relative overflow-hidden rounded-3xl border border-[#e5d7c4] bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#d7b66a] hover:shadow-xl"
+                >
+                  {cardContent}
+                </Link>
+              );
+            })}
           </div>
-
         </div>
+      </section>
 
+      {/* =====================================================
+          PLAY & DISCOVER
+      ====================================================== */}
+      <section className="bg-[#f8f0e5] px-5 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="relative overflow-hidden rounded-[2rem] bg-[#7d0c15] shadow-2xl">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-[#e8c979]/15" />
+            <div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full border border-[#e8c979]/10" />
+            <div className="relative grid items-center gap-8 px-7 py-10 sm:px-12 sm:py-12 lg:grid-cols-[1fr_auto] lg:px-16">
+              <div>
+                <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e8c979]/40 bg-white/5 text-[#e8c979]"><i className="fa-solid fa-gamepad" /></div><p className="text-xs font-bold tracking-[0.35em] text-[#e8c979]">PLAY & DISCOVER</p></div>
+                <h2 className="mt-5 text-3xl font-bold text-white sm:text-4xl">How well do you know Durga Puja?</h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-[#f1ddc1]">Take our quick Durga Puja Quiz and test your knowledge of traditions, rituals and celebrations.</p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-[#f5e2c2]">5 QUESTIONS</span>
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-[#f5e2c2]">2 MINUTES</span>
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-[#f5e2c2]">INSTANT SCORE</span>
+                </div>
+              </div>
+              <div className="lg:pl-8"><Link href="/quiz" className="inline-flex w-full items-center justify-center rounded-full bg-[#e2bd62] px-7 py-4 text-sm font-bold tracking-wide text-[#571016] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#f0cf7c] sm:w-auto">START THE QUIZ <i className="fa-solid fa-arrow-right ml-3" /></Link></div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* =====================================================
@@ -1599,7 +1588,7 @@ export default function HomePage() {
 
       <section
         id="gallery"
-        className="bg-[#f8f0e5] px-5 py-24"
+        className="bg-[#f8f0e5] px-5 py-5"
       >
 
         <div className="mx-auto max-w-6xl">
@@ -1619,7 +1608,7 @@ export default function HomePage() {
             </p>
 
             <h2 className="mt-4 text-4xl font-bold text-[#761019] sm:text-5xl">
-              Moments of Joy
+              Memories We Create Together
             </h2>
 
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#766457]">
@@ -1781,147 +1770,6 @@ export default function HomePage() {
         </div>
 
       </section>
-
-      {/* =====================================================
-          EXTERNAL SUPPORT
-      ====================================================== */}
-{/* 
-      <section className="relative overflow-hidden bg-[#7d0c15] px-5 py-24 text-white">
-
-        <div className="absolute right-[-150px] top-[-100px] h-96 w-96 rounded-full border border-[#e8c979]/10" />
-
-        <div className="absolute bottom-[-150px] left-[-100px] h-80 w-80 rounded-full border border-[#e8c979]/10" />
-
-        <div className="mx-auto max-w-6xl">
-
-          <div className="grid items-center gap-12 lg:grid-cols-[1.2fr_0.8fr]">
-
-            <div>
-
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e8c979]/40">
-
-                  <i className="fa-solid fa-handshake text-[#e8c979]" />
-
-                </div>
-
-                <p className="text-xs font-bold tracking-[0.35em] text-[#e8c979]">
-                  JOIN THE CELEBRATION
-                </p>
-
-              </div>
-
-              <h2 className="mt-5 text-4xl font-bold sm:text-5xl">
-                Be a Part of Our Celebration
-              </h2>
-
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-[#f1ddc1]">
-                Shops, builders, brands, companies, vendors
-                and individuals can support BUH Durga Puja
-                and become a part of this community celebration.
-              </p>
-
-              <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-
-                {supportTypes.map((item) => (
-
-                  <div
-                    key={item.title}
-                    className="rounded-2xl border border-white/10 bg-white/10 p-4 transition hover:bg-white/15"
-                  >
-
-                    <i
-                      className={`${item.icon} text-lg text-[#e8c979]`}
-                    />
-
-                    <p className="mt-2 text-xs font-semibold">
-                      {item.title}
-                    </p>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            </div>
-
-            <div className="text-left lg:text-right">
-
-              <div className="mb-7 inline-flex h-24 w-24 items-center justify-center rounded-full border border-[#e8c979]/30 bg-white/5">
-
-                <i className="fa-solid fa-hands-holding-circle text-4xl text-[#e8c979]" />
-
-              </div>
-
-              <div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowContributionNotice(true)}
-                  className="inline-flex items-center rounded-full bg-[#e2bd62] px-8 py-4 text-sm font-bold text-[#571016] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#f0cf7c]"
-                >
-                  <i className="fa-solid fa-heart mr-3" />
-                  CONTRIBUTE
-                  <i className="fa-solid fa-arrow-right ml-3" />
-                </button>
-
-              </div>
-
-              <p className="mt-4 text-xs text-[#e8d4b8]">
-                Every contribution helps make our celebration special.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section> */}
-
-      {/* =====================================================
-          COMMUNITY MESSAGE
-      ====================================================== */}
-{/* 
-      <section className="relative overflow-hidden bg-[radial-gradient(circle_at_center,_#fffaf0,_#ecd7b7)] px-5 py-28 text-center">
-
-        <div className="absolute left-[8%] top-12 hidden text-7xl text-[#a70e18]/10 md:block">
-          <i className="fa-solid fa-spa" />
-        </div>
-
-        <div className="absolute right-[8%] bottom-12 hidden text-7xl text-[#a70e18]/10 md:block">
-          <i className="fa-solid fa-spa" />
-        </div>
-
-        <div className="relative mx-auto max-w-4xl">
-
-          <i className="fa-solid fa-quote-left text-4xl text-[#b8892d]/50" />
-
-          <h2 className="mt-6 text-4xl font-bold leading-tight text-[#761019] sm:text-5xl">
-            When a community comes together,
-            <br className="hidden sm:block" />
-            every celebration becomes special.
-          </h2>
-
-          <div className="mx-auto mt-8 flex items-center justify-center gap-3">
-
-            <div className="h-px w-16 bg-[#b8892d]" />
-
-            <i className="fa-solid fa-spa text-[#a70e18]" />
-
-            <div className="h-px w-16 bg-[#b8892d]" />
-
-          </div>
-
-          <p className="mt-6 text-xs font-bold tracking-[0.3em] text-[#8a6c45]">
-            BUH DURGA PUJA COMMITTEE
-          </p>
-
-        </div>
-
-      </section> */}
 
       {/* =====================================================
           FOOTER
@@ -2097,9 +1945,9 @@ export default function HomePage() {
             <div className="px-6 pb-6 pt-5 text-center">
 
               <p className="text-sm leading-6 text-[#6b5044]">
-                We request all residents to kindly wait until
-                the collection drive begins. Your support means
-                a lot to us.
+                Resident contribution collection will begin from
+                <span className="font-bold text-[#7f0b13]"> 26th September 2026</span>.
+                Further details will be shared separately.
               </p>
 
               <p className="mt-4 text-sm font-semibold text-[#7f0b13]">
