@@ -915,7 +915,7 @@ export default function QuizPage() {
                 className="mt-6 inline-flex items-center justify-center rounded-full bg-[#a70e18] px-8 py-4 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-[#7d0b13]"
               >
                 <i className="fa-solid fa-play mr-3" />
-                START 20-SECOND CHALLENGE
+                START 60-SECOND CHALLENGE
               </button>
             </div>
           ) : gameOver ? (
