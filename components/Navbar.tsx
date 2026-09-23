@@ -251,7 +251,7 @@ export default function Navbar() {
           onClick={() => setShowContributionNotice(false)}
         >
           <div
-            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#e5cfaa] bg-[#fffaf2] shadow-2xl"
+            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#e5cfaa] bg-[#fffaf2] shadow-2xl mt-[500px]"
             onClick={(event) => event.stopPropagation()}
           >
 
