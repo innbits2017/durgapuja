@@ -187,6 +187,7 @@ type Section =
   | "culturalProgram"
   | "seva"
   | "inventory"
+  | "stall"
   | "donations"
   | "expenses"
   | "lastYear";
@@ -2696,6 +2697,13 @@ export default function DashboardClient({
             />
 
             <NavButton
+              active={section === "stall"}
+              onClick={() => setSection("stall")}
+              icon="fa-store"
+              label="Stall Enquiries"
+            />
+
+            <NavButton
               active={
                 section ===
                 "donations"
@@ -4604,6 +4612,14 @@ export default function DashboardClient({
         )}
 
         {/* ====================================================
+            STALL ENQUIRIES
+        ==================================================== */}
+
+        {section === "stall" && (
+          <StallManagement />
+        )}
+
+        {/* ====================================================
             DONATIONS
         ==================================================== */}
 
@@ -5484,6 +5500,1052 @@ export default function DashboardClient({
 
       </div>
     </main>
+  );
+}
+
+/* ============================================================
+   STALL ENQUIRIES MANAGEMENT
+============================================================ */
+
+type StallEnquiry = {
+  id: string;
+  name: string;
+  mobile: string;
+  block: string;
+  flat_no: string;
+  stall_type: "Food" | "Product" | "Brand";
+  category: string;
+  description: string;
+  status: "pending" | "approved" | "rejected";
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const STALL_TYPES = ["Food", "Product", "Brand"] as const;
+
+const STALL_CATEGORIES: Record<
+  (typeof STALL_TYPES)[number],
+  string[]
+> = {
+  Food: [
+    "Snacks",
+    "Sweets",
+    "Bakery",
+    "Beverages",
+    "North Indian",
+    "South Indian",
+    "Bengali",
+    "Odia",
+    "Chinese",
+    "Other",
+  ],
+  Product: [
+    "Clothing",
+    "Jewellery",
+    "Handicrafts",
+    "Home Decor",
+    "Cosmetics & Beauty",
+    "Toys & Kids",
+    "Art & Craft",
+    "Books & Stationery",
+    "Plants & Gardening",
+    "Other",
+  ],
+  Brand: [
+    "Fashion",
+    "Food & Beverage",
+    "Beauty & Wellness",
+    "Automobile",
+    "Electronics",
+    "Education",
+    "Real Estate",
+    "Finance",
+    "Other",
+  ],
+};
+
+function StallManagement() {
+  const [enquiries, setEnquiries] = useState<StallEnquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
+
+  const [showModal, setShowModal] = useState(false);
+
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("all");
+
+  const [search, setSearch] = useState("");
+
+  const [form, setForm] = useState({
+    name: "",
+    mobile: "",
+    block: "",
+    flatNo: "",
+    stallType: "Food" as (typeof STALL_TYPES)[number],
+    category: "",
+    description: "",
+    status: "pending" as "pending" | "approved" | "rejected",
+    adminNotes: "",
+  });
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadStallEnquiries = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        "/api/admin/stall-enquiries",
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to load stall enquiries."
+        );
+      }
+
+      setEnquiries(data.enquiries || []);
+      setError("");
+    } catch (err) {
+      console.error("Stall enquiries load error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load stall enquiries."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStallEnquiries();
+
+    const interval = window.setInterval(
+      loadStallEnquiries,
+      10000
+    );
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const pendingCount = useMemo(
+    () =>
+      enquiries.filter(
+        (item) => item.status === "pending"
+      ).length,
+    [enquiries]
+  );
+
+  const approvedCount = useMemo(
+    () =>
+      enquiries.filter(
+        (item) => item.status === "approved"
+      ).length,
+    [enquiries]
+  );
+
+  const rejectedCount = useMemo(
+    () =>
+      enquiries.filter(
+        (item) => item.status === "rejected"
+      ).length,
+    [enquiries]
+  );
+
+  const filteredEnquiries = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return enquiries.filter((item) => {
+      if (
+        statusFilter !== "all" &&
+        item.status !== statusFilter
+      ) {
+        return false;
+      }
+
+      if (!term) return true;
+
+      return [
+        item.name,
+        item.mobile,
+        item.block,
+        item.flat_no,
+        item.stall_type,
+        item.category,
+        item.description,
+        item.status,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term);
+    });
+  }, [enquiries, search, statusFilter]);
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      mobile: "",
+      block: "",
+      flatNo: "",
+      stallType: "Food",
+      category: "",
+      description: "",
+      status: "pending",
+      adminNotes: "",
+    });
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setMessage("");
+    setError("");
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+    setShowModal(false);
+  };
+
+  const updateStatus = async (
+    id: string,
+    status: "approved" | "rejected"
+  ) => {
+    const enquiry = enquiries.find(
+      (item) => item.id === id
+    );
+
+    if (!enquiry) return;
+
+    const adminNotes =
+      window.prompt(
+        status === "approved"
+          ? "Optional admin note:"
+          : "Reason for rejection:"
+      ) || "";
+
+    if (
+      status === "rejected" &&
+      !adminNotes.trim()
+    ) {
+      const proceed = window.confirm(
+        "No rejection reason entered. Continue?"
+      );
+
+      if (!proceed) return;
+    }
+
+    try {
+      setActionId(id);
+      setMessage("");
+      setError("");
+
+      const response = await fetch(
+        "/api/admin/stall-enquiries",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id,
+            status,
+            adminNotes:
+              adminNotes.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to update stall enquiry."
+        );
+      }
+
+      setEnquiries((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status,
+                admin_notes:
+                  adminNotes.trim() || null,
+                updated_at:
+                  new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
+      setMessage(
+        status === "approved"
+          ? "Stall enquiry approved successfully."
+          : "Stall enquiry rejected."
+      );
+    } catch (err) {
+      console.error(
+        "Stall status update error:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update stall enquiry."
+      );
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const deleteEnquiry = async (
+    enquiry: StallEnquiry
+  ) => {
+    const confirmed = window.confirm(
+      `Delete the stall enquiry from ${enquiry.name}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setActionId(enquiry.id);
+      setMessage("");
+      setError("");
+
+      const response = await fetch(
+        "/api/admin/stall-enquiries",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: enquiry.id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to delete stall enquiry."
+        );
+      }
+
+      setEnquiries((current) =>
+        current.filter(
+          (item) => item.id !== enquiry.id
+        )
+      );
+
+      setMessage(
+        "Stall enquiry deleted successfully."
+      );
+    } catch (err) {
+      console.error(
+        "Stall enquiry delete error:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to delete stall enquiry."
+      );
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const saveAdminStall = async () => {
+    setMessage("");
+    setError("");
+
+    if (!form.name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+
+    if (
+      !/^[6-9]\d{9}$/.test(
+        form.mobile.replace(/\D/g, "")
+      )
+    ) {
+      setError(
+        "Please enter a valid 10-digit mobile number."
+      );
+      return;
+    }
+
+    if (!["P1", "P2", "Villa"].includes(form.block)) {
+      setError("Please select a valid block.");
+      return;
+    }
+
+    if (!form.flatNo.trim()) {
+      setError("Flat number is required.");
+      return;
+    }
+
+    if (!form.category) {
+      setError("Please select a category.");
+      return;
+    }
+
+    if (!form.description.trim()) {
+      setError("Description is required.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(
+        "/api/admin/stall-enquiries",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            mobile: form.mobile
+              .replace(/\D/g, "")
+              .trim(),
+            block: form.block,
+            flatNo: form.flatNo.trim(),
+            stallType: form.stallType,
+            category: form.category,
+            description:
+              form.description.trim(),
+            status: form.status,
+            adminNotes:
+              form.adminNotes.trim() || null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to add stall enquiry."
+        );
+      }
+
+      setEnquiries((current) => [
+        data.enquiry,
+        ...current,
+      ]);
+
+      setShowModal(false);
+      resetForm();
+
+      setMessage(
+        "Stall added successfully."
+      );
+    } catch (err) {
+      console.error(
+        "Admin stall save error:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to add stall."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
+      <div className="border-b border-[#eee5db] px-5 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-bold tracking-[2px] text-[#a70e18]">
+              <i className="fa-solid fa-store" />
+              RESIDENT STALLS
+            </div>
+
+            <h2 className="mt-1 font-serif text-2xl font-bold text-[#292929]">
+              Stall Enquiries
+            </h2>
+
+            <p className="mt-1 text-sm text-[#737373]">
+              Review resident stall requests and add
+              stalls directly from the admin panel.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#a70e18] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#8f0c15]"
+          >
+            <i className="fa-solid fa-plus" />
+            Add Stall
+          </button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            ["All", enquiries.length, "all"],
+            ["Pending", pendingCount, "pending"],
+            ["Approved", approvedCount, "approved"],
+            ["Rejected", rejectedCount, "rejected"],
+          ].map(([label, count, value]) => (
+            <button
+              key={String(value)}
+              type="button"
+              onClick={() =>
+                setStatusFilter(
+                  value as
+                    | "all"
+                    | "pending"
+                    | "approved"
+                    | "rejected"
+                )
+              }
+              className={`rounded-xl border px-4 py-3 text-left transition ${
+                statusFilter === value
+                  ? "border-[#a70e18] bg-[#fff6f4]"
+                  : "border-[#eadfd2] bg-[#fffaf4] hover:bg-white"
+              }`}
+            >
+              <div className="text-xs font-semibold text-[#888]">
+                {label}
+              </div>
+              <div className="mt-1 text-xl font-bold text-[#292929]">
+                {count}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4">
+          <div className="relative">
+            <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[#aaa]" />
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search resident, flat, mobile, stall type or category"
+              className="w-full rounded-xl border border-[#ddd2c5] bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#b40716]"
+            />
+          </div>
+        </div>
+      </div>
+
+      {message && (
+        <div className="mx-5 mt-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="mx-5 mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="p-10 text-center text-sm text-[#737373]">
+          <i className="fa-solid fa-spinner fa-spin mr-2" />
+          Loading stall enquiries...
+        </div>
+      ) : filteredEnquiries.length === 0 ? (
+        <div className="p-12 text-center">
+          <i className="fa-solid fa-store text-4xl text-[#c8b7a5]" />
+          <p className="mt-4 font-semibold text-[#555]">
+            No stall enquiries found.
+          </p>
+          <p className="mt-1 text-sm text-[#888]">
+            Resident stall requests will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[#eee5db]">
+          {filteredEnquiries.map((item) => (
+            <div
+              key={item.id}
+              className="p-5 transition hover:bg-[#fffdf9]"
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-bold text-[#292929]">
+                      {item.name}
+                    </h3>
+
+                    <span className="rounded-full bg-[#f8eadb] px-2.5 py-1 text-[11px] font-semibold text-[#8b5c37]">
+                      {item.stall_type}
+                    </span>
+
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        item.status === "approved"
+                          ? "bg-green-100 text-green-700"
+                          : item.status === "rejected"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {item.status
+                        .charAt(0)
+                        .toUpperCase() +
+                        item.status.slice(1)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <div className="text-xs text-[#999]">
+                        Resident
+                      </div>
+                      <div className="mt-0.5 font-semibold text-[#333]">
+                        {item.name}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-[#999]">
+                        Flat
+                      </div>
+                      <div className="mt-0.5 font-semibold text-[#333]">
+                        {item.block}-{item.flat_no}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-[#999]">
+                        Mobile
+                      </div>
+                      <div className="mt-0.5 font-semibold text-[#333]">
+                        {item.mobile}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs text-[#999]">
+                        Category
+                      </div>
+                      <div className="mt-0.5 font-semibold text-[#333]">
+                        {item.category}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-xl bg-[#fffaf4] px-4 py-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-[#999]">
+                      Stall Description
+                    </div>
+                    <p className="mt-1 text-sm leading-6 text-[#555]">
+                      {item.description}
+                    </p>
+                  </div>
+
+                  {item.admin_notes && (
+                    <div className="mt-3 text-xs text-[#737373]">
+                      <strong>Admin Note:</strong>{" "}
+                      {item.admin_notes}
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-[11px] text-[#999]">
+                    Submitted{" "}
+                    {formatDateTime(item.created_at)}
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2 lg:w-[210px] lg:justify-end">
+                  {item.status === "pending" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={
+                          actionId === item.id
+                        }
+                        onClick={() =>
+                          updateStatus(
+                            item.id,
+                            "approved"
+                          )
+                        }
+                        className="rounded-lg bg-[#23753b] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        <i className="fa-solid fa-check mr-1.5" />
+                        Approve
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          actionId === item.id
+                        }
+                        onClick={() =>
+                          updateStatus(
+                            item.id,
+                            "rejected"
+                          )
+                        }
+                        className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-4 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
+                      >
+                        <i className="fa-solid fa-xmark mr-1.5" />
+                        Reject
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={
+                      actionId === item.id
+                    }
+                    onClick={() =>
+                      deleteEnquiry(item)
+                    }
+                    className="rounded-lg border border-[#eadfd2] bg-white px-3 py-2.5 text-xs font-semibold text-[#777] transition hover:bg-[#fff6f4] hover:text-[#a70e18] disabled:opacity-50"
+                    title="Delete enquiry"
+                  >
+                    <i className="fa-solid fa-trash" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#eee5db] px-6 py-5">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold tracking-[2px] text-[#a70e18]">
+                  <i className="fa-solid fa-store" />
+                  STALL MANAGEMENT
+                </div>
+                <h2 className="mt-1 font-serif text-2xl font-bold text-[#292929]">
+                  Add Stall
+                </h2>
+                <p className="mt-1 text-sm text-[#737373]">
+                  Add a resident stall directly from the
+                  admin panel.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeModal}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f7f1e9] text-[#b40716] transition hover:bg-[#f2e7da]"
+              >
+                <i className="fa-solid fa-xmark text-lg" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                saveAdminStall();
+              }}
+              className="space-y-5 p-6"
+            >
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Name *
+                  </label>
+                  <input
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                    placeholder="Resident name"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Mobile Number *
+                  </label>
+                  <input
+                    value={form.mobile}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        mobile:
+                          event.target.value.replace(
+                            /\D/g,
+                            ""
+                          ),
+                      }))
+                    }
+                    maxLength={10}
+                    inputMode="numeric"
+                    className="w-full rounded-xl border border-[#ddd2c5] px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                    placeholder="10-digit mobile"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Block *
+                  </label>
+                  <select
+                    value={form.block}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        block: event.target.value,
+                        flatNo: "",
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                  >
+                    <option value="">
+                      Select block
+                    </option>
+                    <option value="P1">P1</option>
+                    <option value="P2">P2</option>
+                    <option value="Villa">Villa</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Flat Number *
+                  </label>
+                  <select
+                    value={form.flatNo}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        flatNo:
+                          event.target.value,
+                      }))
+                    }
+                    disabled={!form.block}
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-sm outline-none focus:border-[#b40716] disabled:bg-[#f7f3ee]"
+                  >
+                    <option value="">
+                      Select flat
+                    </option>
+
+                    {form.block &&
+                      ALL_FLATS[
+                        form.block as keyof typeof ALL_FLATS
+                      ].map((flat) => (
+                        <option
+                          key={flat}
+                          value={flat}
+                        >
+                          {flat}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Type of Stall *
+                  </label>
+                  <select
+                    value={form.stallType}
+                    onChange={(event) => {
+                      const stallType =
+                        event.target.value as (typeof STALL_TYPES)[number];
+
+                      setForm((current) => ({
+                        ...current,
+                        stallType,
+                        category: "",
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                  >
+                    {STALL_TYPES.map(
+                      (type) => (
+                        <option
+                          key={type}
+                          value={type}
+                        >
+                          {type}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Subcategory *
+                  </label>
+                  <select
+                    value={form.category}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        category:
+                          event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                  >
+                    <option value="">
+                      Select category
+                    </option>
+
+                    {STALL_CATEGORIES[
+                      form.stallType
+                    ].map((category) => (
+                      <option
+                        key={category}
+                        value={category}
+                      >
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-[#444]">
+                    Initial Status
+                  </label>
+                  <select
+                    value={form.status}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        status:
+                          event.target.value as
+                            | "pending"
+                            | "approved"
+                            | "rejected",
+                      }))
+                    }
+                    className="w-full rounded-xl border border-[#ddd2c5] bg-white px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                  >
+                    <option value="pending">
+                      Pending
+                    </option>
+                    <option value="approved">
+                      Approved
+                    </option>
+                    <option value="rejected">
+                      Rejected
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#444]">
+                  Description About the Stall *
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      description:
+                        event.target.value,
+                    }))
+                  }
+                  rows={4}
+                  maxLength={500}
+                  className="w-full resize-none rounded-xl border border-[#ddd2c5] px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                  placeholder="Briefly describe what will be available at the stall."
+                />
+                <div className="mt-1 text-right text-[11px] text-[#999]">
+                  {form.description.length}/500
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[#444]">
+                  Admin Note
+                </label>
+                <textarea
+                  value={form.adminNotes}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      adminNotes:
+                        event.target.value,
+                    }))
+                  }
+                  rows={2}
+                  className="w-full resize-none rounded-xl border border-[#ddd2c5] px-4 py-3 text-sm outline-none focus:border-[#b40716]"
+                  placeholder="Optional internal note"
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3 border-t border-[#eee5db] pt-5">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={saving}
+                  className="flex-1 rounded-xl border border-[#ddd2c5] bg-white px-5 py-3.5 text-sm font-bold text-[#666] transition hover:bg-[#fffaf4] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-[#b40716] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-[#970612] disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-store mr-2" />
+                      Add Stall
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

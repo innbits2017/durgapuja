@@ -501,6 +501,56 @@ export async function sendExternalDonationConfirmedWhatsApp({
 }
 
 /* =========================================================
+   INVENTORY HELP - VERIFIED
+
+   Template:
+   inventoryhelp
+
+   IMAGE HEADER
+
+   BODY:
+   {{1}} Member Name
+   {{2}} Inventory Item
+   {{3}} Quantity
+   {{4}} Unit
+   {{5}} Block-Flat
+========================================================= */
+
+export async function sendInventoryHelpVerifiedWhatsApp({
+  mobile,
+  name,
+  itemName,
+  quantity,
+  unit,
+  block,
+  flatNo,
+}: {
+  mobile: string;
+  name: string;
+  itemName: string;
+  quantity: number | string;
+  unit: string;
+  block: string;
+  flatNo: string;
+}) {
+  return sendTemplate({
+    mobile,
+
+    templateName:
+      process.env.WHATSAPP_INVENTORY_HELP_TEMPLATE ||
+      "inventoryhelp",
+
+    bodyParameters: [
+      name,
+      itemName,
+      String(quantity),
+      unit,
+      `${block}-${flatNo}`,
+    ],
+  });
+}
+
+/* =========================================================
    CULTURAL PROGRAM - SUBMITTED
 
    Template:

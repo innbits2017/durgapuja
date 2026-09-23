@@ -26,6 +26,10 @@ const navItems = [
     href: "/cultural-program",
   },
   {
+    label: "Book Stall",
+    href: "/book-stall",
+  },
+  {
     label: "Inventory Help",
     href: "/inventory-help",
   },
@@ -182,9 +186,10 @@ export default function Navbar() {
                         : "text-[#5d3f34] hover:bg-[#faf3e8]"
                     }`}
                   >
+
                     <i
                       className={`mr-3 ${
-                        item.label === "About"
+                          item.label === "About"
                           ? "fa-solid fa-circle-info"
                           : item.label === "Events"
                           ? "fa-solid fa-calendar-days"
@@ -192,9 +197,10 @@ export default function Navbar() {
                           ? "fa-solid fa-images"
                           : item.label === "Offer Seva"
                           ? "fa-solid fa-hands-praying"
-                          : item.label ===
-                            "Cultural Program Registration"
+                          : item.label === "Cultural Program Registration"
                           ? "fa-solid fa-masks-theater"
+                          : item.label === "Book Stall"
+                          ? "fa-solid fa-store"
                           : "fa-solid fa-boxes-stacked"
                       } text-[#a70e18]`}
                     />
