@@ -1576,7 +1576,7 @@ export default function HomePage() {
                   <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-[#f5e2c2]">INSTANT SCORE</span>
                 </div>
               </div>
-              <div className="lg:pl-8"><Link href="/quiz" className="inline-flex w-full items-center justify-center rounded-full bg-[#e2bd62] px-7 py-4 text-sm font-bold tracking-wide text-[#571016] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#f0cf7c] sm:w-auto">PLAY GAMES <i className="fa-solid fa-arrow-right ml-3" /></Link></div>
+              <div className="lg:pl-8"><Link href="/games" className="inline-flex w-full items-center justify-center rounded-full bg-[#e2bd62] px-7 py-4 text-sm font-bold tracking-wide text-[#571016] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#f0cf7c] sm:w-auto">PLAY GAMES <i className="fa-solid fa-arrow-right ml-3" /></Link></div>
             </div>
           </div>
         </div>
