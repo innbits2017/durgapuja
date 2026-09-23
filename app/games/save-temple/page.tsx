@@ -527,12 +527,12 @@ export default function ProtectMaaDurgaPage() {
                   <div className="absolute right-1/4 bottom-1/4 h-32 w-32 rounded-full border border-[#a70e18]/10" />
                 </div>
 
-                <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 text-center">
+                {/* <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 text-center">
                   <div className="text-4xl drop-shadow sm:text-5xl">🌺</div>
                   <p className="mt-1 rounded-full bg-white/80 px-3 py-1 text-[8px] font-bold tracking-[0.2em] text-[#761019] shadow-sm">
                     MAA DURGA
                   </p>
-                </div>
+                </div> */}
 
                 {enemies.map((enemy) => (
                   <button
