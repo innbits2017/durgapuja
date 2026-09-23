@@ -512,9 +512,8 @@ export async function sendExternalDonationConfirmedWhatsApp({
    {{1}} Member Name
    {{2}} Inventory Item
    {{3}} Quantity
-   {{4}} Unit
-   {{5}} Block
-   {{6}} Flat Number
+   {{4}} Block
+   {{5}} Flat Number
 ========================================================= */
 
 export async function sendInventoryHelpVerifiedWhatsApp({
@@ -522,7 +521,7 @@ export async function sendInventoryHelpVerifiedWhatsApp({
   name,
   itemName,
   quantity,
-  unit,
+  unit: _unit,
   block,
   flatNo,
 }: {
@@ -545,7 +544,6 @@ export async function sendInventoryHelpVerifiedWhatsApp({
       name,
       itemName,
       String(quantity),
-      unit,
       block,
       flatNo,
     ],
