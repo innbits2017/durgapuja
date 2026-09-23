@@ -3,12 +3,15 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendCulturalProgramSubmittedWhatsApp } from "@/lib/whatsapp";
 
 const VALID_BLOCKS = ["P1", "P2", "Villa"];
+
 const VALID_PARTICIPANT_TYPES = [
   "Child",
   "Adult",
   "Senior Citizen",
 ];
+
 const VALID_PERFORMANCE_TYPES = ["Individual", "Group"];
+
 const VALID_CATEGORIES = [
   "Dance",
   "Singing",
@@ -17,6 +20,7 @@ const VALID_CATEGORIES = [
   "Recitation",
   "Other",
 ];
+
 const VALID_DURATIONS = [
   "Up to 3 minutes",
   "3–5 minutes",
@@ -35,6 +39,66 @@ function sanitizeWhatsAppParameter(value: string) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 900);
+}
+
+/*
+  Find the lowest available cultural-program slot.
+
+  Example:
+
+  Existing slots:
+  [8]
+
+  Returns:
+  1
+
+  If existing slots are:
+  [1, 2, 4, 8]
+
+  Returns:
+  3
+
+  If existing slots are:
+  [1, 2, 3, 4, 5, 6, 7, 8]
+
+  Returns:
+  9
+*/
+async function getNextAvailableSlot() {
+  const { data, error } = await supabaseAdmin
+    .from("cultural_program_registrations")
+    .select("slot_number")
+    .not("slot_number", "is", null)
+    .order("slot_number", { ascending: true });
+
+  if (error) {
+    console.error(
+      "Cultural program slot lookup error:",
+      error
+    );
+
+    throw new Error(
+      "Unable to determine the next cultural program slot."
+    );
+  }
+
+  const usedSlots = new Set(
+    (data ?? [])
+      .map((item) => Number(item.slot_number))
+      .filter(
+        (slot) =>
+          Number.isInteger(slot) &&
+          slot > 0
+      )
+  );
+
+  let slot = 1;
+
+  while (usedSlots.has(slot)) {
+    slot += 1;
+  }
+
+  return slot;
 }
 
 export async function POST(request: Request) {
@@ -56,6 +120,10 @@ export async function POST(request: Request) {
       description,
       duration,
     } = body;
+
+    /* ==========================================================
+       VALIDATION
+    ========================================================== */
 
     if (!participantName?.trim()) {
       return NextResponse.json(
@@ -137,51 +205,99 @@ export async function POST(request: Request) {
 
     const registrationNo = generateRegistrationNo();
 
+    /* ==========================================================
+       SLOT ALLOCATION
+
+       We no longer depend on the PostgreSQL sequence.
+
+       The system finds the LOWEST AVAILABLE slot.
+
+       Example:
+
+       Existing:
+       Amaira -> Slot 8
+
+       New registration:
+       -> Slot 1
+
+       Then:
+       -> Slot 2
+       -> Slot 3
+       -> etc.
+
+       Existing registrations are never changed.
+    ========================================================== */
+
+    let data: any = null;
+    let error: any = null;
+
     /*
-      IMPORTANT:
-      slot_number is intentionally NOT supplied here.
+      Retry a few times in case two people submit at almost
+      exactly the same time and attempt to take the same slot.
 
-      PostgreSQL assigns the slot using the default:
-      nextval('cultural_program_slot_seq')
-
-      This guarantees:
-      Registration 1 -> Slot 1
-      Registration 2 -> Slot 2
-      Registration 3 -> Slot 3
-      ...
-
-      The slot is assigned at registration time and is never
-      recalculated or reused when a registration is rejected.
+      The database should have a UNIQUE constraint on slot_number.
     */
-    const { data, error } = await supabaseAdmin
-      .from("cultural_program_registrations")
-      .insert({
-        registration_no: registrationNo,
-        participant_name: participantName.trim(),
-        age: numericAge,
-        block,
-        flat_no: flatNo.trim(),
-        participant_type: participantType,
-        mobile: cleanMobile,
-        email: email?.trim() || null,
-        performance_type: performanceType,
-        group_name:
-          performanceType === "Group"
-            ? groupName?.trim() || null
-            : null,
-        category,
-        performance_title: performanceTitle.trim(),
-        description: description?.trim() || null,
-        duration,
-        status: "pending",
-      })
-      .select(
-        "id, registration_no, participant_name, performance_title, slot_number"
-      )
-      .single();
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const slotNumber = await getNextAvailableSlot();
 
-    if (error) {
-      console.error("Cultural program insert error:", error);
+      const result = await supabaseAdmin
+        .from("cultural_program_registrations")
+        .insert({
+          registration_no: registrationNo,
+          participant_name: participantName.trim(),
+          age: numericAge,
+          block,
+          flat_no: flatNo.trim(),
+          participant_type: participantType,
+          mobile: cleanMobile,
+          email: email?.trim() || null,
+          performance_type: performanceType,
+          group_name:
+            performanceType === "Group"
+              ? groupName?.trim() || null
+              : null,
+          category,
+          performance_title: performanceTitle.trim(),
+          description: description?.trim() || null,
+          duration,
+          status: "pending",
+
+          // IMPORTANT:
+          // We explicitly assign the calculated slot.
+          slot_number: slotNumber,
+        })
+        .select(
+          "id, registration_no, participant_name, performance_title, slot_number"
+        )
+        .single();
+
+      data = result.data;
+      error = result.error;
+
+      /*
+        PostgreSQL unique violation.
+
+        This can happen if two people register at exactly
+        the same time and both calculated the same slot.
+
+        Retry and calculate the next available slot again.
+      */
+      if (error?.code === "23505") {
+        console.warn(
+          `Slot ${slotNumber} was taken during registration. Retrying...`
+        );
+
+        continue;
+      }
+
+      break;
+    }
+
+    if (error || !data) {
+      console.error(
+        "Cultural program insert error:",
+        error
+      );
 
       return NextResponse.json(
         {
@@ -192,37 +308,48 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-      WhatsApp submission confirmation.
+    /* ==========================================================
+       WHATSAPP SUBMISSION CONFIRMATION
+    ========================================================== */
 
-      The registration is already safely stored in the database.
-      If WhatsApp fails, the registration should NOT fail.
-    */
     let whatsappSent = false;
     let whatsappSkipped = false;
     let whatsappError: string | null = null;
     let whatsappMessageId: string | null = null;
 
     try {
-      const result = await sendCulturalProgramSubmittedWhatsApp({
-        mobile: cleanMobile,
-        participantName: sanitizeWhatsAppParameter(
-          data.participant_name ?? participantName.trim()
-        ),
-        registrationNo: sanitizeWhatsAppParameter(
-          data.registration_no ?? registrationNo
-        ),
-        performanceTitle: sanitizeWhatsAppParameter(
-          data.performance_title ?? performanceTitle.trim()
-        ),
-      });
+      const result =
+        await sendCulturalProgramSubmittedWhatsApp({
+          mobile: cleanMobile,
+
+          participantName:
+            sanitizeWhatsAppParameter(
+              data.participant_name ??
+                participantName.trim()
+            ),
+
+          registrationNo:
+            sanitizeWhatsAppParameter(
+              data.registration_no ??
+                registrationNo
+            ),
+
+          performanceTitle:
+            sanitizeWhatsAppParameter(
+              data.performance_title ??
+                performanceTitle.trim()
+            ),
+        });
 
       whatsappSent = Boolean(result.sent);
       whatsappSkipped = Boolean(result.skipped);
+
       whatsappError = result.sent
         ? null
         : result.error || null;
-      whatsappMessageId = result.messageId || null;
+
+      whatsappMessageId =
+        result.messageId || null;
 
       if (!result.sent && result.error) {
         console.error(
@@ -237,10 +364,14 @@ export async function POST(request: Request) {
           : "WhatsApp submission message failed.";
 
       console.error(
-        "Cultural program submitted WhatsApp error:",
+        "Cultural program WhatsApp error:",
         error
       );
     }
+
+    /* ==========================================================
+       RESPONSE
+    ========================================================== */
 
     return NextResponse.json(
       {
@@ -256,7 +387,10 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("Cultural program API error:", error);
+    console.error(
+      "Cultural program API error:",
+      error
+    );
 
     return NextResponse.json(
       {
