@@ -273,7 +273,7 @@ const participationItems = [
   { title: "Offer Seva", description: "Choose a seva and be part of the Puja with devotion.", icon: "fa-solid fa-hands-praying", href: "/seva" },
   { title: "Join Cultural Program", description: "Share your talent and make the celebrations memorable.", icon: "fa-solid fa-masks-theater", href: "/cultural-program" },
   { title: "Offer Inventory Help", description: "Help the committee with items needed during the celebrations.", icon: "fa-solid fa-box-open", href: "/inventory-help" },
-  { title: "Book a Stall", description: "Bring your food, product or brand to the community carnival.", icon: "fa-solid fa-store", href: "/stall-booking" },
+  { title: "Book a Stall", description: "Bring your food, product or brand to the community carnival.", icon: "fa-solid fa-store", href: "/book-stall" },
   { title: "Volunteer", description: "Lend your time and help us make the Puja run smoothly.", icon: "fa-solid fa-people-group", href: "/seva" },
   { title: "Make a Donation", description: "Support the celebration and help us create something special together.", icon: "fa-solid fa-heart", href: "/donate" },
 ];
@@ -1945,9 +1945,7 @@ export default function HomePage() {
             <div className="px-6 pb-6 pt-5 text-center">
 
               <p className="text-sm leading-6 text-[#6b5044]">
-                Resident contribution collection will begin from
-                <span className="font-bold text-[#7f0b13]"> 26th September 2026</span>.
-                Further details will be shared separately.
+                Resident contribution collection will begin shortly. Your support means a lot to us.
               </p>
 
               <p className="mt-4 text-sm font-semibold text-[#7f0b13]">
