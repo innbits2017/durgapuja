@@ -579,7 +579,7 @@ function GallerySlider({
                           <i className="fa-solid fa-spa text-sm text-[#e8c979]" />
 
                           <p className="text-[9px] font-bold tracking-[0.15em] text-[#e8c979]">
-                            BUH DURGA PUJA
+                            BUH DURGA UTSAV
                           </p>
 
                         </div>
@@ -1158,7 +1158,7 @@ export default function HomePage() {
               <h1 className="mt-5 text-5xl font-bold leading-[1.05] text-[#8f1019] sm:text-6xl lg:text-7xl">
                 DURGA
                 <br />
-                PUJA
+                UTSAV
                 <br />
                 <span className="text-[#b8892d]">
                   2026
@@ -1267,7 +1267,7 @@ export default function HomePage() {
           <div className="relative mx-auto max-w-5xl text-center">
 
             <p className="text-xs font-bold tracking-[0.35em] text-[#a77a2b]">
-              WELCOME TO BUH DURGA PUJA
+              WELCOME TO BUH DURGA UTSAV
             </p>
 
             <h2 className="mt-4 text-4xl font-bold text-[#761019] sm:text-5xl">
@@ -1285,7 +1285,7 @@ export default function HomePage() {
             </div>
 
             <p className="mx-auto max-w-3xl text-base leading-8 text-[#705d50]">
-              Durga Puja at BUH is more than a celebration.
+              Durga Utsav at BUH is more than a celebration.
               It is a time when families, neighbours and
               friends come together to celebrate faith,
               culture and the spirit of our community.
@@ -1905,7 +1905,7 @@ export default function HomePage() {
                 <div>
 
                   <p className="text-xl font-bold text-[#e5c16b]">
-                    DURGA PUJA 2026
+                    DURGA UTSAV 2026
                   </p>
 
                   <p className="mt-1 text-[9px] tracking-[0.25em] text-[#a9957c]">
