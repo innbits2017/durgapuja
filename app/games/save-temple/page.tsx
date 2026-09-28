@@ -17,47 +17,65 @@ const STARTING_PROTECTION = 42;
 const MAX_PROTECTION = 100;
 const HIT_REWARD = 7;
 const TEMPLE_DAMAGE = 20;
-const INITIAL_ENEMIES = 1;
+const INITIAL_ENEMIES = 4;
 const MAX_ENEMIES = 7;
-const INITIAL_SPAWN_INTERVAL = 1500;
-const MIN_SPAWN_INTERVAL = 620;
+const INITIAL_SPAWN_INTERVAL = 1250;
+const MIN_SPAWN_INTERVAL = 650;
 const MOVE_INTERVAL = 55;
 
-// Deliberately use a small set of attack lanes so demons arrive one-by-one
-// from different directions instead of clustering together on small screens.
-const ATTACK_LANES = [12, 28, 50, 72, 88];
+// Fixed attack slots keep multiple Mahishasurs visible at the same time
+// without allowing them to visually stack on top of one another.
+// We deliberately use different horizontal lanes and staggered vertical
+// entry points so the player has to keep watching different parts of the arena.
+const ATTACK_SLOTS = [
+  { x: 9, y: 14 },
+  { x: 23, y: 32 },
+  { x: 37, y: 12 },
+  { x: 51, y: 36 },
+  { x: 65, y: 15 },
+  { x: 79, y: 34 },
+  { x: 92, y: 13 },
+];
 
 const randomBetween = (min: number, max: number) =>
   Math.random() * (max - min) + min;
 
+const isSlotClear = (
+  slot: { x: number; y: number },
+  existing: Enemy[]
+) => {
+  // Approximate the visual footprint of a demon in percentage space.
+  // Horizontal and vertical spacing are intentionally generous for phones.
+  return existing.every((enemy) => {
+    const dx = Math.abs(enemy.x - slot.x);
+    const dy = Math.abs(enemy.y - slot.y);
+    return dx >= 12 || dy >= 16;
+  });
+};
+
 const createEnemy = (
   id: number,
-  laneIndex: number,
+  preferredSlotIndex: number,
   existing: Enemy[] = []
 ): Enemy => {
-  // Move around the arena rather than using a completely random position.
-  // The lane changes every spawn, making the next attack harder to predict.
-  const preferred = ATTACK_LANES[laneIndex % ATTACK_LANES.length];
-  const alternatives = ATTACK_LANES.filter(
-    (_, index) => Math.abs(index - (laneIndex % ATTACK_LANES.length)) >= 2
-  );
-  const available = alternatives.filter(
-    (lane) => !existing.some((enemy) => Math.abs(enemy.x - lane) < 13)
-  );
-  const lane =
-    existing.length === 0
-      ? preferred
-      : available.length > 0
-        ? available[Math.floor(Math.random() * available.length)]
-        : preferred;
+  const preferred = ATTACK_SLOTS[preferredSlotIndex % ATTACK_SLOTS.length];
+
+  // Prefer the requested attack slot, but never place a new demon inside
+  // another demon's visual footprint. If the preferred slot is occupied,
+  // choose the clearest available slot.
+  const shuffled = [...ATTACK_SLOTS].sort(() => Math.random() - 0.5);
+  const candidates = [preferred, ...shuffled];
+  const slot =
+    candidates.find((candidate) => isSlotClear(candidate, existing)) ??
+    preferred;
 
   return {
     id,
-    x: Math.max(8, Math.min(92, lane + randomBetween(-4, 4))),
-    y: randomBetween(10, 20),
-    size: randomBetween(50, 68),
+    x: Math.max(7, Math.min(93, slot.x + randomBetween(-2.5, 2.5))),
+    y: Math.max(8, Math.min(58, slot.y + randomBetween(-2, 2))),
+    size: randomBetween(40, 48),
     speed: 0,
-    rotation: randomBetween(-5, 5),
+    rotation: randomBetween(-4, 4),
   };
 };
 
@@ -117,10 +135,11 @@ export default function ProtectMaaDurgaPage() {
     killedEnemyIdsRef.current = new Set();
     nextEnemyId.current = 0;
 
-    const startingEnemies = Array.from({ length: INITIAL_ENEMIES }, (_, index) => {
+    const startingEnemies: Enemy[] = [];
+    for (let index = 0; index < INITIAL_ENEMIES; index += 1) {
       const id = nextEnemyId.current++;
-      return createEnemy(id, index);
-    });
+      startingEnemies.push(createEnemy(id, index, startingEnemies));
+    }
 
     setEnemies(startingEnemies);
     setGameStarted(true);
@@ -244,10 +263,11 @@ export default function ProtectMaaDurgaPage() {
 
         if (shouldSpawn && remaining.length < MAX_ENEMIES) {
           const id = nextEnemyId.current++;
-          // Cycle through left/right/centre and deliberately avoid the
-          // previous lane. This creates a readable but unpredictable attack pattern.
-          const laneIndex = id % ATTACK_LANES.length;
-          remaining.push(createEnemy(id, laneIndex, remaining));
+          // Multiple demons are allowed, but every new demon must occupy a
+          // clearly separated attack slot. This prevents the phone layout
+          // from becoming a pile of overlapping characters.
+          const slotIndex = (id * 3 + Math.floor(elapsedSeconds / 4)) % ATTACK_SLOTS.length;
+          remaining.push(createEnemy(id, slotIndex, remaining));
         }
 
         if (reached > 0) {
@@ -524,8 +544,8 @@ export default function ProtectMaaDurgaPage() {
                   <span className="absolute right-[20%] top-[30%] h-1.5 w-1.5 rounded-full bg-[#ffd978] shadow-[0_0_10px_#ffd978]" />
                 </div>
 
-                {/* Mahishasur enemies: smaller, spaced-out, and intentionally
-                    spawned from changing lanes so players must keep guessing. */}
+                {/* Mahishasur enemies: multiple can attack together, but each is kept
+                    in a separate attack slot so they never visually pile up. */}
                 {enemies.map((enemy) => (
                   <button
                     key={enemy.id}
@@ -540,15 +560,15 @@ export default function ProtectMaaDurgaPage() {
                     style={{
                       left: `${enemy.x}%`,
                       top: `${enemy.y}%`,
-                      width: enemy.size + 28,
-                      height: enemy.size + 28,
+                      width: enemy.size + 22,
+                      height: enemy.size + 22,
                       transform: `translate(-50%, -50%) rotate(${enemy.rotation}deg)`,
                       touchAction: "manipulation",
                       filter: "drop-shadow(0 12px 12px rgba(20,5,0,0.48)) drop-shadow(0 0 10px rgba(255,116,35,0.16))",
                     }}
                   >
                     <img
-                      src="/images/games/mahishasur-warrior.png"
+                      src="/images/games/mahishasur-blue.webp"
                       alt="Mahishasur"
                       draggable={false}
                       className="pointer-events-none block h-full w-full object-contain"
