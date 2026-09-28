@@ -488,7 +488,7 @@ export default function ProtectMaaDurgaPage() {
                   className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                   style={{
                     backgroundImage:
-                      "linear-gradient(rgba(255,225,170,0.06),rgba(30,8,3,0.16)), url('/images/games/save-temple-bg.webp')",
+                      "linear-gradient(rgba(255,225,170,0.06),rgba(30,8,3,0.16)), url('/images/games/temple-game-bg.webp')",
                     filter: "brightness(1.10) saturate(1.08) contrast(1.04)",
                   }}
                 />
