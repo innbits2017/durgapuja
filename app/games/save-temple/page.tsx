@@ -17,23 +17,49 @@ const STARTING_PROTECTION = 42;
 const MAX_PROTECTION = 100;
 const HIT_REWARD = 7;
 const TEMPLE_DAMAGE = 20;
-const INITIAL_ENEMIES = 7;
-const MAX_ENEMIES = 18;
-const INITIAL_SPAWN_INTERVAL = 900;
-const MIN_SPAWN_INTERVAL = 360;
+const INITIAL_ENEMIES = 1;
+const MAX_ENEMIES = 7;
+const INITIAL_SPAWN_INTERVAL = 1500;
+const MIN_SPAWN_INTERVAL = 620;
 const MOVE_INTERVAL = 55;
+
+// Deliberately use a small set of attack lanes so demons arrive one-by-one
+// from different directions instead of clustering together on small screens.
+const ATTACK_LANES = [12, 28, 50, 72, 88];
 
 const randomBetween = (min: number, max: number) =>
   Math.random() * (max - min) + min;
 
-const createEnemy = (id: number): Enemy => ({
-  id,
-  x: randomBetween(7, 93),
-  y: randomBetween(12, 48),
-  size: randomBetween(68, 104),
-  speed: 0,
-  rotation: randomBetween(-8, 8),
-});
+const createEnemy = (
+  id: number,
+  laneIndex: number,
+  existing: Enemy[] = []
+): Enemy => {
+  // Move around the arena rather than using a completely random position.
+  // The lane changes every spawn, making the next attack harder to predict.
+  const preferred = ATTACK_LANES[laneIndex % ATTACK_LANES.length];
+  const alternatives = ATTACK_LANES.filter(
+    (_, index) => Math.abs(index - (laneIndex % ATTACK_LANES.length)) >= 2
+  );
+  const available = alternatives.filter(
+    (lane) => !existing.some((enemy) => Math.abs(enemy.x - lane) < 13)
+  );
+  const lane =
+    existing.length === 0
+      ? preferred
+      : available.length > 0
+        ? available[Math.floor(Math.random() * available.length)]
+        : preferred;
+
+  return {
+    id,
+    x: Math.max(8, Math.min(92, lane + randomBetween(-4, 4))),
+    y: randomBetween(10, 20),
+    size: randomBetween(50, 68),
+    speed: 0,
+    rotation: randomBetween(-5, 5),
+  };
+};
 
 export default function ProtectMaaDurgaPage() {
   const nextEnemyId = useRef(0);
@@ -55,7 +81,7 @@ export default function ProtectMaaDurgaPage() {
   const [misses, setMisses] = useState(0);
   const [level, setLevel] = useState(1);
   const [enemies, setEnemies] = useState<Enemy[]>([]);
-  const [message, setMessage] = useState("Protect Maa Durga Temple!");
+  const [message, setMessage] = useState("Protect Maa Durga!");
   const [bestScore, setBestScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [hitFlash, setHitFlash] = useState(false);
@@ -91,9 +117,9 @@ export default function ProtectMaaDurgaPage() {
     killedEnemyIdsRef.current = new Set();
     nextEnemyId.current = 0;
 
-    const startingEnemies = Array.from({ length: INITIAL_ENEMIES }, () => {
+    const startingEnemies = Array.from({ length: INITIAL_ENEMIES }, (_, index) => {
       const id = nextEnemyId.current++;
-      return createEnemy(id);
+      return createEnemy(id, index);
     });
 
     setEnemies(startingEnemies);
@@ -106,7 +132,7 @@ export default function ProtectMaaDurgaPage() {
     setLevel(1);
     setCombo(0);
     setHitFlash(false);
-    setMessage("Protect the Maa Durga Temple!");
+    setMessage("Protect Maa Durga!");
   };
 
   const hitEnemy = (enemyId: number) => {
@@ -138,7 +164,7 @@ export default function ProtectMaaDurgaPage() {
 
     window.setTimeout(() => {
       if (gameActiveRef.current) {
-        setMessage("Protect the Maa Durga Temple!");
+        setMessage("Protect Maa Durga!");
       }
     }, 550);
   };
@@ -173,19 +199,19 @@ export default function ProtectMaaDurgaPage() {
 
       const elapsedSeconds = elapsedMsRef.current / 1000;
       const difficulty = 1 - Math.exp(-elapsedSeconds / 38);
-      const baseSpeed = 0.48 + difficulty * 1.55;
+      const baseSpeed = 0.62 + difficulty * 1.85;
       const spawnInterval =
         INITIAL_SPAWN_INTERVAL -
         difficulty * (INITIAL_SPAWN_INTERVAL - MIN_SPAWN_INTERVAL);
 
       const nextLevel =
-        elapsedSeconds < 15
+        elapsedSeconds < 12
           ? 1
-          : elapsedSeconds < 30
+          : elapsedSeconds < 25
             ? 2
-            : elapsedSeconds < 50
+            : elapsedSeconds < 42
               ? 3
-              : elapsedSeconds < 75
+              : elapsedSeconds < 62
                 ? 4
                 : 5;
       setLevel((currentLevel) =>
@@ -200,7 +226,7 @@ export default function ProtectMaaDurgaPage() {
         let reached = 0;
 
         current.forEach((enemy) => {
-          const nextSpeed = Math.min(2.35, baseSpeed + (enemy.id % 6) * 0.035);
+          const nextSpeed = Math.min(2.80, baseSpeed + (enemy.id % 5) * 0.045);
           const nextY = enemy.y + nextSpeed * (delta / MOVE_INTERVAL);
 
           if (nextY >= 78) {
@@ -218,7 +244,10 @@ export default function ProtectMaaDurgaPage() {
 
         if (shouldSpawn && remaining.length < MAX_ENEMIES) {
           const id = nextEnemyId.current++;
-          remaining.push(createEnemy(id));
+          // Cycle through left/right/centre and deliberately avoid the
+          // previous lane. This creates a readable but unpredictable attack pattern.
+          const laneIndex = id % ATTACK_LANES.length;
+          remaining.push(createEnemy(id, laneIndex, remaining));
         }
 
         if (reached > 0) {
@@ -329,9 +358,11 @@ export default function ProtectMaaDurgaPage() {
 
               <div className="mx-auto mt-6 grid max-w-lg grid-cols-3 gap-2">
                 <div className="rounded-xl border border-[#e4d3bc] bg-[#fffaf2] p-3">
-                  <div className="text-2xl">👹</div>
+                  <div className="flex h-8 items-center justify-center text-[#761019]">
+                    <i className="fa-solid fa-hand-pointer text-xl" />
+                  </div>
                   <p className="mt-1 text-[9px] font-bold text-[#761019]">
-                    TAP
+                    TAP MAHISHASUR
                   </p>
                 </div>
 
@@ -493,7 +524,8 @@ export default function ProtectMaaDurgaPage() {
                   <span className="absolute right-[20%] top-[30%] h-1.5 w-1.5 rounded-full bg-[#ffd978] shadow-[0_0_10px_#ffd978]" />
                 </div>
 
-                {/* Mahishasur enemies */}
+                {/* Mahishasur enemies: smaller, spaced-out, and intentionally
+                    spawned from changing lanes so players must keep guessing. */}
                 {enemies.map((enemy) => (
                   <button
                     key={enemy.id}
@@ -516,7 +548,7 @@ export default function ProtectMaaDurgaPage() {
                     }}
                   >
                     <img
-                      src="/images/games/mahisasur-blue.webp"
+                      src="/images/games/mahishasur-warrior.png"
                       alt="Mahishasur"
                       draggable={false}
                       className="pointer-events-none block h-full w-full object-contain"
