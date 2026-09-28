@@ -568,7 +568,7 @@ export default function ProtectMaaDurgaPage() {
                     }}
                   >
                     <img
-                      src="/images/games/mahishasur-blue.webp"
+                      src="/images/games/mahisasur-blue.webp"
                       alt="Mahishasur"
                       draggable={false}
                       className="pointer-events-none block h-full w-full object-contain"
