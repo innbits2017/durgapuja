@@ -40,9 +40,95 @@ export async function GET() {
       );
     }
 
+    const expenses = data ?? [];
+    const expenseIds = expenses.map((expense) => expense.id);
+
+    /*
+     * Multiple bills / receipts
+     *
+     * The old expenses table has bill_path for the original
+     * single-bill implementation. The new expense_documents
+     * table stores zero or more documents for each expense.
+     */
+    let documents: any[] = [];
+
+    if (expenseIds.length > 0) {
+      const {
+        data: documentRows,
+        error: documentsError,
+      } = await supabaseAdmin
+        .from("expense_documents")
+        .select(
+          "id, expense_id, file_name, file_path, file_type, file_size, created_at"
+        )
+        .in("expense_id", expenseIds)
+        .order("created_at", { ascending: true });
+
+      if (documentsError) {
+        console.error(
+          "Expense documents fetch error:",
+          documentsError
+        );
+
+        return NextResponse.json(
+          { error: documentsError.message },
+          { status: 500 }
+        );
+      }
+
+      documents = documentRows ?? [];
+    }
+
+    const documentsByExpense = new Map<string, any[]>();
+
+    for (const document of documents) {
+      const current =
+        documentsByExpense.get(document.expense_id) || [];
+
+      current.push(document);
+      documentsByExpense.set(document.expense_id, current);
+    }
+
+    const enrichedExpenses = expenses.map((expense) => {
+      const existingDocuments =
+        documentsByExpense.get(expense.id) || [];
+
+      /*
+       * Backward compatibility:
+       * If an older expense still has bill_path but no row in
+       * expense_documents, expose it as a legacy document so the
+       * dashboard can still display/download it.
+       */
+      if (
+        existingDocuments.length === 0 &&
+        expense.bill_path
+      ) {
+        return {
+          ...expense,
+          documents: [
+            {
+              id: `legacy-${expense.id}`,
+              expense_id: expense.id,
+              file_name: "Bill / Receipt",
+              file_path: expense.bill_path,
+              file_type: null,
+              file_size: null,
+              created_at: expense.created_at,
+              legacy: true,
+            },
+          ],
+        };
+      }
+
+      return {
+        ...expense,
+        documents: existingDocuments,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      expenses: data ?? [],
+      expenses: enrichedExpenses,
     });
   } catch (error) {
     console.error("Expense GET error:", error);
@@ -406,7 +492,10 @@ export async function POST(request: Request) {
       success: true,
       message:
         "Expense added successfully.",
-      expense: data,
+      expense: {
+        ...data,
+        documents: [],
+      },
     });
   } catch (error) {
     console.error(
@@ -595,11 +684,44 @@ export async function PATCH(request: Request) {
       );
     }
 
+    /*
+     * Bills / receipts are intentionally NOT changed here.
+     *
+     * The separate /api/expenses/bill endpoint manages
+     * expense_documents so editing expense details never
+     * accidentally removes existing bills.
+     */
+    const {
+      data: documentRows,
+      error: documentsError,
+    } = await supabaseAdmin
+      .from("expense_documents")
+      .select(
+        "id, expense_id, file_name, file_path, file_type, file_size, created_at"
+      )
+      .eq("expense_id", id)
+      .order("created_at", { ascending: true });
+
+    if (documentsError) {
+      console.error(
+        "Expense documents fetch after update error:",
+        documentsError
+      );
+
+      return NextResponse.json(
+        { error: documentsError.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message:
         "Expense updated successfully.",
-      expense: data,
+      expense: {
+        ...data,
+        documents: documentRows ?? [],
+      },
     });
   } catch (error) {
     console.error(
@@ -651,9 +773,34 @@ export async function DELETE(
       error: existingError,
     } = await supabaseAdmin
       .from("expenses")
-      .select("refund_id")
+      .select("refund_id, bill_path")
       .eq("id", id)
       .single();
+
+    /*
+     * Fetch all attached bills BEFORE deleting the expense.
+     * We need the storage paths so they can be removed after
+     * the database record is successfully deleted.
+     */
+    const {
+      data: expenseDocuments,
+      error: documentsError,
+    } = await supabaseAdmin
+      .from("expense_documents")
+      .select("id, file_path")
+      .eq("expense_id", id);
+
+    if (documentsError) {
+      console.error(
+        "Expense documents fetch before delete error:",
+        documentsError
+      );
+
+      return NextResponse.json(
+        { error: documentsError.message },
+        { status: 500 }
+      );
+    }
 
     if (existingError) {
       console.error(
@@ -703,10 +850,71 @@ export async function DELETE(
       );
     }
 
+    /*
+     * Delete all attached bill files from the private
+     * "expense-bills" bucket.
+     *
+     * This is intentionally best-effort: the expense deletion
+     * should not be rolled back just because Storage cleanup
+     * fails.
+     */
+    const documentPaths = (expenseDocuments || [])
+      .map((document) => document.file_path)
+      .filter(
+        (path): path is string =>
+          typeof path === "string" && path.length > 0
+      );
+
+    /*
+     * Keep backward compatibility with the original single-bill
+     * implementation. Avoid deleting the same path twice.
+     */
+    if (existingExpense?.bill_path) {
+      documentPaths.push(existingExpense.bill_path);
+    }
+
+    const uniqueDocumentPaths = Array.from(
+      new Set(documentPaths)
+    );
+
+    if (uniqueDocumentPaths.length > 0) {
+      const { error: billDeleteError } =
+        await supabaseAdmin.storage
+          .from("expense-bills")
+          .remove(uniqueDocumentPaths);
+
+      if (billDeleteError) {
+        console.warn(
+          "Unable to delete expense bills from Storage:",
+          billDeleteError
+        );
+      }
+    }
+
+    /*
+     * Remove the document rows as well. This is done after the
+     * expense has been deleted so a failed expense deletion does
+     * not orphan the document metadata.
+     */
+    if ((expenseDocuments || []).length > 0) {
+      const { error: documentsDeleteError } =
+        await supabaseAdmin
+          .from("expense_documents")
+          .delete()
+          .eq("expense_id", id);
+
+      if (documentsDeleteError) {
+        console.warn(
+          "Unable to delete expense document records:",
+          documentsDeleteError
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message:
-        "Expense deleted successfully.",
+        "Expense and attached bills deleted successfully.",
     });
   } catch (error) {
     console.error(

@@ -825,6 +825,14 @@ function GallerySlider({
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
                     />
+                  ) : items[lightboxIndex].url ? (
+                    <video
+                      src={items[lightboxIndex].url}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="absolute inset-0 h-full w-full object-contain"
+                    />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center text-sm text-white/70">
@@ -885,6 +893,92 @@ export default function HomePage() {
 
   const [showContributionNotice, setShowContributionNotice] =
     useState(false);
+
+  const [communityPhotos, setCommunityPhotos] =
+    useState<any[]>([]);
+
+  const [communityVideos, setCommunityVideos] =
+    useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadApprovedGallery = async () => {
+      try {
+        const response = await fetch(
+          "/api/gallery/public",
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const approvedItems = Array.isArray(result.items)
+          ? result.items
+          : [];
+
+        if (cancelled) return;
+
+        const photos = approvedItems
+          .filter(
+            (item: any) =>
+              item.type === "photo" &&
+              item.file_url
+          )
+          .map((item: any) => ({
+            src: item.file_url,
+            alt: item.file_name || "BUH Durga Puja Memory",
+            title: item.title || "Community Memory",
+          }));
+
+        const videos = approvedItems
+          .filter(
+            (item: any) =>
+              item.type === "video" &&
+              item.file_url
+          )
+          .map((item: any) => ({
+            thumbnail:
+              item.thumbnail_url ||
+              "/images/durga-puja-2025.webp",
+            title: item.title || "Community Video",
+            description:
+              item.description ||
+              "A memory shared by our BUH community.",
+            url: item.file_url,
+          }));
+
+        setCommunityPhotos(photos);
+        setCommunityVideos(videos);
+      } catch {
+        // Keep the existing gallery if the community gallery is unavailable.
+      }
+    };
+
+    loadApprovedGallery();
+
+    // Refresh periodically so a newly approved memory appears
+    // on the homepage without requiring a manual page reload.
+    const interval = window.setInterval(
+      loadApprovedGallery,
+      15000
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const displayPhotoGallery = [
+    ...photoGallery,
+    ...communityPhotos,
+  ];
+
+  const displayVideoGallery = [
+    ...videoGallery,
+    ...communityVideos,
+  ];
 
   useEffect(() => {
     const targetDate = new Date(
@@ -1615,6 +1709,16 @@ export default function HomePage() {
               A glimpse of the memories we create together.
             </p>
 
+            <div className="mt-6 flex justify-center">
+              <Link
+                href="/upload-memories"
+                className="inline-flex items-center gap-2 rounded-full bg-[#a70e18] px-6 py-3 text-xs font-bold tracking-wide text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-[#7d0b13]"
+              >
+                <i className="fa-solid fa-cloud-arrow-up" />
+                UPLOAD YOUR MEMORIES
+              </Link>
+            </div>
+
           </div>
 
 
@@ -1646,7 +1750,7 @@ export default function HomePage() {
                       Memories in Pictures
                     </h3>
 
-                  </div>
+                  </div>  
 
                 </div>
 
@@ -1656,7 +1760,7 @@ export default function HomePage() {
 
 
             <GallerySlider
-              items={photoGallery}
+              items={displayPhotoGallery}
               type="image"
             />
 
@@ -1666,6 +1770,13 @@ export default function HomePage() {
           {/* =================================================
               VIDEO GALLERY
           ================================================== */}
+
+          <div className="mb-5 flex items-center justify-center gap-2 text-center">
+            <i className="fa-solid fa-circle-check text-[10px] text-[#a77a2b]" />
+            <p className="text-[10px] text-[#8a7667]">
+              Community photos and videos appear here after committee approval.
+            </p>
+          </div>
 
           <div className="mt-20">
 
@@ -1701,7 +1812,7 @@ export default function HomePage() {
 
 
             <GallerySlider
-              items={videoGallery}
+              items={displayVideoGallery}
               type="video"
             />
 

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
-
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 /* ============================================================
@@ -129,6 +128,16 @@ type SevaStatusFilter =
   | "completed"
   | "rejected";
 
+type ExpenseDocument = {
+  id: string;
+  expense_id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  file_size: number | null;
+  created_at: string;
+};
+
 type Expense = {
   id: string;
   title: string;
@@ -141,6 +150,8 @@ type Expense = {
   reference_no: string | null;
   notes: string | null;
   refund_id: string | null;
+  bill_path: string | null;
+  documents?: ExpenseDocument[];
   created_at: string;
   updated_at: string;
 };
@@ -190,7 +201,8 @@ type Section =
   | "stall"
   | "donations"
   | "expenses"
-  | "lastYear";
+  | "lastYear"
+  | "gallery";
 
 type Filter =
   | "all"
@@ -457,7 +469,18 @@ export default function DashboardClient({
   }, [initialContributions]);
 
   useEffect(() => {
-    setExpenses(initialExpenses);
+    setExpenses((current) =>
+      initialExpenses.map((incoming) => {
+        const existing = current.find((item) => item.id === incoming.id);
+        return {
+          ...incoming,
+          documents:
+            incoming.documents?.length
+              ? incoming.documents
+              : existing?.documents || [],
+        };
+      })
+    );
   }, [initialExpenses]);
 
   useEffect(() => {
@@ -468,10 +491,34 @@ export default function DashboardClient({
     setSevaRegistrations(initialSevaRegistrations);
   }, [initialSevaRegistrations]);
 
+  async function refreshExpensesWithDocuments() {
+    try {
+      const response = await fetch("/api/expenses", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) return;
+
+      const result = await response.json();
+
+      if (Array.isArray(result.expenses)) {
+        setExpenses(result.expenses as Expense[]);
+      }
+    } catch (error) {
+      console.error("Unable to refresh expenses:", error);
+    }
+  }
+
   useEffect(() => {
     const refreshDashboard = () => {
       router.refresh();
+      void refreshExpensesWithDocuments();
     };
+
+    // Load expense documents immediately and keep the expense list
+    // in sync with the database.
+    void refreshExpensesWithDocuments();
 
     // Refresh regularly so a new 2026 payment/submission appears
     // on the dashboard without the admin needing to reload manually.
@@ -1930,6 +1977,25 @@ export default function DashboardClient({
     }
   }
 
+  function downloadExpenseBill(
+    expenseId: string,
+    documentId?: string
+  ) {
+    const params = new URLSearchParams({
+      id: expenseId,
+    });
+
+    if (documentId) {
+      params.set("documentId", documentId);
+    }
+
+    window.open(
+      `/api/expenses/bill?${params.toString()}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
   /* ==========================================================
      DELETE EXPENSE
   ========================================================== */
@@ -2291,6 +2357,13 @@ export default function DashboardClient({
 
           Notes:
             item.notes || "",
+
+          "Bills Attached":
+            item.documents?.length
+              ? `${item.documents.length} bill${item.documents.length === 1 ? "" : "s"}`
+              : item.bill_path
+                ? "1 bill"
+                : "No",
         })
       );
 
@@ -2731,6 +2804,20 @@ export default function DashboardClient({
               label="Expenses"
             />
 
+            <NavButton
+              active={
+                section ===
+                "gallery"
+              }
+              onClick={() =>
+                setSection(
+                  "gallery"
+                )
+              }
+              icon="fa-images"
+              label="Gallery"
+            />
+
           </div>
         </nav>
 
@@ -2742,6 +2829,14 @@ export default function DashboardClient({
           <div className="mb-5 rounded-xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#725e3a] shadow-sm">
             {message}
           </div>
+        )}
+
+        {/* ====================================================
+            GALLERY
+        ==================================================== */}
+
+        {section === "gallery" && (
+          <GalleryManager />
         )}
 
         {/* ====================================================
@@ -3903,7 +3998,7 @@ export default function DashboardClient({
             </div>
 
             <div className="mt-4 overflow-x-auto rounded-xl border border-[#eee5db]">
-              <table className="w-full min-w-[950px] text-left text-sm">
+              <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
                   <tr>
                     <th className="px-4 py-3">Block</th>
@@ -5009,7 +5104,7 @@ export default function DashboardClient({
 
             <div className="hidden overflow-x-auto md:block">
 
-              <table className="w-full min-w-[950px] text-left">
+              <table className="w-full min-w-[1100px] text-left">
 
                 <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]">
 
@@ -5041,6 +5136,10 @@ export default function DashboardClient({
 
                     <th className="px-4 py-3">
                       Date
+                    </th>
+
+                    <th className="px-4 py-3">
+                      Bill
                     </th>
 
                     <th className="px-5 py-3 text-right">
@@ -5118,6 +5217,47 @@ export default function DashboardClient({
                         <td className="px-4 py-4 text-xs text-[#666]">
                           {formatDateOnly(
                             item.expense_date
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {item.documents?.length ? (
+                            <div className="flex max-w-[260px] flex-col gap-1.5">
+                              {item.documents.map((document) => (
+                                <button
+                                  key={document.id}
+                                  type="button"
+                                  onClick={() =>
+                                    downloadExpenseBill(
+                                      item.id,
+                                      document.id
+                                    )
+                                  }
+                                  title={document.file_name}
+                                  className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-[#ead3a2] bg-[#fffaf0] px-2.5 py-1.5 text-left text-[11px] font-semibold text-[#9a6a00] hover:bg-[#fff4dc]"
+                                >
+                                  <i className="fa-solid fa-file-arrow-down shrink-0" />
+                                  <span className="truncate">
+                                    {document.file_name}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : item.bill_path ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadExpenseBill(item.id)
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#ead3a2] bg-[#fffaf0] px-3 py-2 text-xs font-semibold text-[#9a6a00] hover:bg-[#fff4dc]"
+                            >
+                              <i className="fa-solid fa-file-arrow-down" />
+                              Download
+                            </button>
+                          ) : (
+                            <span className="text-xs text-[#aaa]">
+                              —
+                            </span>
                           )}
                         </td>
 
@@ -5285,6 +5425,53 @@ export default function DashboardClient({
                           {item.reference_no ||
                             "—"}
                         </strong>
+
+                      </div>
+
+                      <div>
+
+                        <span className="text-[#888]">
+                          Bill
+                        </span>
+
+                        {item.documents?.length ? (
+                          <div className="mt-1 flex flex-col gap-1">
+                            {item.documents.map((document) => (
+                              <button
+                                key={document.id}
+                                type="button"
+                                onClick={() =>
+                                  downloadExpenseBill(
+                                    item.id,
+                                    document.id
+                                  )
+                                }
+                                title={document.file_name}
+                                className="inline-flex max-w-full items-center gap-1 rounded-md bg-[#fffaf0] px-2 py-1 text-left text-[11px] font-semibold text-[#9a6a00]"
+                              >
+                                <i className="fa-solid fa-file-arrow-down shrink-0" />
+                                <span className="truncate">
+                                  {document.file_name}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : item.bill_path ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadExpenseBill(item.id)
+                            }
+                            className="mt-1 inline-flex items-center gap-1 rounded-md bg-[#fffaf0] px-2 py-1 text-[11px] font-semibold text-[#9a6a00]"
+                          >
+                            <i className="fa-solid fa-file-arrow-down" />
+                            Download
+                          </button>
+                        ) : (
+                          <strong className="mt-1 block font-medium text-[#aaa]">
+                            —
+                          </strong>
+                        )}
 
                       </div>
 
@@ -5469,17 +5656,30 @@ export default function DashboardClient({
                       (item) =>
                         item.id ===
                         expense.id
-                          ? expense
+                          ? {
+                              ...item,
+                              ...expense,
+                              documents:
+                                expense.documents ??
+                                item.documents ??
+                                [],
+                            }
                           : item
                     );
                   }
 
                   return [
-                    expense,
+                    {
+                      ...expense,
+                      documents:
+                        expense.documents ?? [],
+                    },
                     ...current,
                   ];
                 }
               );
+
+              void refreshExpensesWithDocuments();
 
               setShowExpenseForm(
                 false
@@ -9351,166 +9551,266 @@ function ExpenseModal({
   categories: string[];
   paymentModes: string[];
   onClose: () => void;
-  onSaved: (
-    expense: Expense
-  ) => void;
+  onSaved: (expense: Expense) => void;
 }) {
-  const [title, setTitle] =
-    useState(
-      expense?.title ||
-        ""
+  const [title, setTitle] = useState(expense?.title || "");
+  const [category, setCategory] = useState(expense?.category || categories[0]);
+  const [paidTo, setPaidTo] = useState(expense?.paid_to || "");
+  const [paidBy, setPaidBy] = useState(expense?.paid_by || "");
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [expenseDate, setExpenseDate] = useState(
+    expense?.expense_date || new Date().toISOString().slice(0, 10)
+  );
+  const [paymentMode, setPaymentMode] = useState(expense?.payment_mode || "cash");
+  const [referenceNo, setReferenceNo] = useState(expense?.reference_no || "");
+  const [notes, setNotes] = useState(expense?.notes || "");
+
+  const [selectedBillFiles, setSelectedBillFiles] = useState<File[]>([]);
+  const [existingDocuments, setExistingDocuments] = useState<ExpenseDocument[]>(
+    expense?.documents || []
+  );
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const MAX_DOCUMENTS = 10;
+
+  function downloadBill(
+    expenseId: string,
+    documentId?: string
+  ) {
+    if (!expenseId) return;
+
+    const params = new URLSearchParams({
+      id: expenseId,
+    });
+
+    if (documentId) {
+      params.set("documentId", documentId);
+    }
+
+    window.open(
+      `/api/expenses/bill?${params.toString()}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+  useEffect(() => {
+    setExistingDocuments(expense?.documents || []);
+    setSelectedBillFiles([]);
+    setError("");
+  }, [expense?.id]);
+
+  const totalBillCount =
+    existingDocuments.length + selectedBillFiles.length;
+
+  function addBillFiles(fileList: FileList | null) {
+    if (!fileList) return;
+
+    const incoming = Array.from(fileList);
+
+    const invalidType = incoming.find(
+      (file) =>
+        ![
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+        ].includes(file.type)
     );
 
-  const [category, setCategory] =
-    useState(
-      expense?.category ||
-        categories[0]
+    if (invalidType) {
+      setError(
+        `Unsupported bill format: ${invalidType.name}. Please use PDF, JPG, PNG or WEBP.`
+      );
+      return;
+    }
+
+    const oversized = incoming.find(
+      (file) => file.size > MAX_FILE_SIZE
     );
 
-  const [paidTo, setPaidTo] =
-    useState(
-      expense?.paid_to ||
-        ""
+    if (oversized) {
+      setError(
+        `Bill file must be 10 MB or smaller: ${oversized.name}`
+      );
+      return;
+    }
+
+    if (totalBillCount + incoming.length > MAX_DOCUMENTS) {
+      setError(
+        `An expense can have a maximum of ${MAX_DOCUMENTS} bills.`
+      );
+      return;
+    }
+
+    setSelectedBillFiles((current) => [
+      ...current,
+      ...incoming,
+    ]);
+    setError("");
+  }
+
+  function removeSelectedBill(index: number) {
+    setSelectedBillFiles((current) =>
+      current.filter((_, fileIndex) => fileIndex !== index)
+    );
+  }
+
+  async function deleteExistingDocument(document: ExpenseDocument) {
+    if (!expense) return;
+
+    const confirmed = window.confirm(
+      `Remove "${document.file_name}" from this expense?`
     );
 
-  const [paidBy, setPaidBy] =
-    useState(
-      expense?.paid_by ||
-        ""
-    );
+    if (!confirmed) return;
 
-  const [amount, setAmount] =
-    useState(
-      expense
-        ? String(
-            expense.amount
-          )
-        : ""
-    );
+    setLoading(true);
+    setError("");
 
-  const [expenseDate, setExpenseDate] =
-    useState(
-      expense?.expense_date ||
-        new Date()
-          .toISOString()
-          .slice(
-            0,
-            10
-          )
-    );
+    try {
+      const response = await fetch("/api/expenses/bill", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          expenseId: expense.id,
+          documentId: document.id,
+        }),
+      });
 
-  const [paymentMode, setPaymentMode] =
-    useState(
-      expense?.payment_mode ||
-        "cash"
-    );
+      const result = await response.json();
 
-  const [referenceNo, setReferenceNo] =
-    useState(
-      expense?.reference_no ||
-        ""
-    );
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Unable to remove the bill."
+        );
+      }
 
-  const [notes, setNotes] =
-    useState(
-      expense?.notes ||
-        ""
-    );
+      setExistingDocuments((current) =>
+        current.filter((item) => item.id !== document.id)
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to remove the bill."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const [loading, setLoading] =
-    useState(false);
+  async function uploadBills(expenseId: string) {
+    if (!selectedBillFiles.length) return null;
 
-  const [error, setError] =
-    useState("");
+    const formData = new FormData();
+    formData.append("expenseId", expenseId);
+
+    selectedBillFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const response = await fetch("/api/expenses/bill", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || "Unable to upload the bills."
+      );
+    }
+
+    return result.expense as Expense;
+  }
 
   async function submit() {
     setError("");
 
-    if (
-      !title.trim() ||
-      !category ||
-      !amount ||
-      !expenseDate
-    ) {
-      setError(
-        "Please fill all required fields."
-      );
-
+    if (!title.trim() || !category || !amount || !expenseDate) {
+      setError("Please fill all required fields.");
       return;
     }
 
-    const numericAmount =
-      Number(amount);
+    const numericAmount = Number(amount);
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError("Please enter a valid amount.");
+      return;
+    }
 
     if (
-      !Number.isFinite(
-        numericAmount
-      ) ||
-      numericAmount <=
-        0
+      totalBillCount > MAX_DOCUMENTS
     ) {
       setError(
-        "Please enter a valid amount."
+        `An expense can have a maximum of ${MAX_DOCUMENTS} bills.`
       );
-
       return;
     }
 
     setLoading(true);
 
     try {
-      const response =
-        await fetch(
-          "/api/expenses",
-          {
-            method: expense
-              ? "PATCH"
-              : "POST",
+      const response = await fetch("/api/expenses", {
+        method: expense ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...(expense ? { id: expense.id } : {}),
+          title: title.trim(),
+          category,
+          paidTo: paidTo.trim(),
+          paidBy: paidBy.trim(),
+          amount: numericAmount,
+          expenseDate,
+          paymentMode,
+          referenceNo: referenceNo.trim(),
+          notes: notes.trim(),
+        }),
+      });
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              ...(expense
-                ? {
-                    id: expense.id,
-                  }
-                : {}),
-
-              title,
-              category,
-              paidTo,
-              paidBy,
-              amount:
-                numericAmount,
-              expenseDate,
-              paymentMode,
-              referenceNo,
-              notes,
-            }),
-          }
-        );
-
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
         setError(
-          result.error ||
-            "Unable to save expense."
+          result.error || "Unable to save expense."
         );
-
         return;
       }
 
-      onSaved(
-        result.expense
-      );
-    } catch {
+      let savedExpense = result.expense as Expense;
+
+      if (selectedBillFiles.length) {
+        const uploadedExpense = await uploadBills(
+          savedExpense.id
+        );
+
+        if (uploadedExpense) {
+          savedExpense = uploadedExpense;
+        }
+      } else if (expense) {
+        savedExpense = {
+          ...savedExpense,
+          documents:
+            savedExpense.documents ??
+            existingDocuments,
+        };
+      }
+
+      onSaved(savedExpense);
+    } catch (err) {
       setError(
-        "Something went wrong. Please try again."
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
       );
     } finally {
       setLoading(false);
@@ -9519,256 +9819,309 @@ function ExpenseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-
       <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-
         <div className="sticky top-0 flex items-center justify-between border-b border-[#eee5db] bg-white px-5 py-4">
-
           <div>
-
             <h2 className="font-serif text-xl font-bold">
-              {expense
-                ? "Edit Expense"
-                : "Add Expense"}
+              {expense ? "Edit Expense" : "Add Expense"}
             </h2>
-
             <p className="mt-1 text-xs text-[#888]">
               Record a Durga Puja expense.
             </p>
-
           </div>
 
           <button
             type="button"
-            onClick={
-              onClose
-            }
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f2eb] text-[#666]"
+            onClick={onClose}
+            disabled={loading}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f2eb] text-[#666] disabled:opacity-50"
           >
             <i className="fa-solid fa-xmark" />
           </button>
-
         </div>
 
         <div className="space-y-4 p-5">
-
           {error && (
             <div className="rounded-lg bg-[#fff0f0] px-3 py-2 text-sm text-[#a70e18]">
               {error}
             </div>
           )}
 
-          <FormField
-            label="Expense Title"
-            required
-          >
+          <FormField label="Expense Title" required>
             <input
               value={title}
-              onChange={(e) =>
-                setTitle(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Pandal Decoration"
+              disabled={loading}
               className="form-input"
             />
           </FormField>
 
           <div className="grid gap-4 sm:grid-cols-2">
-
-            <FormField
-              label="Category"
-              required
-            >
+            <FormField label="Category" required>
               <select
                 value={category}
-                onChange={(e) =>
-                  setCategory(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setCategory(e.target.value)}
+                disabled={loading}
                 className="form-input"
               >
-
-                {categories.map(
-                  (item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
-
+                {categories.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </FormField>
 
-            <FormField
-              label="Amount"
-              required
-            >
+            <FormField label="Amount" required>
               <input
                 type="number"
                 min="1"
                 step="0.01"
                 value={amount}
-                onChange={(e) =>
-                  setAmount(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setAmount(e.target.value)}
                 placeholder="₹ 0"
+                disabled={loading}
                 className="form-input"
               />
             </FormField>
-
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-
             <FormField label="Paid To / Vendor">
-
               <input
                 value={paidTo}
-                onChange={(e) =>
-                  setPaidTo(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setPaidTo(e.target.value)}
                 placeholder="Vendor / Person"
+                disabled={loading}
                 className="form-input"
               />
-
             </FormField>
 
             <FormField label="Paid By">
-
               <input
                 value={paidBy}
-                onChange={(e) =>
-                  setPaidBy(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setPaidBy(e.target.value)}
                 placeholder="Optional — Person who paid"
+                disabled={loading}
                 className="form-input"
               />
-
             </FormField>
-
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-
-            <FormField
-              label="Expense Date"
-              required
-            >
-
+            <FormField label="Expense Date" required>
               <input
                 type="date"
-                value={
-                  expenseDate
-                }
-                onChange={(e) =>
-                  setExpenseDate(
-                    e.target.value
-                  )
-                }
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+                disabled={loading}
                 className="form-input"
               />
-
             </FormField>
 
             <FormField label="Payment Mode">
-
               <select
-                value={
-                  paymentMode
-                }
-                onChange={(e) =>
-                  setPaymentMode(
-                    e.target.value
-                  )
-                }
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+                disabled={loading}
                 className="form-input capitalize"
               >
+                {paymentModes.map((item) => (
+                  <option key={item} value={item}>
+                    {item === "upi" ? "UPI" : item}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
 
-                {paymentModes.map(
-                  (item) => (
-                    <option
-                      key={item}
-                      value={item}
+          <FormField label="Reference No.">
+            <input
+              value={referenceNo}
+              onChange={(e) => setReferenceNo(e.target.value)}
+              placeholder="Transaction / receipt no."
+              disabled={loading}
+              className="form-input"
+            />
+          </FormField>
+
+          <FormField label={`Bills / Receipts (${totalBillCount}/${MAX_DOCUMENTS})`}>
+            <div className="rounded-xl border border-dashed border-[#dcc9af] bg-[#fffaf2] p-3">
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#eadfd2] bg-white px-3 py-3 hover:bg-[#fffdf9]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff0f0] text-[#a70e18]">
+                    <i className="fa-solid fa-file-invoice" />
+                  </span>
+
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-[#444]">
+                      Upload one or more bills
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-[#999]">
+                      PDF, JPG, PNG or WEBP · Max 10 MB each
+                    </div>
+                  </div>
+                </div>
+
+                <span className="shrink-0 rounded-lg bg-[#a70e18] px-3 py-2 text-xs font-semibold text-white">
+                  Choose Files
+                </span>
+
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={loading || totalBillCount >= MAX_DOCUMENTS}
+                  onChange={(e) => {
+                    addBillFiles(e.target.files);
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+
+              {existingDocuments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#888]">
+                    Attached bills
+                  </div>
+
+                  {existingDocuments.map((document) => (
+                    <div
+                      key={document.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-[#eee5db] bg-white px-3 py-2"
                     >
-                      {item === "upi" ? "UPI" : item}
-                    </option>
-                  )
+                      <div className="flex min-w-0 items-center gap-2">
+                        <i className="fa-solid fa-file text-xs text-[#a70e18]" />
+                        <span
+                          className="truncate text-xs text-[#555]"
+                          title={document.file_name}
+                        >
+                          {document.file_name}
+                        </span>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() =>
+                            downloadBill(
+                              expense?.id || "",
+                              document.id
+                            )
+                          }
+                          className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#9a6a00] hover:bg-[#fffaf0]"
+                        >
+                          <i className="fa-solid fa-download mr-1" />
+                          Download
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() =>
+                            deleteExistingDocument(document)
+                          }
+                          className="rounded-md px-2 py-1 text-[11px] font-semibold text-[#a70e18] hover:bg-[#fff0f0]"
+                        >
+                          <i className="fa-solid fa-trash mr-1" />
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {expense?.bill_path &&
+                existingDocuments.length === 0 && (
+                  <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-[#eee5db] bg-white px-3 py-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <i className="fa-solid fa-file text-xs text-[#a70e18]" />
+                      <span className="text-xs text-[#555]">
+                        Existing bill
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() =>
+                        downloadBill(expense.id)
+                      }
+                      className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-[#9a6a00] hover:bg-[#fffaf0]"
+                    >
+                      <i className="fa-solid fa-download mr-1" />
+                      Download
+                    </button>
+                  </div>
                 )}
 
-              </select>
+              {selectedBillFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#888]">
+                    New bills to upload
+                  </div>
 
-            </FormField>
+                  {selectedBillFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${file.size}-${index}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-[#eee5db] bg-white px-3 py-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <i className="fa-solid fa-file-circle-plus text-xs text-[#23753b]" />
+                        <span
+                          className="truncate text-xs text-[#555]"
+                          title={file.name}
+                        >
+                          {file.name}
+                        </span>
+                      </div>
 
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-
-            <FormField label="Reference No.">
-
-              <input
-                value={
-                  referenceNo
-                }
-                onChange={(e) =>
-                  setReferenceNo(
-                    e.target.value
-                  )
-                }
-                placeholder="Transaction / receipt no."
-                className="form-input"
-              />
-
-            </FormField>
-
-          </div>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() =>
+                          removeSelectedBill(index)
+                        }
+                        className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-[#a70e18] hover:bg-[#fff0f0]"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </FormField>
 
           <FormField label="Notes">
-
             <textarea
               value={notes}
-              onChange={(e) =>
-                setNotes(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Additional details..."
+              disabled={loading}
               className="form-input resize-none"
             />
-
           </FormField>
 
           <div className="flex gap-3 border-t border-[#eee5db] pt-4">
-
             <button
               type="button"
-              onClick={
-                onClose
-              }
-              className="flex-1 rounded-lg border border-[#ddd] bg-white py-3 text-sm font-semibold text-[#666]"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 rounded-lg border border-[#ddd] bg-white py-3 text-sm font-semibold text-[#666] disabled:opacity-50"
             >
               Cancel
             </button>
 
             <button
               type="button"
-              disabled={
-                loading
-              }
-              onClick={
-                submit
-              }
+              disabled={loading}
+              onClick={submit}
               className="flex-1 rounded-lg bg-[#a70e18] py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               {loading
@@ -9777,9 +10130,7 @@ function ExpenseModal({
                   ? "Update Expense"
                   : "Add Expense"}
             </button>
-
           </div>
-
         </div>
       </div>
     </div>
@@ -9819,3 +10170,511 @@ function FormField({
     </label>
   );
 }
+
+
+/* ============================================================
+   GALLERY MANAGER
+============================================================ */
+
+type GalleryItem = {
+  id: string;
+  type: "photo" | "video";
+  file_name: string;
+  file_size: number | null;
+  mime_type: string | null;
+  uploaded_by: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  preview_url: string | null;
+};
+
+type GalleryFilter =
+  | "all"
+  | "pending"
+  | "approved"
+  | "rejected";
+
+function GalleryManager() {
+  const [items, setItems] =
+    useState<GalleryItem[]>([]);
+
+  const [filter, setFilter] =
+    useState<GalleryFilter>("pending");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [actionId, setActionId] =
+    useState<string | null>(null);
+
+  const [message, setMessage] =
+    useState("");
+
+  async function loadGallery() {
+    try {
+      setLoading(true);
+      setMessage("");
+
+      const response = await fetch(
+        "/api/admin/gallery",
+        {
+          cache: "no-store",
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Unable to load gallery."
+        );
+      }
+
+      setItems(result.items || []);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load gallery."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadGallery();
+
+    const interval =
+      window.setInterval(
+        loadGallery,
+        15000
+      );
+
+    return () =>
+      window.clearInterval(interval);
+  }, []);
+
+  async function updateStatus(
+    id: string,
+    status: "approved" | "rejected"
+  ) {
+    try {
+      setActionId(id);
+      setMessage("");
+
+      const response = await fetch(
+        "/api/admin/gallery",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            id,
+            status,
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Unable to update gallery item."
+        );
+      }
+
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status,
+              }
+            : item
+        )
+      );
+
+      // Immediately show the list the item moved into.
+      setFilter(status);
+
+      setMessage(
+        status === "approved"
+          ? "Memory approved successfully. It is now shown in the Approved list."
+          : "Memory rejected. It is now shown in the Rejected list."
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to update memory."
+      );
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function deleteItem(
+    item: GalleryItem
+  ) {
+    const confirmed =
+      window.confirm(
+        `Delete "${item.file_name}" permanently?`
+      );
+
+    if (!confirmed) return;
+
+    try {
+      setActionId(item.id);
+      setMessage("");
+
+      const response = await fetch(
+        "/api/admin/gallery",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            id: item.id,
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Unable to delete item."
+        );
+      }
+
+      setItems((current) =>
+        current.filter(
+          (galleryItem) =>
+            galleryItem.id !== item.id
+        )
+      );
+
+      setMessage(
+        "Gallery item deleted successfully."
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete item."
+      );
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  const counts = useMemo(
+    () => ({
+      all: items.length,
+      pending: items.filter(
+        (item) =>
+          item.status === "pending"
+      ).length,
+      approved: items.filter(
+        (item) =>
+          item.status === "approved"
+      ).length,
+      rejected: items.filter(
+        (item) =>
+          item.status === "rejected"
+      ).length,
+    }),
+    [items]
+  );
+
+  const filteredItems =
+    useMemo(() => {
+      if (filter === "all") {
+        return items;
+      }
+
+      return items.filter(
+        (item) =>
+          item.status === filter
+      );
+    }, [items, filter]);
+
+  return (
+    <div className="space-y-5">
+
+      {/* HEADER */}
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
+
+        <div>
+          <p className="text-xs font-bold tracking-[0.25em] text-[#a77a2b]">
+            COMMUNITY MEMORIES
+          </p>
+
+          <h2 className="mt-1 text-2xl font-bold text-[#761019]">
+            Gallery
+          </h2>
+
+          <p className="mt-1 text-sm text-[#777]">
+            Review photos and videos submitted by residents.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={loadGallery}
+          disabled={loading}
+          className="rounded-lg border border-[#eadfd2] bg-white px-4 py-2.5 text-xs font-semibold text-[#555] hover:bg-[#fffaf2] disabled:opacity-50"
+        >
+          <i className="fa-solid fa-rotate-right mr-2" />
+          Refresh
+        </button>
+
+      </div>
+
+      {/* COUNTS */}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+
+        {[
+          ["all", "All", "fa-images"],
+          ["pending", "Pending", "fa-clock"],
+          ["approved", "Approved", "fa-circle-check"],
+          ["rejected", "Rejected", "fa-circle-xmark"],
+        ].map(
+          ([key, label, icon]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() =>
+                setFilter(
+                  key as GalleryFilter
+                )
+              }
+              className={`rounded-xl border p-4 text-left transition ${
+                filter === key
+                  ? "border-[#d7b66a] bg-[#fffaf2]"
+                  : "border-[#eee5db] bg-white hover:border-[#ead8bd]"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#777]">
+                  {label}
+                </span>
+
+                <i
+                  className={`fa-solid ${icon} text-[#a70e18]`}
+                />
+              </div>
+
+              <div className="mt-2 text-2xl font-bold text-[#761019]">
+                {counts[key as GalleryFilter]}
+              </div>
+            </button>
+          )
+        )}
+
+      </div>
+
+      {/* MESSAGE */}
+
+      {message && (
+        <div className="rounded-xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#725e3a]">
+          {message}
+        </div>
+      )}
+
+      {/* ITEMS */}
+
+      {loading ? (
+        <div className="rounded-2xl border border-[#eadfd2] bg-white p-12 text-center">
+          <i className="fa-solid fa-spinner fa-spin text-2xl text-[#a70e18]" />
+          <p className="mt-3 text-sm text-[#777]">
+            Loading gallery...
+          </p>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#dfd0bd] bg-white p-12 text-center">
+          <i className="fa-solid fa-images text-4xl text-[#d7b66a]" />
+
+          <h3 className="mt-4 font-semibold text-[#555]">
+            No gallery items
+          </h3>
+
+          <p className="mt-1 text-sm text-[#999]">
+            There are no items in this category.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+
+          {filteredItems.map(
+            (item) => (
+              <div
+                key={item.id}
+                className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm"
+              >
+
+                {/* PREVIEW */}
+
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#f5eee5]">
+
+                  {item.preview_url &&
+                  item.type === "photo" ? (
+                    <img
+                      src={item.preview_url}
+                      alt={item.file_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : item.preview_url &&
+                    item.type === "video" ? (
+                    <video
+                      src={item.preview_url}
+                      controls
+                      preload="metadata"
+                      className="h-full w-full bg-black object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-4xl text-[#d7b66a]">
+                      <i
+                        className={
+                          item.type ===
+                          "video"
+                            ? "fa-solid fa-video"
+                            : "fa-solid fa-image"
+                        }
+                      />
+                    </div>
+                  )}
+
+                  <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                    {item.type}
+                  </div>
+
+                </div>
+
+                {/* DETAILS */}
+
+                <div className="p-4">
+
+                  <div className="truncate text-sm font-semibold text-[#444]">
+                    {item.file_name}
+                  </div>
+
+                  <div className="mt-2 text-xs text-[#999]">
+                    {item.uploaded_by && (
+                      <>
+                        By{" "}
+                        <span className="font-medium text-[#666]">
+                          {item.uploaded_by}
+                        </span>
+                        {" · "}
+                      </>
+                    )}
+
+                    {new Date(
+                      item.created_at
+                    ).toLocaleString("en-IN")}
+                  </div>
+
+                  <div className="mt-3">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
+                        item.status === "approved"
+                          ? "bg-[#edf8f0] text-[#23753b]"
+                          : item.status === "rejected"
+                            ? "bg-[#fff0f0] text-[#a70e18]"
+                            : "bg-[#fff7e8] text-[#9a6a16]"
+                      }`}
+                    >
+                      {item.status === "approved"
+                        ? "Approved"
+                        : item.status === "rejected"
+                          ? "Rejected"
+                          : "Pending Review"}
+                    </span>
+                  </div>
+
+                  {/* ACTIONS */}
+
+                  <div className="mt-4 flex gap-2">
+
+                    {item.status === "pending" && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={
+                            actionId === item.id
+                          }
+                          onClick={() =>
+                            updateStatus(
+                              item.id,
+                              "approved"
+                            )
+                          }
+                          className="flex-1 rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          <i className="fa-solid fa-check mr-1.5" />
+                          Approve
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={
+                            actionId === item.id
+                          }
+                          onClick={() =>
+                            updateStatus(
+                              item.id,
+                              "rejected"
+                            )
+                          }
+                          className="flex-1 rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
+                        >
+                          <i className="fa-solid fa-xmark mr-1.5" />
+                          Reject
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={
+                        actionId === item.id
+                      }
+                      onClick={() =>
+                        deleteItem(item)
+                      }
+                      className="rounded-lg border border-[#eadfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#777] transition hover:border-[#e8caca] hover:bg-[#fff6f4] hover:text-[#a70e18] disabled:opacity-50"
+                      title="Delete gallery item"
+                    >
+                      <i className="fa-solid fa-trash mr-1.5" />
+                      Delete
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </div>
+            )
+          )}
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+
