@@ -12,6 +12,7 @@ export default async function DurgaPujaDashboard() {
     { data: culturalPrograms, error: culturalProgramsError },
     { data: sevaRegistrations, error: sevaRegistrationsError },
     { data: inventoryHelp, error: inventoryHelpError },
+    { data: expenseDocuments, error: expenseDocumentsError },
   ] = await Promise.all([
     supabaseAdmin
       .from("contributions")
@@ -30,7 +31,7 @@ export default async function DurgaPujaDashboard() {
     supabaseAdmin
       .from("expenses")
       .select(
-        "id, title, category, paid_to, paid_by, amount, expense_date, payment_mode, reference_no, notes, refund_id, created_at, updated_at"
+        "id, title, category, paid_to, paid_by, amount, expense_date, payment_mode, reference_no, notes, refund_id, bill_path, created_at, updated_at"
       )
       .order("expense_date", { ascending: false }),
 
@@ -40,7 +41,7 @@ export default async function DurgaPujaDashboard() {
       .order("block", { ascending: true })
       .order("flat_no", { ascending: true }),
 
-    // Cultural Program: slot_number is assigned by the PostgreSQL sequence
+    // Cultural Program: slot_number is assigned by PostgreSQL
     // when the registration is created. The admin dashboard only reads it.
     supabaseAdmin
       .from("cultural_program_registrations")
@@ -49,7 +50,7 @@ export default async function DurgaPujaDashboard() {
       )
       .order("created_at", { ascending: false }),
 
-    // Seva has no cultural-program slot. Do not add slot_number here.
+    // Seva has no cultural-program slot.
     supabaseAdmin
       .from("seva_registrations")
       .select(
@@ -57,31 +58,39 @@ export default async function DurgaPujaDashboard() {
       )
       .order("created_at", { ascending: false }),
 
-      supabaseAdmin
-        .from("inventory_help_requests")
-        .select(`
-          id,
-          request_no,
-          name,
-          block,
-          flat_no,
-          mobile,
-          brand,
-          quantity,
-          status,
-          admin_note,
-          created_at,
-          verified_at,
-          inventory_item_id,
-          inventory_items (
-            item_name,
-            item_key,
-            unit
-          )
-        `)
-        .order("created_at", {
-          ascending: false,
-        }),
+    supabaseAdmin
+      .from("inventory_help_requests")
+      .select(`
+        id,
+        request_no,
+        name,
+        block,
+        flat_no,
+        mobile,
+        brand,
+        quantity,
+        status,
+        admin_note,
+        created_at,
+        verified_at,
+        inventory_item_id,
+        inventory_items (
+          item_name,
+          item_key,
+          unit
+        )
+      `)
+      .order("created_at", {
+        ascending: false,
+      }),
+
+    // Multiple bills/documents attached to expenses.
+    supabaseAdmin
+      .from("expense_documents")
+      .select(
+        "id, expense_id, file_name, file_path, file_type, file_size, created_at"
+      )
+      .order("created_at", { ascending: true }),
   ]);
 
   const error =
@@ -90,7 +99,9 @@ export default async function DurgaPujaDashboard() {
     expensesError ||
     lastYearPaidError ||
     culturalProgramsError ||
-    sevaRegistrationsError;
+    sevaRegistrationsError ||
+    inventoryHelpError ||
+    expenseDocumentsError;
 
   if (error) {
     console.error("Dashboard data fetch error:", error);
@@ -131,6 +142,24 @@ export default async function DurgaPujaDashboard() {
         initialExpenses={(expenses ?? []).map((item) => ({
           ...item,
           amount: Number(item.amount ?? 0),
+
+          // Keep the legacy bill_path field required by the Expense type.
+          // New/multiple bills are loaded through expense_documents below.
+          bill_path:
+            (item as { bill_path?: string | null }).bill_path ?? null,
+
+          documents: (expenseDocuments ?? [])
+            .filter((doc) => doc.expense_id === item.id)
+            .map((doc) => ({
+              id: doc.id,
+              expense_id: doc.expense_id,
+              file_name: doc.file_name,
+              file_path: doc.file_path,
+              file_type: doc.file_type ?? null,
+              file_size:
+                doc.file_size == null ? null : Number(doc.file_size),
+              created_at: doc.created_at,
+            })),
         }))}
 
         initialLastYearPaid={(lastYearPaid ?? []).map((item) => ({
