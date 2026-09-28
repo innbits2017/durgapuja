@@ -11,8 +11,6 @@ type Enemy = {
   size: number;
   speed: number;
   rotation: number;
-  flip: boolean;
-  depth: number;
 };
 
 const STARTING_PROTECTION = 42;
@@ -28,20 +26,14 @@ const MOVE_INTERVAL = 55;
 const randomBetween = (min: number, max: number) =>
   Math.random() * (max - min) + min;
 
-const createEnemy = (id: number): Enemy => {
-  const depth = randomBetween(0.72, 1.12);
-
-  return {
-    id,
-    x: randomBetween(7, 93),
-    y: randomBetween(8, 47),
-    size: randomBetween(82, 128) * depth,
-    speed: 0,
-    rotation: randomBetween(-7, 7),
-    flip: id % 2 === 0,
-    depth,
-  };
-};
+const createEnemy = (id: number): Enemy => ({
+  id,
+  x: randomBetween(7, 93),
+  y: randomBetween(12, 48),
+  size: randomBetween(68, 104),
+  speed: 0,
+  rotation: randomBetween(-8, 8),
+});
 
 export default function ProtectMaaDurgaPage() {
   const nextEnemyId = useRef(0);
@@ -63,7 +55,7 @@ export default function ProtectMaaDurgaPage() {
   const [misses, setMisses] = useState(0);
   const [level, setLevel] = useState(1);
   const [enemies, setEnemies] = useState<Enemy[]>([]);
-  const [message, setMessage] = useState("Protect Maa Durga!");
+  const [message, setMessage] = useState("Protect Maa Durga Temple!");
   const [bestScore, setBestScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [hitFlash, setHitFlash] = useState(false);
@@ -114,7 +106,7 @@ export default function ProtectMaaDurgaPage() {
     setLevel(1);
     setCombo(0);
     setHitFlash(false);
-    setMessage("Protect Maa Durga!");
+    setMessage("Protect the Maa Durga Temple!");
   };
 
   const hitEnemy = (enemyId: number) => {
@@ -146,7 +138,7 @@ export default function ProtectMaaDurgaPage() {
 
     window.setTimeout(() => {
       if (gameActiveRef.current) {
-        setMessage("Protect Maa Durga!");
+        setMessage("Protect the Maa Durga Temple!");
       }
     }, 550);
   };
@@ -439,86 +431,69 @@ export default function ProtectMaaDurgaPage() {
             </div>
           ) : (
             <>
-              {/* CINEMATIC GAME ARENA */}
-              <div
-                className={`relative mx-auto min-h-[620px] w-full max-w-7xl overflow-hidden rounded-[28px] border border-[#d8a94b] bg-[#090711] shadow-[0_30px_100px_rgba(0,0,0,0.55)] sm:min-h-[700px] ${
-                  hitFlash ? "ring-4 ring-[#ffd86b]/80" : ""
-                }`}
-              >
-                {/* Premium temple background */}
+              <div className={`relative mx-auto h-[560px] w-full max-w-7xl overflow-hidden rounded-[24px] border border-[#d7a83e] bg-[#26180f] shadow-[0_28px_80px_rgba(35,12,0,0.38)] sm:h-[680px] ${hitFlash ? "ring-4 ring-[#ffd76a]/80" : ""}`}>
+                {/* Bright cinematic temple arena */}
                 <div
-                  className="absolute inset-0 bg-cover bg-center"
+                  className="absolute inset-0 bg-cover bg-center bg-no-repeat"
                   style={{
-                    backgroundImage: "url('/images/games/maa-durga-temple-arena.png')",
+                    backgroundImage:
+                      "linear-gradient(rgba(255,225,170,0.06),rgba(30,8,3,0.16)), url('/images/games/save-temple-bg.webp')",
+                    filter: "brightness(1.10) saturate(1.08) contrast(1.04)",
                   }}
                 />
 
-                {/* Cinematic color grading */}
-                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(5,5,14,0.68)_0%,rgba(8,5,12,0.18)_30%,rgba(17,6,7,0.08)_55%,rgba(8,4,7,0.72)_100%)]" />
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,transparent_20%,rgba(0,0,0,0.34)_75%,rgba(0,0,0,0.72)_100%)]" />
+                {/* Warm cinematic atmosphere */}
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,220,145,0.10),transparent_42%),linear-gradient(180deg,rgba(10,6,8,0.20)_0%,transparent_24%,transparent_72%,rgba(12,4,2,0.32)_100%)]" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_48%,rgba(10,4,3,0.34)_100%)]" />
 
-                {/* Warm temple glow */}
-                <div className="pointer-events-none absolute left-1/2 top-[46%] h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ffb52b]/15 blur-3xl" />
-
-                {/* Atmospheric particles */}
-                <div className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
-                  <span className="absolute left-[12%] top-[30%] h-1 w-1 rounded-full bg-[#ffd76a] shadow-[0_0_14px_5px_rgba(255,191,55,0.55)]" />
-                  <span className="absolute left-[27%] top-[20%] h-1.5 w-1.5 rounded-full bg-[#fff0b0] shadow-[0_0_15px_5px_rgba(255,202,76,0.5)]" />
-                  <span className="absolute right-[18%] top-[31%] h-1 w-1 rounded-full bg-[#ffd76a] shadow-[0_0_14px_5px_rgba(255,191,55,0.55)]" />
-                  <span className="absolute right-[35%] top-[18%] h-1.5 w-1.5 rounded-full bg-[#fff0b0] shadow-[0_0_15px_5px_rgba(255,202,76,0.5)]" />
-                  <span className="absolute left-[42%] top-[27%] text-sm text-[#ffd36a] opacity-70">✦</span>
-                  <span className="absolute right-[28%] top-[42%] text-xs text-[#ffd36a] opacity-60">✦</span>
-                </div>
-
-                {/* TOP CINEMATIC HUD */}
-                <div className="absolute left-3 right-3 top-3 z-40 grid grid-cols-2 gap-2 sm:left-5 sm:right-5 sm:top-5 sm:grid-cols-[0.9fr_0.55fr_2fr_0.8fr_0.8fr] sm:gap-2">
-                  <div className="rounded-2xl border border-[#c99a3c] bg-[#090811]/90 px-4 py-2.5 text-center shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
-                    <p className="text-[8px] font-black tracking-[0.2em] text-[#e8c66d] sm:text-[10px]">SCORE</p>
-                    <p className="mt-0.5 text-2xl font-black text-white sm:text-3xl">{score}</p>
+                {/* Compact premium HUD — matching the reference */}
+                <div className="absolute left-2 right-2 top-2 z-50 grid grid-cols-[0.82fr_0.72fr_2.25fr_0.82fr_0.82fr] overflow-hidden rounded-[18px] border border-[#a87825] bg-[#090914]/90 shadow-[0_10px_30px_rgba(0,0,0,0.42)] backdrop-blur-md sm:left-4 sm:right-4 sm:top-3 sm:rounded-[20px]">
+                  <div className="flex min-h-[58px] flex-col items-center justify-center border-r border-[#8d6524]/70 px-1 sm:min-h-[70px]">
+                    <p className="text-[7px] font-black tracking-[0.14em] text-[#d6b15c] sm:text-[9px]">SCORE</p>
+                    <p className="mt-0.5 text-lg font-black leading-none text-white sm:text-2xl">{score}</p>
                   </div>
 
-                  <div className="rounded-2xl border border-[#c99a3c] bg-[#090811]/90 px-4 py-2.5 text-center shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
-                    <p className="text-[8px] font-black tracking-[0.2em] text-[#e8c66d] sm:text-[10px]">LEVEL</p>
-                    <p className="mt-0.5 text-2xl font-black text-white sm:text-3xl">{level}</p>
+                  <div className="flex min-h-[58px] flex-col items-center justify-center border-r border-[#8d6524]/70 px-1 sm:min-h-[70px]">
+                    <p className="text-[7px] font-black tracking-[0.14em] text-[#d6b15c] sm:text-[9px]">LEVEL</p>
+                    <p className="mt-0.5 text-lg font-black leading-none text-white sm:text-2xl">{level}</p>
                   </div>
 
-                  <div className="col-span-2 rounded-2xl border border-[#c99a3c] bg-[#090811]/90 px-4 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md sm:col-span-1">
-                    <div className="mb-1 flex items-center justify-between">
-                      <p className="text-[8px] font-black tracking-[0.15em] text-[#e8c66d] sm:text-[10px]">TEMPLE PROTECTION</p>
-                      <p className="text-sm font-black text-white sm:text-base">{protection}%</p>
+                  <div className="flex min-h-[58px] flex-col justify-center px-3 sm:min-h-[70px] sm:px-5">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="truncate text-[7px] font-black tracking-[0.12em] text-[#e0c16c] sm:text-[9px]">TEMPLE PROTECTION</p>
+                      <p className="text-[10px] font-black text-white sm:text-sm">{protection}%</p>
                     </div>
-                    <div className="h-3 overflow-hidden rounded-full border border-[#a87525] bg-[#160f13] shadow-inner">
+                    <div className="h-2 overflow-hidden rounded-full border border-[#c69a40] bg-[#17131b] shadow-inner sm:h-3">
                       <div
-                        className="h-full rounded-full bg-[linear-gradient(90deg,#b50918_0%,#f23b21_38%,#ffad3d_70%,#ffe38a_100%)] shadow-[0_0_18px_rgba(255,156,42,0.65)] transition-all duration-300"
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#c81722_0%,#ef5b20_48%,#ffd96a_100%)] shadow-[0_0_12px_rgba(255,184,65,0.65)] transition-all duration-300"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[#c99a3c] bg-[#090811]/90 px-4 py-2.5 text-center shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
-                    <p className="text-[8px] font-black tracking-[0.2em] text-[#e8c66d] sm:text-[10px]">COMBO</p>
-                    <p className="mt-0.5 text-2xl font-black text-[#ffbd45] sm:text-3xl">{combo}x</p>
+                  <div className="flex min-h-[58px] flex-col items-center justify-center border-l border-[#8d6524]/70 px-1 sm:min-h-[70px]">
+                    <p className="flex items-center gap-1 text-[7px] font-black tracking-[0.08em] text-[#d6b15c] sm:text-[9px]">
+                      <i className="fa-solid fa-fire text-[#ff7a1a]" /> COMBO
+                    </p>
+                    <p className="mt-0.5 text-lg font-black leading-none text-[#f1b94e] sm:text-2xl">{combo}x</p>
                   </div>
 
-                  <div className="rounded-2xl border border-[#c99a3c] bg-[#090811]/90 px-4 py-2.5 text-center shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
-                    <p className="text-[8px] font-black tracking-[0.2em] text-[#e8c66d] sm:text-[10px]">DEMONS</p>
-                    <p className="mt-0.5 text-2xl font-black text-white sm:text-3xl">{enemies.length}</p>
+                  <div className="flex min-h-[58px] flex-col items-center justify-center border-l border-[#8d6524]/70 px-1 sm:min-h-[70px]">
+                    <p className="flex items-center gap-1 text-[7px] font-black tracking-[0.08em] text-[#d6b15c] sm:text-[9px]">
+                      <i className="fa-solid fa-skull-crossbones text-[#e24a39]" /> DEMONS
+                    </p>
+                    <p className="mt-0.5 text-lg font-black leading-none text-white sm:text-2xl">{enemies.length}</p>
                   </div>
                 </div>
 
-                {/* Small status chips */}
-                <div className="absolute left-4 top-[132px] z-40 rounded-full border border-[#c99a3c] bg-[#090811]/90 px-3 py-1.5 text-[9px] font-black tracking-[0.12em] text-[#f4d37c] shadow-lg backdrop-blur-md sm:left-6 sm:top-[126px]">
-                  <i className="fa-solid fa-fire mr-1 text-[#ff6b2d]" /> {combo}x COMBO
+                {/* Subtle gameplay particles */}
+                <div className="pointer-events-none absolute inset-0 z-10">
+                  <span className="absolute left-[18%] top-[27%] h-1.5 w-1.5 rounded-full bg-[#ffe59a] shadow-[0_0_10px_#ffe59a]" />
+                  <span className="absolute left-[43%] top-[36%] h-1 w-1 rounded-full bg-[#fff1bd] shadow-[0_0_8px_#fff1bd]" />
+                  <span className="absolute right-[20%] top-[30%] h-1.5 w-1.5 rounded-full bg-[#ffd978] shadow-[0_0_10px_#ffd978]" />
                 </div>
 
-                <div className="absolute right-4 top-[132px] z-40 rounded-full border border-[#c99a3c] bg-[#090811]/90 px-3 py-1.5 text-[9px] font-black tracking-[0.12em] text-[#f4d37c] shadow-lg backdrop-blur-md sm:right-6 sm:top-[126px]">
-                  <i className="fa-solid fa-skull mr-1 text-[#ff5a45]" /> {enemies.length} DEMONS
-                </div>
-
-                {/* MAA DURGA PROTECTION AURA */}
-                <div className="pointer-events-none absolute bottom-[17%] left-1/2 z-[6] h-28 w-64 -translate-x-1/2 rounded-full bg-[#ffb92f]/20 blur-3xl" />
-
-                {/* MAHISHASUR ATTACKERS */}
+                {/* Mahishasur enemies */}
                 {enemies.map((enemy) => (
                   <button
                     key={enemy.id}
@@ -529,58 +504,43 @@ export default function ProtectMaaDurgaPage() {
                       event.stopPropagation();
                       hitEnemy(enemy.id);
                     }}
-                    className="absolute z-20 flex touch-manipulation select-none items-center justify-center transition-[filter,transform] duration-100 active:scale-90"
+                    className="absolute z-30 flex touch-manipulation select-none items-center justify-center transition-[filter,transform] duration-100 active:scale-90"
                     style={{
                       left: `${enemy.x}%`,
                       top: `${enemy.y}%`,
-                      width: enemy.size + 34,
-                      height: enemy.size + 34,
+                      width: enemy.size + 28,
+                      height: enemy.size + 28,
                       transform: `translate(-50%, -50%) rotate(${enemy.rotation}deg)`,
                       touchAction: "manipulation",
-                      filter: "drop-shadow(0 18px 14px rgba(0,0,0,0.62)) drop-shadow(0 0 12px rgba(255,55,20,0.20))",
+                      filter: "drop-shadow(0 12px 12px rgba(20,5,0,0.48)) drop-shadow(0 0 10px rgba(255,116,35,0.16))",
                     }}
                   >
-                    <span
-                      className="relative block"
-                      style={{
-                        width: enemy.size,
-                        height: enemy.size * 1.08,
-                        transform: enemy.flip ? "scaleX(-1)" : undefined,
-                      }}
-                    >
-                      <img
-                        src="/images/games/mahishasur-warrior.png"
-                        alt=""
-                        draggable={false}
-                        className="h-full w-full select-none object-contain"
-                      />
-                      <span className="pointer-events-none absolute inset-x-[24%] bottom-0 h-[18%] rounded-full bg-black/45 blur-md" />
-                    </span>
+                    <img
+                      src="/images/games/mahisasur-blue.webp"
+                      alt="Mahishasur"
+                      draggable={false}
+                      className="pointer-events-none block h-full w-full object-contain"
+                    />
                   </button>
                 ))}
 
-                {/* Temple protection zone */}
-                <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-30 h-[24%]">
-                  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-transparent to-black/35" />
-                  <div className="absolute inset-x-0 bottom-0 h-20 border-t border-[#e0ad47]/70 bg-gradient-to-t from-[#07050b]/95 via-[#10080c]/80 to-transparent" />
-                  <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-[#d9a944]/80 bg-[#090811]/90 px-5 py-2 text-center shadow-[0_0_25px_rgba(230,164,52,0.2)] backdrop-blur-md">
-                    <p className="text-[9px] font-black tracking-[0.2em] text-[#f2cd73]">PROTECT MAA DURGA</p>
-                    <p className="mt-0.5 text-[8px] tracking-[0.12em] text-white/60">KEEP MAHISHASUR AWAY FROM THE TEMPLE</p>
+                {/* Temple breach zone */}
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-[92px] bg-gradient-to-t from-[#08050a]/65 via-[#10070a]/25 to-transparent sm:h-[112px]" />
+                <div className="pointer-events-none absolute bottom-0 left-1/2 z-40 -translate-x-1/2">
+                  <div className="mb-3 rounded-full border border-[#d5a83f] bg-[#090914]/92 px-5 py-2.5 text-[9px] font-black tracking-[0.08em] text-[#f1d27a] shadow-[0_8px_25px_rgba(0,0,0,0.45)] sm:px-7 sm:py-3 sm:text-[11px]">
+                    {message}
                   </div>
                 </div>
 
-                {/* Floating gameplay message */}
-                <div className="pointer-events-none absolute bottom-[25%] left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#d9a944] bg-[#090811]/90 px-5 py-2 text-[9px] font-black tracking-[0.14em] text-[#ffd66f] shadow-[0_10px_30px_rgba(0,0,0,0.4)] backdrop-blur-md">
-                  {message}
-                </div>
-
-                {/* Cinematic vignette */}
-                <div className="pointer-events-none absolute inset-0 z-50 shadow-[inset_0_0_100px_rgba(0,0,0,0.62)]" />
+                {/* Protection warning glow */}
+                {protection <= 25 && (
+                  <div className="pointer-events-none absolute inset-0 z-15 animate-pulse border-2 border-red-500/40 shadow-[inset_0_0_70px_rgba(220,30,20,0.22)]" />
+                )}
               </div>
 
-              <div className="mx-auto mt-3 max-w-7xl rounded-xl border border-[#b88b38]/50 bg-[#0b0911] px-4 py-3 text-center shadow-lg">
-                <p className="text-[10px] leading-5 text-[#d8c59c]">
-                  Tap the Mahishasur warriors before they reach Maa Durga. Every successful hit restores temple protection; every breach drains it heavily. The attack grows faster as you survive.
+              <div className="mt-3 text-center">
+                <p className="text-[9px] font-medium tracking-[0.04em] text-[#8a7667] sm:text-[10px]">
+                  Hit Mahishasur to restore Shakti. Every demon that reaches the temple drains protection.
                 </p>
               </div>
             </>
