@@ -120,7 +120,7 @@ export default function CommitteeContributePage() {
 
   const upiId =
     process.env.NEXT_PUBLIC_UPI_ID ||
-    "9036082478@ptsbi";
+    "buhpuja26@slc";
 
   const upiName =
     process.env.NEXT_PUBLIC_UPI_NAME ||
@@ -330,6 +330,25 @@ export default function CommitteeContributePage() {
     `&tn=${encodeURIComponent(
       `BUH Durga Puja - ${block}-${flatNo}`
     )}`;
+
+  /*
+   * Open the UPI app directly using the UPI Intent.
+   *
+   * This is intentionally separate from the QR image below.
+   * The QR is only for Scan & Pay; this button launches the
+   * `upi://pay` deep link directly.
+   */
+  function openUpiApp() {
+    if (
+      !Number.isFinite(numericAmount) ||
+      numericAmount <= 0
+    ) {
+      setError("Please enter a valid contribution amount.");
+      return;
+    }
+
+    window.location.assign(upiUrl);
+  }
 
   /*
    * QR image URL.
@@ -1150,13 +1169,14 @@ export default function CommitteeContributePage() {
 
                     </div>
 
-                    <a
-                      href={upiUrl}
-                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white no-underline shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition duration-200 hover:-translate-y-px"
+                    <button
+                      type="button"
+                      onClick={openUpiApp}
+                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] border-0 bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition duration-200 hover:-translate-y-px"
                     >
                       <i className="fa-solid fa-mobile-screen-button" />
                       Open UPI App
-                    </a>
+                    </button>
 
                     {/* UTR ON SAME PAGE */}
 
