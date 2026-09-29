@@ -232,19 +232,6 @@ export default function ContributePage() {
     `&margin=10` +
     `&data=${encodeURIComponent(upiUrl)}`;
 
-  /*
-   * Launch the UPI payment through the device's UPI Intent flow.
-   * This is intentionally a button action rather than a link to the QR image.
-   */
-  function openUpiApp() {
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError("Please enter a valid contribution amount.");
-      return;
-    }
-
-    window.location.assign(upiUrl);
-  }
-
   function continueToPayment() {
     setError("");
 
@@ -959,15 +946,6 @@ export default function ContributePage() {
                       </div>
 
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={openUpiApp}
-                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] border-0 bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition duration-200 hover:-translate-y-px"
-                    >
-                      <i className="fa-solid fa-mobile-screen-button" />
-                      Open UPI App
-                    </button>
 
                     {/* UTR ON SAME PAGE */}
 
