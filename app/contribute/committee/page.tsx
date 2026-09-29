@@ -332,32 +332,59 @@ export default function CommitteeContributePage() {
     )}`;
 
   /*
-   * Open the UPI app directly using the UPI Intent.
-   *
-   * This is intentionally separate from the QR image below.
-   * The QR is only for Scan & Pay; this button launches the
-   * `upi://pay` deep link directly.
-   */
-  function openUpiApp() {
-    if (
-      !Number.isFinite(numericAmount) ||
-      numericAmount <= 0
-    ) {
-      setError("Please enter a valid contribution amount.");
-      return;
-    }
-
-    window.location.assign(upiUrl);
-  }
-
-  /*
    * QR image URL.
+   *
+   * This is kept only for Scan & Pay. The direct payment buttons below
+   * do NOT use this image and do NOT open a gallery QR flow.
    */
   const qrUrl =
     `https://api.qrserver.com/v1/create-qr-code/` +
     `?size=400x400` +
     `&margin=10` +
     `&data=${encodeURIComponent(upiUrl)}`;
+
+  /*
+   * Direct UPI app launch.
+   *
+   * Android Intent explicitly targets the selected UPI app. This is
+   * different from opening the QR image and selecting it from Gallery.
+   */
+  function openSpecificUpiApp(
+    app: "paytm" | "phonepe" | "gpay"
+  ) {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError("Please enter a valid contribution amount.");
+      return;
+    }
+
+    const query =
+      `pay?pa=${encodeURIComponent(upiId)}` +
+      `&pn=${encodeURIComponent(upiName)}` +
+      `&am=${numericAmount.toFixed(2)}` +
+      `&cu=INR` +
+      `&tn=${encodeURIComponent(`BUH Durga Puja - ${block}-${flatNo}`)}`;
+
+    const packages = {
+      paytm: "net.one97.paytm",
+      phonepe: "com.phonepe.app",
+      gpay: "com.google.android.apps.nbu.paisa.user",
+    };
+
+    const intentUrl =
+      `intent://${query}` +
+      `#Intent;scheme=upi;package=${packages[app]};end`;
+
+    window.location.href = intentUrl;
+  }
+
+  function openGenericUpiApp() {
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError("Please enter a valid contribution amount.");
+      return;
+    }
+
+    window.location.href = upiUrl;
+  }
 
   function continueToPayment() {
     setError("");
@@ -1169,14 +1196,51 @@ export default function CommitteeContributePage() {
 
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={openUpiApp}
-                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] border-0 bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition duration-200 hover:-translate-y-px"
-                    >
-                      <i className="fa-solid fa-mobile-screen-button" />
-                      Open UPI App
-                    </button>
+                    {/* DIRECT UPI APP PAYMENT */}
+                    <div className="mt-5 rounded-[14px] border border-[#ead8bd] bg-[#fffaf2] p-3">
+                      <p className="mb-3 text-center text-[12px] font-semibold text-[#5f4a2f]">
+                        Pay directly using your UPI app
+                      </p>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openSpecificUpiApp("gpay")}
+                          className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
+                        >
+                          Google Pay
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openSpecificUpiApp("phonepe")}
+                          className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
+                        >
+                          PhonePe
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openSpecificUpiApp("paytm")}
+                          className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
+                        >
+                          Paytm
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={openGenericUpiApp}
+                        className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#a70812] bg-white text-[13px] font-bold text-[#a70812] transition hover:-translate-y-px"
+                      >
+                        <i className="fa-solid fa-mobile-screen-button" />
+                        Open Other UPI App
+                      </button>
+
+                      <p className="mt-2 text-center text-[10px] leading-4 text-[#777]">
+                        These buttons launch the UPI payment directly. The QR code above is only for Scan & Pay.
+                      </p>
+                    </div>
 
                     {/* UTR ON SAME PAGE */}
 
