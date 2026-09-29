@@ -924,14 +924,14 @@ export default function ContributePage() {
                           {upiName}
                         </strong>
 
-                        <div className="inline-flex items-center gap-2 rounded-lg bg-[#f6f6f6] px-3 py-[7px] text-[11px] text-[#737373]">
-                          <span>
+                        <div className="mt-2 flex w-full max-w-[420px] items-center justify-between gap-3 rounded-[10px] border border-[#ead8bd] bg-[#fdf8ef] px-3 py-2">
+                          <span className="min-w-0 truncate text-[12px] font-medium text-[#555]">
                             {upiId}
                           </span>
 
                           <button
                             type="button"
-                            className="text-[#737373] hover:text-[#333]"
+                            className="flex shrink-0 items-center gap-1.5 rounded-[8px] border border-[#a70e18] bg-white px-3 py-1.5 text-[11px] font-bold text-[#a70e18] transition hover:bg-[#a70e18] hover:text-white"
                             onClick={() =>
                               navigator.clipboard?.writeText(
                                 upiId
@@ -940,6 +940,7 @@ export default function ContributePage() {
                             aria-label="Copy UPI ID"
                           >
                             <i className="fa-regular fa-copy" />
+                            <span>Copy UPI ID</span>
                           </button>
                         </div>
 
