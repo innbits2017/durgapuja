@@ -1202,21 +1202,13 @@ export default function CommitteeContributePage() {
                         Pay directly using your UPI app
                       </p>
 
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => openSpecificUpiApp("gpay")}
                           className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
                         >
                           Google Pay
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => openSpecificUpiApp("phonepe")}
-                          className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
-                        >
-                          PhonePe
                         </button>
 
                         <button
@@ -1228,18 +1220,20 @@ export default function CommitteeContributePage() {
                         </button>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={openGenericUpiApp}
-                        className="mt-2 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-[10px] border border-[#a70812] bg-white text-[13px] font-bold text-[#a70812] transition hover:-translate-y-px"
-                      >
-                        <i className="fa-solid fa-mobile-screen-button" />
-                        Open Other UPI App
-                      </button>
-
-                      <p className="mt-2 text-center text-[10px] leading-4 text-[#777]">
-                        These buttons launch the UPI payment directly. The QR code above is only for Scan & Pay.
-                      </p>
+                      <div className="mt-3 flex items-center justify-center gap-2 rounded-[10px] border border-[#ead8bd] bg-white px-3 py-2.5">
+                        <span className="text-[12px] font-medium text-[#333]">
+                          {upiId}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard?.writeText(upiId)}
+                          className="inline-flex min-h-[34px] items-center gap-1.5 rounded-[8px] border border-[#ddd] bg-[#f8f8f8] px-2.5 text-[11px] font-semibold text-[#555] transition hover:bg-[#f1f1f1]"
+                          aria-label="Copy UPI ID"
+                        >
+                          <i className="fa-regular fa-copy" />
+                          Copy
+                        </button>
+                      </div>
                     </div>
 
                     {/* UTR ON SAME PAGE */}
