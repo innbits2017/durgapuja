@@ -343,49 +343,6 @@ export default function CommitteeContributePage() {
     `&margin=10` +
     `&data=${encodeURIComponent(upiUrl)}`;
 
-  /*
-   * Direct UPI app launch.
-   *
-   * Android Intent explicitly targets the selected UPI app. This is
-   * different from opening the QR image and selecting it from Gallery.
-   */
-  function openSpecificUpiApp(
-    app: "paytm" | "phonepe" | "gpay"
-  ) {
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError("Please enter a valid contribution amount.");
-      return;
-    }
-
-    const query =
-      `pay?pa=${encodeURIComponent(upiId)}` +
-      `&pn=${encodeURIComponent(upiName)}` +
-      `&am=${numericAmount.toFixed(2)}` +
-      `&cu=INR` +
-      `&tn=${encodeURIComponent(`BUH Durga Puja - ${block}-${flatNo}`)}`;
-
-    const packages = {
-      paytm: "net.one97.paytm",
-      phonepe: "com.phonepe.app",
-      gpay: "com.google.android.apps.nbu.paisa.user",
-    };
-
-    const intentUrl =
-      `intent://${query}` +
-      `#Intent;scheme=upi;package=${packages[app]};end`;
-
-    window.location.href = intentUrl;
-  }
-
-  function openGenericUpiApp() {
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      setError("Please enter a valid contribution amount.");
-      return;
-    }
-
-    window.location.href = upiUrl;
-  }
-
   function continueToPayment() {
     setError("");
 
@@ -1196,31 +1153,9 @@ export default function CommitteeContributePage() {
 
                     </div>
 
-                    {/* DIRECT UPI APP PAYMENT */}
+                    {/* UPI ID / COPY */}
                     <div className="mt-5 rounded-[14px] border border-[#ead8bd] bg-[#fffaf2] p-3">
-                      <p className="mb-3 text-center text-[12px] font-semibold text-[#5f4a2f]">
-                        Pay directly using your UPI app
-                      </p>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openSpecificUpiApp("gpay")}
-                          className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
-                        >
-                          Google Pay
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => openSpecificUpiApp("paytm")}
-                          className="min-h-[48px] rounded-[10px] border border-[#e5e5e5] bg-white px-2 text-[12px] font-bold text-[#333] shadow-sm transition hover:-translate-y-px"
-                        >
-                          Paytm
-                        </button>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-center gap-2 rounded-[10px] border border-[#ead8bd] bg-white px-3 py-2.5">
+                      <div className="flex items-center justify-center gap-2">
                         <span className="text-[12px] font-medium text-[#333]">
                           {upiId}
                         </span>
@@ -1231,7 +1166,7 @@ export default function CommitteeContributePage() {
                           aria-label="Copy UPI ID"
                         >
                           <i className="fa-regular fa-copy" />
-                          Copy
+                          Copy UPI ID
                         </button>
                       </div>
                     </div>
