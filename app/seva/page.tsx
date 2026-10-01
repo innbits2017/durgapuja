@@ -45,7 +45,7 @@ const MATERIAL_SEVAS = [
     subtitle: "Sponsor dal for community meals.",
     icon: "fa-seedling",
     options: [
-      { id: "dal_5", label: "5 kg", price: 601 },
+      { id: "dal_5", label: "10 kg", price: 1201 },
     ],
   },
   {
@@ -1373,13 +1373,20 @@ export default function SevaPage() {
                       </div>
                     </div>
 
-                    <a
-                      href={upiUrl}
-                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white no-underline shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition hover:-translate-y-px"
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(upiId);
+                        } catch {
+                          // Clipboard access may be unavailable in some browsers.
+                        }
+                      }}
+                      className="mt-5 flex min-h-[50px] w-full items-center justify-center gap-2 rounded-[12px] border border-[#c79531] bg-[#fff8e9] text-[14px] font-bold text-[#a70e18] shadow-[0_8px_18px_rgba(167,8,18,0.08)] transition hover:-translate-y-px"
                     >
-                      <i className="fa-solid fa-mobile-screen-button" />
-                      Open UPI App
-                    </a>
+                      <i className="fa-regular fa-copy" />
+                      Copy UPI ID
+                    </button>
 
                     <div className="mt-6">
                       <InputField
