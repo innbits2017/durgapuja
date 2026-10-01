@@ -163,6 +163,7 @@ function validateStallData(body: any) {
       stall_type: stallType,
       category,
       description,
+      table_required: body?.tableRequired === true,
     },
   };
 }
@@ -185,7 +186,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from("stall_enquiries")
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, status, admin_notes, created_at, updated_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, admin_notes, created_at, updated_at"
       )
       .order("created_at", {
         ascending: false,
@@ -285,7 +286,7 @@ export async function POST(request: Request) {
         admin_notes: adminNotes,
       })
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, status, admin_notes, created_at, updated_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, admin_notes, created_at, updated_at"
       )
       .single();
 
@@ -424,7 +425,7 @@ export async function PATCH(request: Request) {
       })
       .eq("id", id)
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, status, admin_notes, created_at, updated_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, admin_notes, created_at, updated_at"
       )
       .single();
 

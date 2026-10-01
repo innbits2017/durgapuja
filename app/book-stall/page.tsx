@@ -44,6 +44,7 @@ export default function StallBookingPage() {
   const [stallType, setStallType] = useState<StallType | "">("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
+  const [tableRequired, setTableRequired] = useState(false);
   const [flatSearch, setFlatSearch] = useState("");
   const [showFlatDropdown, setShowFlatDropdown] = useState(false);
   const [agree, setAgree] = useState(false);
@@ -109,6 +110,7 @@ export default function StallBookingPage() {
         body: JSON.stringify({
           name: name.trim(), mobile, block, flatNo, stallType,
           category, description: description.trim(),
+          tableRequired,
         }),
       });
       const data = await response.json();
@@ -129,6 +131,7 @@ export default function StallBookingPage() {
   function resetForm() {
     setName(""); setMobile(""); setBlock(""); setFlatNo("");
     setStallType(""); setCategory(""); setDescription("");
+    setTableRequired(false);
     setFlatSearch(""); setShowFlatDropdown(false); setAgree(false);
     setError(""); setBookingNo(""); setSubmitted(false);
   }
@@ -199,6 +202,22 @@ export default function StallBookingPage() {
                     <label className="text-[13px] font-semibold text-[#333]">Description About Your Stall<span className="ml-1 text-[#a70e18]">*</span></label>
                     <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} maxLength={500} placeholder="Briefly describe what you will sell, display or promote at your stall." className="min-h-[125px] resize-none rounded-[11px] border border-[#dedede] bg-white px-4 py-3 text-[14px] outline-none placeholder:text-[#a1a5ad] focus:border-[#b3121b] focus:shadow-[0_0_0_4px_rgba(179,18,27,0.06)]" />
                     <div className="text-right text-[10px] text-[#999]">{description.length}/500</div>
+                  </div>
+                  <div className="rounded-[12px] border border-[#ead9c7] bg-[#fff8eb] px-4 py-3">
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={tableRequired}
+                        onChange={(e) => setTableRequired(e.target.checked)}
+                        className="mt-1 h-4 w-4 accent-[#a70e18]"
+                      />
+                      <span className="text-[13px] font-semibold leading-[1.5] text-[#333]">
+                        Do you require a table?
+                        <span className="mt-1 block text-[11px] font-normal text-[#7b6d61]">
+                          Table charges will be extra as per the market standard.
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 </div>
 

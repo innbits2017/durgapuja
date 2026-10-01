@@ -26,7 +26,7 @@ const navItems = [
     href: "/cultural-program",
   },
   {
-    label: "Book Stall",
+    label: "Register Stall",
     href: "/book-stall",
   },
   {

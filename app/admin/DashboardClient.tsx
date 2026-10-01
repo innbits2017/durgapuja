@@ -790,22 +790,42 @@ export default function DashboardClient({
 
   const financialStats =
     useMemo(() => {
+      const sevaAmount =
+        sevaRegistrations
+          .filter(
+            (item) =>
+              item.status === "confirmed" ||
+              item.status === "completed"
+          )
+          .reduce(
+            (sum, item) =>
+              sum + getSevaMaterialTotal(item),
+            0
+          );
+
       const verifiedFunds =
         contributionStats.verifiedAmount +
         donationStats.verifiedAmount;
 
+      const totalAvailableFunds =
+        verifiedFunds +
+        sevaAmount;
+
       const remaining =
-        verifiedFunds -
+        totalAvailableFunds -
         expenseStats.total;
 
       return {
         verifiedFunds,
+        sevaAmount,
+        totalAvailableFunds,
         remaining,
       };
     }, [
       contributionStats.verifiedAmount,
       donationStats.verifiedAmount,
       expenseStats.total,
+      sevaRegistrations,
     ]);
 
   /* ==========================================================
@@ -2416,10 +2436,18 @@ export default function DashboardClient({
 
       {
         Particular:
-          "Total Verified Funds",
+          "Confirmed & Completed Seva",
 
         Amount:
-          financialStats.verifiedFunds,
+          financialStats.sevaAmount,
+      },
+
+      {
+        Particular:
+          "Total Available Funds",
+
+        Amount:
+          financialStats.totalAvailableFunds,
       },
 
       {
@@ -2845,7 +2873,7 @@ export default function DashboardClient({
 
         {section === "overview" && (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 
               <FinancialCard
                 icon="fa-house-user"
@@ -2866,6 +2894,15 @@ export default function DashboardClient({
               />
 
               <FinancialCard
+                icon="fa-hands-praying"
+                label="Seva"
+                value={money(
+                  financialStats.sevaAmount
+                )}
+                sub="Confirmed & completed Seva"
+              />
+
+              <FinancialCard
                 icon="fa-receipt"
                 label="Total Expenses"
                 value={money(
@@ -2880,7 +2917,7 @@ export default function DashboardClient({
                 value={money(
                   financialStats.remaining
                 )}
-                sub="Verified funds minus expenses"
+                sub="Contributions + Support + Seva − Expenses"
                 highlight
               />
 
@@ -2898,7 +2935,7 @@ export default function DashboardClient({
                   </h2>
 
                   <p className="mt-1 text-sm text-[#858585]">
-                    Current position based on verified funds and recorded expenses.
+                    Current position based on verified contributions, external support, Seva and recorded expenses.
                   </p>
                 </div>
 
@@ -2933,12 +2970,20 @@ export default function DashboardClient({
                   positive
                 />
 
+                <SummaryRow
+                  label="Confirmed & Completed Seva"
+                  amount={
+                    financialStats.sevaAmount
+                  }
+                  positive
+                />
+
                 <div className="border-t border-[#eee5db] pt-3">
 
                   <SummaryRow
-                    label="Total Verified Funds"
+                    label="Total Available Funds"
                     amount={
-                      financialStats.verifiedFunds
+                      financialStats.totalAvailableFunds
                     }
                     bold
                   />
@@ -5716,6 +5761,7 @@ type StallEnquiry = {
   stall_type: "Food" | "Product" | "Brand";
   category: string;
   description: string;
+  table_required: boolean;
   status: "pending" | "approved" | "rejected";
   admin_notes: string | null;
   created_at: string;
@@ -5787,6 +5833,7 @@ function StallManagement() {
     stallType: "Food" as (typeof STALL_TYPES)[number],
     category: "",
     description: "",
+    tableRequired: false,
     status: "pending" as "pending" | "approved" | "rejected",
     adminNotes: "",
   });
@@ -5815,7 +5862,12 @@ function StallManagement() {
         );
       }
 
-      setEnquiries(data.enquiries || []);
+      setEnquiries(
+        (data.enquiries || []).map((item: StallEnquiry) => ({
+          ...item,
+          table_required: Boolean(item.table_required),
+        }))
+      );
       setError("");
     } catch (err) {
       console.error("Stall enquiries load error:", err);
@@ -5885,6 +5937,7 @@ function StallManagement() {
         item.stall_type,
         item.category,
         item.description,
+        item.table_required ? "table required yes" : "table required no",
         item.status,
       ]
         .join(" ")
@@ -5902,6 +5955,7 @@ function StallManagement() {
       stallType: "Food",
       category: "",
       description: "",
+      tableRequired: false,
       status: "pending",
       adminNotes: "",
     });
@@ -6135,6 +6189,7 @@ function StallManagement() {
             category: form.category,
             description:
               form.description.trim(),
+            tableRequired: form.tableRequired,
             status: form.status,
             adminNotes:
               form.adminNotes.trim() || null,
@@ -6152,7 +6207,10 @@ function StallManagement() {
       }
 
       setEnquiries((current) => [
-        data.enquiry,
+        {
+          ...data.enquiry,
+          table_required: Boolean(data.enquiry?.table_required),
+        },
         ...current,
       ]);
 
@@ -6354,6 +6412,29 @@ function StallManagement() {
                       <div className="mt-0.5 font-semibold text-[#333]">
                         {item.category}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-[#ead9c7] bg-[#fff8eb] px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-[#8b8178]">
+                          Table Required
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-[#333]">
+                          {item.table_required ? "Yes" : "No"}
+                        </div>
+                      </div>
+                      {item.table_required && (
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-[#a70e18]">
+                            ₹120 / table / day
+                          </div>
+                          <div className="text-[11px] text-[#7b6d61]">
+                            Arrange in advance
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -6674,8 +6755,7 @@ function StallManagement() {
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      description:
-                        event.target.value,
+                      description: event.target.value,
                     }))
                   }
                   rows={4}
@@ -6686,6 +6766,28 @@ function StallManagement() {
                 <div className="mt-1 text-right text-[11px] text-[#999]">
                   {form.description.length}/500
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-[#ead9c7] bg-[#fff8eb] p-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={form.tableRequired}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        tableRequired: event.target.checked,
+                      }))
+                    }
+                    className="mt-1 h-4 w-4 accent-[#a70e18]"
+                  />
+                  <span className="text-sm font-semibold text-[#333]">
+                    Table Required
+                    <span className="mt-1 block text-xs font-normal text-[#7b6d61]">
+                      ₹120 per table per day. Please confirm table requirement in advance.
+                    </span>
+                  </span>
+                </label>
               </div>
 
               <div>

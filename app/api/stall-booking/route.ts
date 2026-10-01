@@ -85,6 +85,9 @@ export async function POST(request: Request) {
     const category = String(body?.category || "").trim();
     const description = String(body?.description || "").trim();
 
+    // Table requirement
+    const tableRequired = body?.tableRequired === true;
+
     /* ==========================================================
        VALIDATION
     ========================================================== */
@@ -204,10 +207,11 @@ export async function POST(request: Request) {
         stall_type: stallType,
         category,
         description,
+        table_required: tableRequired,
         status: "pending",
       })
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, status, created_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, created_at"
       )
       .single();
 
