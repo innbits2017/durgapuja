@@ -214,7 +214,7 @@ export default function StallBookingPage() {
                       <span className="text-[13px] font-semibold leading-[1.5] text-[#333]">
                         Do you require a table?
                         <span className="mt-1 block text-[11px] font-normal text-[#7b6d61]">
-                          Table charges will be extra as per the market standard.
+                          Table charges will be extra as per the market standard. Please contact committee for more details.
                         </span>
                       </span>
                     </label>
