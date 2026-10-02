@@ -9,6 +9,20 @@ import {
 type CollectionChannel = "committee" | "online";
 type PaymentMethod = "upi" | "cash";
 
+type SavedContribution = {
+  id: string;
+  payment_id: string | null;
+  name: string;
+  block: string;
+  flat_no: string;
+  mobile: string;
+  amount: number | string;
+  payment_method: PaymentMethod | string | null;
+  collection_status: string | null;
+  collection_channel: string | null;
+  status: string;
+};
+
 const COMMITTEE_COLLECTION_STATUSES = [
   "Pay Now",
   "Door Lock",
@@ -598,7 +612,9 @@ export async function POST(request: Request) {
             .select()
             .single();
 
-        contribution = data;
+        contribution = data
+          ? (data as SavedContribution)
+          : null;
         saveError = error;
       } else if (!existingContribution) {
         const { data, error } =
@@ -611,7 +627,9 @@ export async function POST(request: Request) {
             .select()
             .single();
 
-        contribution = data;
+        contribution = data
+          ? (data as SavedContribution)
+          : null;
         saveError = error;
       } else {
         return NextResponse.json(
