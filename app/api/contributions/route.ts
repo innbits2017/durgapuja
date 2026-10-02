@@ -585,7 +585,7 @@ export async function POST(request: Request) {
       };
 
       let contribution:
-        | Record<string, unknown>
+        | SavedContribution
         | null = null;
 
       let saveError:
