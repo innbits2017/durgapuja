@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 type Step = 1 | 2 | 3;
 
@@ -83,7 +82,6 @@ const FLATS: Record<Block, string[]> = {
 };
 
 export default function CommitteeContributePage() {
-  const searchParams = useSearchParams();
 
   const [step, setStep] = useState<Step>(1);
 
@@ -211,9 +209,10 @@ export default function CommitteeContributePage() {
    * /contribute/committee?block=P1&flat=001&status=Pay%20Now
    */
   useEffect(() => {
-    const urlBlock = searchParams.get("block");
-    const urlFlat = searchParams.get("flat");
-    const urlStatus = searchParams.get("status");
+    const params = new URLSearchParams(window.location.search);
+    const urlBlock = params.get("block");
+    const urlFlat = params.get("flat");
+    const urlStatus = params.get("status");
 
     if (
       urlBlock &&
@@ -232,7 +231,7 @@ export default function CommitteeContributePage() {
       setCollectionStatus("Pay Now");
       setStep(1);
     }
-  }, [searchParams]);
+  }, []);
 
   /*
    * Close searchable flat dropdown when clicking outside.
