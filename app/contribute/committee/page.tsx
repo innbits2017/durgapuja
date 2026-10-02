@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Step = 1 | 2 | 3;
 
@@ -12,6 +13,7 @@ type CollectionStatus =
   | "Pay Now"
   | "Door Lock"
   | "Follow-up"
+  | "Collect Later"
   | "Not Interested";
 
 type PaymentMethod = "upi" | "cash";
@@ -33,6 +35,7 @@ const COLLECTION_STATUSES: CollectionStatus[] = [
   "Pay Now",
   "Door Lock",
   "Follow-up",
+  "Collect Later",
   "Not Interested",
 ];
 
@@ -80,6 +83,8 @@ const FLATS: Record<Block, string[]> = {
 };
 
 export default function CommitteeContributePage() {
+  const searchParams = useSearchParams();
+
   const [step, setStep] = useState<Step>(1);
 
   const [name, setName] = useState("");
@@ -90,7 +95,7 @@ export default function CommitteeContributePage() {
   const [mobile, setMobile] = useState("");
   const [amount, setAmount] = useState("");
 
-  const [collectionStatus] =
+  const [collectionStatus, setCollectionStatus] =
     useState<CollectionStatus>("Pay Now");
 
   const [collectedBy, setCollectedBy] = useState("");
@@ -197,6 +202,37 @@ export default function CommitteeContributePage() {
 
     loadLastYearPaid();
   }, []);
+
+  /*
+   * Preselect Block + Flat when this page is opened from
+   * the Pending Collections page.
+   *
+   * Example:
+   * /contribute/committee?block=P1&flat=001&status=Pay%20Now
+   */
+  useEffect(() => {
+    const urlBlock = searchParams.get("block");
+    const urlFlat = searchParams.get("flat");
+    const urlStatus = searchParams.get("status");
+
+    if (
+      urlBlock &&
+      BLOCKS.includes(urlBlock as Block)
+    ) {
+      setBlock(urlBlock as Block);
+    }
+
+    if (urlFlat) {
+      setFlatNo(urlFlat);
+      setFlatSearch(urlFlat);
+      setShowFlatDropdown(false);
+    }
+
+    if (urlStatus === "Pay Now") {
+      setCollectionStatus("Pay Now");
+      setStep(1);
+    }
+  }, [searchParams]);
 
   /*
    * Close searchable flat dropdown when clicking outside.
@@ -343,6 +379,109 @@ export default function CommitteeContributePage() {
     `&margin=10` +
     `&data=${encodeURIComponent(upiUrl)}`;
 
+  function handleCollectionStatusChange(
+    value: string
+  ) {
+    const nextStatus =
+      value as CollectionStatus;
+
+    setCollectionStatus(nextStatus);
+    setError("");
+
+    // Non-payment collection statuses do not need
+    // payment details. Clear them so an old Pay Now
+    // entry cannot accidentally be submitted.
+    if (nextStatus !== "Pay Now") {
+      setName("");
+      setResidentType("");
+      setMobile("");
+      setAmount("");
+      setCollectedBy("");
+      setUtr("");
+      setPaymentMethod("upi");
+      setStep(1);
+    }
+  }
+
+  async function submitCollectionStatus() {
+    setError("");
+
+    if (!block) {
+      setError("Please select your block.");
+      return;
+    }
+
+    if (!flatNo) {
+      setError("Please select your flat number.");
+      return;
+    }
+
+    if (isFlatPaid(flatNo)) {
+      setError(
+        "This flat has already completed its contribution."
+      );
+      return;
+    }
+
+    if (collectionStatus === "Pay Now") {
+      continueToPayment();
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        "/api/contributions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            block,
+            flatNo,
+            collectionStatus,
+            collectionChannel:
+              "committee",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(
+          data.error ||
+            "Unable to update collection status."
+        );
+        return;
+      }
+
+      const generatedPaymentId =
+        data?.contribution?.paymentId ||
+        data?.contribution?.id ||
+        "";
+
+      setPaymentId(
+        String(generatedPaymentId)
+      );
+
+      // A collection-status record is NOT a completed
+      // payment, so do not add the flat to paidFlats.
+      setStep(3);
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        "Something went wrong. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function continueToPayment() {
     setError("");
 
@@ -363,7 +502,7 @@ export default function CommitteeContributePage() {
 
     if (isFlatPaid(flatNo)) {
       setError(
-        "This flat already has a contribution record."
+        "This flat has already completed its contribution."
       );
       return;
     }
@@ -408,7 +547,7 @@ export default function CommitteeContributePage() {
 
     if (isFlatPaid(flatNo)) {
       setError(
-        "This flat already has a contribution record."
+        "This flat has already completed its contribution."
       );
       setStep(1);
       return;
@@ -601,7 +740,11 @@ export default function CommitteeContributePage() {
 
             <StepItem
               number="1"
-              title="Contribution Details"
+              title={
+                collectionStatus === "Pay Now"
+                  ? "Contribution Details"
+                  : "Collection Status"
+              }
               active={step >= 1}
               completed={step > 1}
             />
@@ -616,7 +759,11 @@ export default function CommitteeContributePage() {
 
             <StepItem
               number="2"
-              title="Payment & Confirmation"
+              title={
+                collectionStatus === "Pay Now"
+                  ? "Payment & Confirmation"
+                  : "Status"
+              }
               active={step >= 2}
               completed={step > 2}
             />
@@ -659,6 +806,31 @@ export default function CommitteeContributePage() {
 
                 <div className="flex flex-col gap-3">
 
+                  {/* COLLECTION STATUS */}
+
+                  <SelectField
+                    icon="fa-list-check"
+                    label="Collection Status"
+                    value={collectionStatus}
+                    placeholder="Select Collection Status"
+                    options={COLLECTION_STATUSES}
+                    onChange={
+                      handleCollectionStatusChange
+                    }
+                  />
+
+                  {collectionStatus !== "Pay Now" && (
+                    <div className="flex items-start gap-3 rounded-[11px] border border-[#f0dfbd] bg-[#fff8eb] px-4 py-3 text-[12px] text-[#725e3a]">
+                      <i className="mt-0.5 fa-solid fa-circle-info" />
+                      <p className="leading-[1.5]">
+                        Only Block and Flat No. are required.
+                        No payment is recorded for this status.
+                      </p>
+                    </div>
+                  )}
+
+                  {collectionStatus === "Pay Now" && (
+                    <>
                   {/* NAME */}
 
                   <InputField
@@ -668,6 +840,9 @@ export default function CommitteeContributePage() {
                     value={name}
                     onChange={setName}
                   />
+
+                    </>
+                  )}
 
                   {/* BLOCK + FLAT */}
 
@@ -790,6 +965,9 @@ export default function CommitteeContributePage() {
 
                     </div>
                   </div>
+
+                  {collectionStatus === "Pay Now" && (
+                    <>
 
                   {/* LAST YEAR PAID */}
                   {block && flatNo && (
@@ -941,6 +1119,8 @@ export default function CommitteeContributePage() {
                       </div>
                     </div>
                   </div>
+                    </>
+                  )}
 
                   {/* ERROR */}
 
@@ -954,16 +1134,31 @@ export default function CommitteeContributePage() {
 
                   <button
                     type="button"
-                    className="flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] border-0 bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition duration-200 hover:-translate-y-px"
+                    disabled={loading}
+                    className="flex min-h-[50px] w-full items-center justify-center gap-[15px] rounded-[12px] border-0 bg-gradient-to-br from-[#a70812] to-[#c70d18] text-[14px] font-bold text-white shadow-[0_10px_23px_rgba(167,8,18,0.20)] transition duration-200 hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={
-                      continueToPayment
+                      submitCollectionStatus
                     }
                   >
                     <span>
-                      Continue to Payment
+                      {loading
+                        ? "Saving..."
+                        : collectionStatus ===
+                            "Pay Now"
+                          ? "Continue to Payment"
+                          : `Submit ${collectionStatus}`}
                     </span>
 
-                    <i className="fa-solid fa-arrow-right" />
+                    <i
+                      className={`fa-solid ${
+                        loading
+                          ? "fa-spinner fa-spin"
+                          : collectionStatus ===
+                              "Pay Now"
+                            ? "fa-arrow-right"
+                            : "fa-check"
+                      }`}
+                    />
                   </button>
 
                 </div>
@@ -1323,11 +1518,15 @@ export default function CommitteeContributePage() {
                 </h2>
 
                 <p className="mt-2">
-                  Thank you, <strong>{name}</strong>.
+                  {collectionStatus === "Pay Now"
+                    ? <>Thank you, <strong>{name}</strong>.</>
+                    : <>Collection status updated for <strong>{block}-{flatNo}</strong>.</>}
                 </p>
 
                 <p className="mt-2 text-[13px] text-[#707070]">
-                  Your contribution has been successfully recorded by the committee.
+                  {collectionStatus === "Pay Now"
+                    ? "Your contribution has been successfully recorded by the committee."
+                    : `The resident has been marked as ${collectionStatus}. No payment has been recorded.`}
                 </p>
 
                 <div className="mx-auto my-[25px] max-w-[350px] rounded-[13px] bg-[#fcf7ed] p-[17px]">
@@ -1355,25 +1554,38 @@ export default function CommitteeContributePage() {
                     </strong>
                   </div>
 
-                  <div className="mt-2 flex justify-between text-[12px] text-[#666]">
-                    <span>Amount</span>
-                    <strong>
-                      ₹
-                      {numericAmount.toLocaleString(
-                        "en-IN"
-                      )}
-                    </strong>
-                  </div>
+                  {collectionStatus === "Pay Now" && (
+                    <>
+                      <div className="mt-2 flex justify-between text-[12px] text-[#666]">
+                        <span>Amount</span>
+                        <strong>
+                          ₹
+                          {numericAmount.toLocaleString(
+                            "en-IN"
+                          )}
+                        </strong>
+                      </div>
 
-                  <div className="mt-2 flex justify-between text-[12px] text-[#666]">
-                    <span>Payment</span>
-                    <strong>
-                      {paymentMethod ===
-                      "upi"
-                        ? "UPI / Online"
-                        : "Cash"}
-                    </strong>
-                  </div>
+                      <div className="mt-2 flex justify-between text-[12px] text-[#666]">
+                        <span>Payment</span>
+                        <strong>
+                          {paymentMethod ===
+                          "upi"
+                            ? "UPI / Online"
+                            : "Cash"}
+                        </strong>
+                      </div>
+                    </>
+                  )}
+
+                  {collectionStatus !== "Pay Now" && (
+                    <div className="mt-2 flex justify-between text-[12px] text-[#666]">
+                      <span>Status</span>
+                      <strong className="text-[#a70e18]">
+                        {collectionStatus}
+                      </strong>
+                    </div>
+                  )}
 
                 </div>
 
@@ -1384,16 +1596,17 @@ export default function CommitteeContributePage() {
                   <div>
 
                     <strong>
-                      Payment Recorded
+                      {collectionStatus === "Pay Now"
+                        ? "Payment Recorded"
+                        : "Collection Status Recorded"}
                     </strong>
 
                     <p className="mt-1 text-[12px] leading-[1.5] text-[#666]">
-
-                      {paymentMethod ===
-                      "upi"
-                        ? "The UPI payment has been recorded with the UTR provided."
-                        : "The cash payment has been recorded by the committee member selected above."}
-
+                      {collectionStatus === "Pay Now"
+                        ? paymentMethod === "upi"
+                          ? "The UPI payment has been recorded with the UTR provided."
+                          : "The cash payment has been recorded by the committee member selected above."
+                        : `No payment was recorded. The flat is marked as ${collectionStatus} and remains available for future collection.`}
                     </p>
 
                   </div>

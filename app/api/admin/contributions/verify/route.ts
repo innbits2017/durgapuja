@@ -9,6 +9,23 @@ import {
 } from "@/lib/whatsapp";
 
 /* ============================================================
+   TYPES
+============================================================ */
+
+const COLLECTION_STATUSES = [
+  "Door Lock",
+  "Not Interested",
+  "Collect Later",
+] as const;
+
+type CollectionStatus =
+  (typeof COLLECTION_STATUSES)[number];
+
+type PaymentStatus =
+  | "verified"
+  | "rejected";
+
+/* ============================================================
    POST
 ============================================================ */
 
@@ -47,7 +64,7 @@ export async function POST(request: Request) {
         ? body.id.trim()
         : "";
 
-    const status = body.status;
+    const requestedStatus = body.status;
 
     // =========================================================
     // VALIDATION
@@ -65,9 +82,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const isPaymentStatus =
+      requestedStatus === "verified" ||
+      requestedStatus === "rejected";
+
+    const isCollectionStatus =
+      COLLECTION_STATUSES.includes(
+        requestedStatus as CollectionStatus
+      );
+
     if (
-      status !== "verified" &&
-      status !== "rejected"
+      !isPaymentStatus &&
+      !isCollectionStatus
     ) {
       return NextResponse.json(
         {
@@ -100,6 +126,7 @@ export async function POST(request: Request) {
         utr,
         payment_method,
         collection_channel,
+        collection_status,
         status,
         verified_at,
         whatsapp_submitted_at,
@@ -140,14 +167,30 @@ export async function POST(request: Request) {
     }
 
     // =========================================================
-    // PREVENT RE-PROCESSING FINAL STATUS
+    // PREVENT RE-PROCESSING FINAL PAYMENT STATUS
     //
-    // If a contribution is already verified/rejected,
-    // don't send another WhatsApp message accidentally.
+    // A verified/rejected payment should not be converted into
+    // a collection-status record.
     // =========================================================
 
     if (
-      existing.status === status
+      isCollectionStatus &&
+      existing.status === "verified"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "A verified contribution cannot be changed to a collection status.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      isPaymentStatus &&
+      existing.status === requestedStatus
     ) {
       return NextResponse.json(
         {
@@ -161,7 +204,28 @@ export async function POST(request: Request) {
           whatsappError: null,
 
           message:
-            `Contribution is already ${status}.`,
+            `Contribution is already ${requestedStatus}.`,
+        }
+      );
+    }
+
+    if (
+      isCollectionStatus &&
+      existing.collection_status === requestedStatus
+    ) {
+      return NextResponse.json(
+        {
+          success: true,
+
+          contribution:
+            existing,
+
+          whatsappSent: false,
+
+          whatsappError: null,
+
+          message:
+            `Collection status is already ${requestedStatus}.`,
         }
       );
     }
@@ -192,8 +256,74 @@ export async function POST(request: Request) {
     }
 
     // =========================================================
-    // UPDATE STATUS
+    // COLLECTION STATUS UPDATE
+    //
+    // Door Lock / Not Interested / Collect Later are collection
+    // decisions, not payments.
+    //
+    // Therefore:
+    // - status remains pending
+    // - verified_at remains null
+    // - payment details are not created
+    // - collection_status is updated
     // =========================================================
+
+    if (isCollectionStatus) {
+      const {
+        data: contribution,
+        error: updateError,
+      } = await supabaseAdmin
+        .from("contributions")
+        .update({
+          collection_status:
+            requestedStatus,
+          status: "pending",
+          verified_at: null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error(
+          "COLLECTION STATUS UPDATE ERROR:",
+          updateError
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              updateError.message ||
+              "Unable to update collection status.",
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+
+        contribution,
+
+        whatsappSent: false,
+
+        whatsappError: null,
+
+        message:
+          `Collection status updated to ${requestedStatus}.`,
+      });
+    }
+
+    // =========================================================
+    // PAYMENT STATUS UPDATE
+    //
+    // Existing Verify / Reject behavior remains unchanged.
+    // =========================================================
+
+    const status =
+      requestedStatus as PaymentStatus;
 
     const verifiedAt =
       status === "verified"

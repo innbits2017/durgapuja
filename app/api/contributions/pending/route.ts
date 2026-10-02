@@ -1,46 +1,53 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+const PENDING_STATUSES = [
+  "Door Lock",
+  "Follow-up",
+  "Collect Later",
+] as const;
+
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from("contributions")
       .select(
-        "block, flat_no, status, collection_status"
+        `
+        id,
+        name,
+        block,
+        flat_no,
+        collection_status,
+        collection_channel,
+        created_at,
+        status
+        `
       )
-      .eq("status", "verified")
-      .eq("collection_status", "Pay Now");
+      .in("collection_status", PENDING_STATUSES)
+      .neq("status", "verified")
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (error) {
       console.error(
-        "PAID FLATS ERROR:",
+        "PENDING CONTRIBUTIONS ERROR:",
         error
       );
 
       return NextResponse.json(
         {
           error:
-            "Unable to load paid flats.",
+            "Unable to load pending collections.",
         },
         { status: 500 }
       );
     }
 
-    const flats = (data ?? []).map(
-      (item) => ({
-        key: `${item.block}-${item.flat_no}`,
-        block: item.block,
-        flat_no: item.flat_no,
-        status: item.status,
-        collection_status:
-          item.collection_status,
-      })
-    );
-
-    return NextResponse.json(flats);
+    return NextResponse.json(data ?? []);
   } catch (error) {
     console.error(
-      "PAID FLATS ROUTE ERROR:",
+      "PENDING CONTRIBUTIONS ROUTE ERROR:",
       error
     );
 

@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const flatNo = String(body?.flatNo || "").trim();
     const mobile = String(body?.mobile || "").replace(/\D/g, "");
     const quantity = Number(body?.quantity);
+    const brand = body?.brand ? String(body.brand).trim() : null;
 
     if (!inventoryItemId) {
       return NextResponse.json(
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
         block,
         flat_no: flatNo,
         mobile,
-        brand: null,
+        brand,
         quantity,
         status: "verified",
         admin_note: "Added manually by Puja Committee.",
@@ -204,6 +205,7 @@ export async function PATCH(request: Request) {
     const flatNo = String(body?.flatNo || "").trim();
     const mobile = String(body?.mobile || "").replace(/\D/g, "");
     const quantity = Number(body?.quantity);
+    const brand = body?.brand ? String(body.brand).trim() : null;
 
     if (!id) {
       return NextResponse.json(
@@ -341,6 +343,7 @@ export async function PATCH(request: Request) {
         flat_no: flatNo,
         mobile,
         quantity,
+        brand,
       })
       .eq("id", id)
       .select("*")

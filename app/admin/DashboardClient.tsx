@@ -23,6 +23,17 @@ type ComparisonFilter =
   | "new"
   | "notpaid";
 
+type CollectionStatus =
+  | "Door Lock"
+  | "Not Interested"
+  | "Collect Later";
+
+const COLLECTION_UPDATE_STATUSES: CollectionStatus[] = [
+  "Door Lock",
+  "Not Interested",
+  "Collect Later",
+];
+
 type Contribution = {
   id: string;
   name: string;
@@ -221,7 +232,8 @@ type CollectionFilter =
   | "Pay Now"
   | "Door Lock"
   | "Follow-up"
-  | "Not Interested";
+  | "Not Interested"
+  | "Collect Later";
 
 type PaymentFilter =
   | "all"
@@ -449,6 +461,27 @@ export default function DashboardClient({
   const [editingExpense, setEditingExpense] =
     useState<Expense | null>(null);
 
+  const [showCollectLaterModal, setShowCollectLaterModal] =
+    useState(false);
+
+  const [collectLaterLoading, setCollectLaterLoading] =
+    useState(false);
+
+  const [collectLaterError, setCollectLaterError] =
+    useState("");
+
+  const [collectLaterForm, setCollectLaterForm] =
+    useState({
+      id: "",
+      name: "",
+      block: "",
+      flatNo: "",
+      residentType: "Owner",
+      mobile: "",
+      expectedAmount: "",
+      collectionStatus: "Collect Later" as CollectionStatus,
+    });
+
   const [showRefundModal, setShowRefundModal] =
     useState(false);
 
@@ -580,6 +613,13 @@ export default function DashboardClient({
             (item) =>
               item.collection_status ===
               "Not Interested"
+          ),
+
+        collectLater:
+          contributions.filter(
+            (item) =>
+              item.collection_status ===
+              "Collect Later"
           ),
       };
 
@@ -1452,6 +1492,124 @@ export default function DashboardClient({
     ).toLocaleString(
       "en-IN"
     )}`;
+
+  /* ==========================================================
+     COLLECT LATER
+  ========================================================== */
+
+  function openCollectLaterModal(item?: {
+    id?: string;
+    name?: string | null;
+    block?: string | null;
+    flat_no?: string;
+    resident_type?: string | null;
+    mobile?: string;
+    amount?: number | null;
+    collection_status?: string | null;
+  }) {
+    setCollectLaterError("");
+    setCollectLaterForm({
+      id: item?.id || "",
+      name: item?.name || "",
+      block: item?.block || "",
+      flatNo: item?.flat_no || "",
+      residentType: item?.resident_type || "Owner",
+      mobile: item?.mobile || "",
+      expectedAmount:
+        item?.amount != null && Number(item.amount) > 0
+          ? String(item.amount)
+          : "",
+      collectionStatus:
+        COLLECTION_UPDATE_STATUSES.includes(
+          item?.collection_status as CollectionStatus
+        )
+          ? (item?.collection_status as CollectionStatus)
+          : "Collect Later",
+    });
+    setShowCollectLaterModal(true);
+  }
+
+  async function saveCollectLater() {
+    setCollectLaterError("");
+
+    const name = collectLaterForm.name.trim();
+    const block = collectLaterForm.block.trim();
+    const flatNo = collectLaterForm.flatNo.trim();
+    const isNotInterested =
+      collectLaterForm.collectionStatus === "Not Interested";
+    const mobile = collectLaterForm.mobile.replace(/\D/g, "");
+    const expectedAmount = Number(collectLaterForm.expectedAmount || 0);
+
+    if (!name || !block || !flatNo || !collectLaterForm.residentType) {
+      setCollectLaterError("Please complete the resident and flat details.");
+      return;
+    }
+
+    // Mobile is not required for residents who are not interested.
+    if (!isNotInterested && !/^\d{10}$/.test(mobile)) {
+      setCollectLaterError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    // No expected contribution amount is required for Not Interested.
+    if (!isNotInterested && (!Number.isFinite(expectedAmount) || expectedAmount <= 0)) {
+      setCollectLaterError("Please enter the expected contribution amount.");
+      return;
+    }
+
+    setCollectLaterLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/contributions/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: collectLaterForm.id || undefined,
+          name,
+          block,
+          flatNo,
+          residentType: collectLaterForm.residentType,
+          mobile,
+          expectedAmount,
+          status: collectLaterForm.collectionStatus,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setCollectLaterError(
+          result.error || "Unable to save the Collect Later record."
+        );
+        return;
+      }
+
+      const updated = result.contribution as Contribution;
+
+      setContributions((current) => {
+        const exists = current.some((item) => item.id === updated.id);
+        return exists
+          ? current.map((item) =>
+              item.id === updated.id ? { ...item, ...updated } : item
+            )
+          : [updated, ...current];
+      });
+
+      setCollectionFilter(collectLaterForm.collectionStatus);
+      setSection("contributions");
+      setShowCollectLaterModal(false);
+      setMessage(
+        collectLaterForm.id
+          ? `Collection updated to ${collectLaterForm.collectionStatus}.`
+          : `Collection status saved as ${collectLaterForm.collectionStatus}.`
+      );
+    } catch (error) {
+      console.error(error);
+      setCollectLaterError("Something went wrong. Please try again.");
+    } finally {
+      setCollectLaterLoading(false);
+    }
+  }
 
   /* ==========================================================
      UPDATE CONTRIBUTION
@@ -3090,7 +3248,7 @@ export default function DashboardClient({
 
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
 
                 <CollectionSummaryCard
                   icon="fa-credit-card"
@@ -3174,6 +3332,24 @@ export default function DashboardClient({
                 />
 
                 <CollectionSummaryCard
+                  icon="fa-clock"
+                  label="Collect Later"
+                  count={
+                    contributionStats.collectionSummary.collectLater.length
+                  }
+                  amount={contributionStats.collectionSummary.collectLater.reduce(
+                    (sum, item) =>
+                      sum + Number(item.amount || 0),
+                    0
+                  )}
+                  description="Payment to be collected later"
+                  onClick={() => {
+                    setSection("contributions");
+                    setCollectionFilter("Collect Later");
+                  }}
+                />
+
+                <CollectionSummaryCard
                   icon="fa-circle-xmark"
                   label="Not Interested"
                   count={
@@ -3236,16 +3412,29 @@ export default function DashboardClient({
 
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={
-                      exportContributions
-                    }
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white"
-                  >
-                    <i className="fa-solid fa-file-excel" />
-                    Export
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+
+                    <button
+                      type="button"
+                      onClick={() => openCollectLaterModal()}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-4 text-sm font-semibold text-[#9a6a16]"
+                    >
+                      <i className="fa-solid fa-clock" />
+                      Collect Later
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={
+                        exportContributions
+                      }
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white"
+                    >
+                      <i className="fa-solid fa-file-excel" />
+                      Export
+                    </button>
+
+                  </div>
 
                 </div>
 
@@ -3355,6 +3544,9 @@ export default function DashboardClient({
 
                     <option value="Not Interested">
                       Not Interested
+                    </option>
+                    <option value="Collect Later">
+                      Collect Later
                     </option>
                   </select>
 
@@ -3654,13 +3846,25 @@ export default function DashboardClient({
                               }
                             />
                           ) : item.contribution ? (
-                            <span className="text-xs text-[#999]">
-                              No action
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openCollectLaterModal(item)}
+                              disabled={loadingId === item.id}
+                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
+                            >
+                              <i className="fa-solid fa-pen-to-square" />
+                              Update Collection
+                            </button>
                           ) : (
-                            <span className="inline-flex rounded-full bg-[#fff7e8] px-3 py-1.5 text-[11px] font-semibold text-[#9a6a16]">
-                              Follow-up
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openCollectLaterModal(item)}
+                              disabled={loadingId === item.id}
+                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
+                            >
+                              <i className="fa-solid fa-clock" />
+                              Collect Later
+                            </button>
                           )}
 
                         </td>
@@ -3882,6 +4086,16 @@ export default function DashboardClient({
                         </div>
                       )}
 
+                    <button
+                      type="button"
+                      onClick={() => openCollectLaterModal(item)}
+                      disabled={loadingId === item.id}
+                      className="mt-2 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
+                    >
+                      <i className="fa-solid fa-clock" />
+                      Update Collection
+                    </button>
+
                   </div>
                 )
               )}
@@ -3896,6 +4110,175 @@ export default function DashboardClient({
             )}
 
           </section>
+        )}
+
+        {showCollectLaterModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-2xl border border-[#eadfd2] bg-white shadow-2xl">
+
+              <div className="flex items-start justify-between border-b border-[#eee5db] px-5 py-4">
+                <div>
+                  <h3 className="font-serif text-xl font-bold text-[#292929]">
+                    Update Collection
+                  </h3>
+                  <p className="mt-1 text-xs text-[#777]">
+                    Select the resident&apos;s current collection status. No payment is recorded from this update.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCollectLaterModal(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f3ed] text-[#777]"
+                  aria-label="Close"
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              </div>
+
+              <div className="space-y-3 px-5 py-5">
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-[#555]">
+                    Collection Status
+                  </label>
+                  <select
+                    value={collectLaterForm.collectionStatus}
+                    onChange={(e) =>
+                      setCollectLaterForm((v) => ({
+                        ...v,
+                        collectionStatus: e.target.value as CollectionStatus,
+                      }))
+                    }
+                    className="h-11 w-full rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm font-semibold outline-none focus:border-[#a70e18]"
+                  >
+                    {COLLECTION_UPDATE_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <input
+                  value={collectLaterForm.name}
+                  onChange={(e) => setCollectLaterForm((v) => ({ ...v, name: e.target.value }))}
+                  placeholder="Resident name"
+                  className="h-11 w-full rounded-lg border border-[#ddd6cd] px-3 text-sm outline-none focus:border-[#a70e18]"
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={collectLaterForm.block}
+                    onChange={(e) => setCollectLaterForm((v) => ({ ...v, block: e.target.value, flatNo: "" }))}
+                    className="h-11 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]"
+                  >
+                    <option value="">Select Block</option>
+                    <option value="P1">P1</option>
+                    <option value="P2">P2</option>
+                    <option value="Villa">Villa</option>
+                  </select>
+
+                  <input
+                    value={collectLaterForm.flatNo}
+                    onChange={(e) => setCollectLaterForm((v) => ({ ...v, flatNo: e.target.value }))}
+                    placeholder="Flat No. e.g. 105"
+                    className="h-11 rounded-lg border border-[#ddd6cd] px-3 text-sm outline-none focus:border-[#a70e18]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={collectLaterForm.residentType}
+                    onChange={(e) => setCollectLaterForm((v) => ({ ...v, residentType: e.target.value }))}
+                    className={`h-11 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18] ${
+                      collectLaterForm.collectionStatus === "Not Interested"
+                        ? "col-span-2"
+                        : ""
+                    }`}
+                  >
+                    <option value="Owner">Owner</option>
+                    <option value="Tenant">Tenant</option>
+                  </select>
+
+                  {collectLaterForm.collectionStatus !== "Not Interested" && (
+                    <input
+                      value={collectLaterForm.mobile}
+                      onChange={(e) =>
+                        setCollectLaterForm((v) => ({
+                          ...v,
+                          mobile: e.target.value.replace(/\D/g, ""),
+                        }))
+                      }
+                      maxLength={10}
+                      inputMode="numeric"
+                      placeholder="10-digit mobile"
+                      className="h-11 rounded-lg border border-[#ddd6cd] px-3 text-sm outline-none focus:border-[#a70e18]"
+                    />
+                  )}
+                </div>
+
+                {collectLaterForm.collectionStatus !== "Not Interested" && (
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[#555]">
+                      Expected Contribution Amount
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={collectLaterForm.expectedAmount}
+                      onChange={(e) =>
+                        setCollectLaterForm((v) => ({
+                          ...v,
+                          expectedAmount: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter expected amount"
+                      className="h-11 w-full rounded-lg border border-[#ddd6cd] px-3 text-sm outline-none focus:border-[#a70e18]"
+                    />
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-[#f0dfbd] bg-[#fff8eb] px-3 py-2.5 text-xs text-[#725e3a]">
+                  <i className="mr-2 fa-solid fa-circle-info" />
+                  {collectLaterForm.collectionStatus === "Door Lock"
+                    ? "Resident was unavailable / door was locked. No payment is recorded."
+                    : collectLaterForm.collectionStatus === "Not Interested"
+                      ? "Resident is not interested in contributing. No payment is recorded."
+                      : "Resident will pay later. No payment is recorded now."}
+                </div>
+
+                {collectLaterError && (
+                  <div className="rounded-lg border border-[#f1cccc] bg-[#fff1f1] px-3 py-2.5 text-xs text-[#a20d16]">
+                    {collectLaterError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowCollectLaterModal(false)}
+                    className="h-11 rounded-lg border border-[#ddd6cd] bg-white text-sm font-semibold text-[#666]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveCollectLater}
+                    disabled={collectLaterLoading}
+                    className="h-11 rounded-lg bg-[#a70e18] text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {collectLaterLoading
+                      ? "Saving..."
+                      : collectLaterForm.id
+                        ? "Update Collection"
+                        : `Confirm ${collectLaterForm.collectionStatus}`}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ====================================================
@@ -8485,7 +8868,10 @@ function CollectionBadge({
         : status ===
             "Follow-up"
           ? "bg-[#eef5ff] text-[#3166a8]"
-          : "bg-[#f3f3f3] text-[#666]";
+          : status ===
+              "Collect Later"
+            ? "bg-[#fff7e8] text-[#9a6a16]"
+            : "bg-[#f3f3f3] text-[#666]";
 
   return (
     <span
@@ -10779,4 +11165,3 @@ function GalleryManager() {
     </div>
   );
 }
-

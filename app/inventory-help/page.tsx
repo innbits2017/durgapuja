@@ -13,6 +13,13 @@ const BLOCKS = [
   "Villa",
 ] as const;
 
+const GAS_CYLINDER_BRANDS = [
+  "Indane",
+  "HP",
+  "Bharatgas",
+  "Others",
+] as const;
+
 type Block = (typeof BLOCKS)[number];
 
 function generateFlats(
@@ -409,6 +416,12 @@ export default function InventoryHelpPage() {
   const [brand, setBrand] =
     useState("");
 
+  const [brandOption, setBrandOption] =
+    useState("");
+
+  const [brandOther, setBrandOther] =
+    useState("");
+
   const [openDropdown, setOpenDropdown] =
     useState<string | null>(null);
 
@@ -535,6 +548,8 @@ export default function InventoryHelpPage() {
     setMobile("");
     setQuantity("");
     setBrand("");
+    setBrandOption("");
+    setBrandOther("");
     setError("");
     setStep(1);
   }
@@ -606,14 +621,20 @@ export default function InventoryHelpPage() {
       return;
     }
 
-    if (
-      isGasCylinder &&
-      !brand.trim()
-    ) {
-      setError(
-        "Please enter the gas cylinder brand."
-      );
+    const finalBrand =
+      isGasCylinder
+        ? brandOption === "Others"
+          ? brandOther.trim()
+          : brandOption.trim()
+        : "";
+
+    if (isGasCylinder && !finalBrand) {
+      setError("Please select or enter the gas cylinder brand.");
       return;
+    }
+
+    if (isGasCylinder) {
+      setBrand(finalBrand);
     }
 
     setOpenDropdown(null);
@@ -643,7 +664,9 @@ export default function InventoryHelpPage() {
                 selectedItem?.id,
               brand:
                 isGasCylinder
-                  ? brand.trim()
+                  ? (brandOption === "Others"
+                      ? brandOther.trim()
+                      : brandOption.trim())
                   : null,
               quantity:
                 Number(quantity),
@@ -691,6 +714,8 @@ export default function InventoryHelpPage() {
     setMobile("");
     setQuantity("");
     setBrand("");
+    setBrandOption("");
+    setBrandOther("");
     setError("");
     setRequestNo("");
     setOpenDropdown(null);
@@ -1486,17 +1511,48 @@ export default function InventoryHelpPage() {
                   </div>
 
                   {isGasCylinder && (
-                    <div className="mt-3">
-                      <InputField
-                        icon="fa-fire-flame-simple"
-                        label="Gas Cylinder Brand"
-                        placeholder="Indane, HP, Bharatgas..."
-                        value={brand}
-                        onChange={
-                          setBrand
-                        }
-                        required
-                      />
+                    <div className="mt-3 space-y-2">
+                      <label className="block">
+                        <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.8px] text-[#765f53]">
+                          Gas Cylinder Brand <span className="text-[#a70e18]">*</span>
+                        </span>
+                        <div className="flex min-h-[48px] items-center rounded-[12px] border border-[#eadfd2] bg-[#fffaf4] px-3 focus-within:border-[#c99a43] focus-within:bg-white">
+                          <span className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[#f8e8e5] text-[#a70e18]">
+                            <i className="fa-solid fa-fire-flame-simple" />
+                          </span>
+                          <select
+                            value={brandOption}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setBrandOption(value);
+                              setBrand(value === "Others" ? brandOther : value);
+                              if (value !== "Others") setBrandOther("");
+                            }}
+                            className="w-full bg-transparent text-[13px] text-[#292929] outline-none"
+                          >
+                            <option value="">Select brand</option>
+                            {GAS_CYLINDER_BRANDS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </label>
+
+                      {brandOption === "Others" && (
+                        <InputField
+                          icon="fa-pen"
+                          label="Enter Brand"
+                          placeholder="Enter gas cylinder brand"
+                          value={brandOther}
+                          onChange={(value) => {
+                            setBrandOther(value);
+                            setBrand(value);
+                          }}
+                          required
+                        />
+                      )}
                     </div>
                   )}
 
