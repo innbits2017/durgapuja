@@ -5,6 +5,7 @@ const PENDING_STATUSES = [
   "Door Lock",
   "Follow-up",
   "Collect Later",
+  "Not Interested",
 ] as const;
 
 export async function GET() {
@@ -23,10 +24,16 @@ export async function GET() {
         status
         `
       )
-      .in("collection_status", PENDING_STATUSES)
+      .in(
+        "collection_status",
+        PENDING_STATUSES
+      )
       .neq("status", "verified")
-      .order("created_at", {
-        ascending: false,
+      .order("block", {
+        ascending: true,
+      })
+      .order("flat_no", {
+        ascending: true,
       });
 
     if (error) {

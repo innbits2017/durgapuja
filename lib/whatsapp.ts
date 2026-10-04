@@ -541,11 +541,11 @@ export async function sendInventoryHelpVerifiedWhatsApp({
       "inventoryhelp",
 
     bodyParameters: [
-      name,
-      itemName,
-      String(quantity),
-      block,
-      flatNo,
+      name,                  // [Member Name]
+      itemName,              // [Item Name]
+      String(quantity),      // [Quantity]
+      block,                 // [Block]
+      flatNo,                // [Flat No.]
     ],
   });
 }

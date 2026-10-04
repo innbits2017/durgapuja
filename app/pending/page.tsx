@@ -6,7 +6,8 @@ import Link from "next/link";
 type PendingStatus =
   | "Door Lock"
   | "Follow-up"
-  | "Collect Later";
+  | "Collect Later"
+  | "Not Interested";
 
 type PendingContribution = {
   id: string;
@@ -26,6 +27,7 @@ const STATUS_OPTIONS: Array<
   "Door Lock",
   "Follow-up",
   "Collect Later",
+  "Not Interested",
 ];
 
 function formatDate(date: string) {
@@ -60,6 +62,13 @@ function getStatusStyle(status: PendingStatus) {
         bg: "#FEFCE8",
         text: "#A16207",
         border: "#FEF08A",
+      };
+
+    case "Not Interested":
+      return {
+        bg: "#F3F4F6",
+        text: "#4B5563",
+        border: "#D1D5DB",
       };
 
     default:
@@ -146,6 +155,12 @@ export default function PendingCollectionsPage() {
           item.collection_status ===
           "Collect Later"
       ).length,
+
+      notInterested: records.filter(
+        (item) =>
+          item.collection_status ===
+          "Not Interested"
+      ).length,
     };
   }, [records]);
 
@@ -153,7 +168,7 @@ export default function PendingCollectionsPage() {
     const searchText =
       search.trim().toLowerCase();
 
-    return records.filter((item) => {
+    const filtered = records.filter((item) => {
       const matchesStatus =
         activeStatus === "All" ||
         item.collection_status ===
@@ -182,6 +197,26 @@ export default function PendingCollectionsPage() {
           .includes(searchText)
       );
     });
+
+    const phaseOrder: Record<string, number> = {
+      P1: 1,
+      P2: 2,
+      Villa: 3,
+    };
+
+    return filtered.sort((a, b) => {
+      const phaseCompare =
+        (phaseOrder[a.block] ?? 99) -
+        (phaseOrder[b.block] ?? 99);
+
+      if (phaseCompare !== 0) {
+        return phaseCompare;
+      }
+
+      return (
+        Number(a.flat_no) - Number(b.flat_no)
+      );
+    });
   }, [
     records,
     activeStatus,
@@ -203,8 +238,7 @@ export default function PendingCollectionsPage() {
             </h1>
 
             <p className="mt-2 text-gray-600">
-              Flats that need another collection
-              visit or follow-up.
+              Flats arranged phase-wise and in ascending flat order.
             </p>
           </div>
 
@@ -217,7 +251,7 @@ export default function PendingCollectionsPage() {
         </div>
 
         {/* Statistics */}
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-500">
               Total Pending
@@ -255,6 +289,16 @@ export default function PendingCollectionsPage() {
 
             <p className="mt-2 text-3xl font-bold text-yellow-800">
               {counts.collectLater}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-100 p-5">
+            <p className="text-sm font-medium text-gray-600">
+              Not Interested
+            </p>
+
+            <p className="mt-2 text-3xl font-bold text-gray-700">
+              {counts.notInterested}
             </p>
           </div>
         </div>
@@ -383,14 +427,30 @@ export default function PendingCollectionsPage() {
 
                     <tbody>
                       {filteredRecords.map(
-                        (item) => {
+                        (item, index) => {
                           const style =
                             getStatusStyle(
                               item.collection_status
                             );
+                          const previous =
+                            filteredRecords[index - 1];
+                          const showPhase =
+                            !previous ||
+                            previous.block !== item.block;
 
                           return (
-                            <tr
+                            <>
+                              {showPhase && (
+                                <tr key={`phase-${item.block}`}>
+                                  <td
+                                    colSpan={6}
+                                    className="bg-gray-100 px-5 py-3 text-sm font-bold uppercase tracking-wider text-gray-700"
+                                  >
+                                    {item.block}
+                                  </td>
+                                </tr>
+                              )}
+                              <tr
                               key={item.id}
                               className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                             >
@@ -446,7 +506,8 @@ export default function PendingCollectionsPage() {
                                   Pay Now
                                 </Link>
                               </td>
-                            </tr>
+                              </tr>
+                            </>
                           );
                         }
                       )}
@@ -458,17 +519,26 @@ export default function PendingCollectionsPage() {
               {/* Mobile Cards */}
               <div className="space-y-4 md:hidden">
                 {filteredRecords.map(
-                  (item) => {
+                  (item, index) => {
                     const style =
                       getStatusStyle(
                         item.collection_status
                       );
 
+                    const previous =
+                      filteredRecords[index - 1];
+                    const showPhase =
+                      !previous ||
+                      previous.block !== item.block;
+
                     return (
-                      <div
-                        key={item.id}
-                        className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-                      >
+                      <div key={item.id}>
+                        {showPhase && (
+                          <div className="mb-2 mt-6 rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold uppercase tracking-wider text-gray-700 first:mt-0">
+                            {item.block}
+                          </div>
+                        )}
+                        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <p className="text-sm font-medium text-gray-500">
@@ -531,6 +601,7 @@ export default function PendingCollectionsPage() {
                         >
                           Pay Now
                         </Link>
+                        </div>
                       </div>
                     );
                   }
