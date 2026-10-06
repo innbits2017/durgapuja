@@ -30,7 +30,7 @@ const events = [
     color: "bg-[#8f1019]",
     schedule: {
       morning: "Belwar Nyota Puja",
-      afternoon: "Games & Activities",
+      afternoon: "Diya & Thali Painting Competition",
       evening: "Carnival (Food Stall + Flea Market + Games)",
       night: "Dinner",
     },
@@ -73,7 +73,7 @@ const events = [
     schedule: {
       morning: "Breakfast + Mahanavami Puja",
       afternoon: "Kanya Pujan + Community Lunch",
-      evening: "Grand Cultural Programme",
+      evening: "Grand Cultural Programme + Dhunuchi Dance",
       night: "Dinner",
     },
   },
