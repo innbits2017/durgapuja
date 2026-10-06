@@ -1519,32 +1519,34 @@ export default function HomePage() {
                         </div>
 
                         <div className="overflow-hidden rounded-xl border border-[#eadbc6] bg-[#fffaf2]">
-                          {[
-                            {
-                              icon: "fa-sun",
-                              label: "Morning",
-                              value: event.schedule.morning,
-                            },
-                            {
-                              icon: "fa-cloud-sun",
-                              label: "Afternoon",
-                              value: event.schedule.afternoon,
-                            },
-                            {
-                              icon: "fa-music",
-                              label: "Evening",
-                              value: event.schedule.evening,
-                            },
-                            {
-                              icon: "fa-moon",
-                              label: "Night",
-                              value: event.schedule.night,
-                            },
-                          ].map((slot, slotIndex) => (
+                        {[
+                          {
+                            icon: "fa-sun",
+                            label: "Morning",
+                            value: event.schedule.morning,
+                          },
+                          {
+                            icon: "fa-cloud-sun",
+                            label: "Afternoon",
+                            value: event.schedule.afternoon,
+                          },
+                          {
+                            icon: "fa-music",
+                            label: "Evening",
+                            value: event.schedule.evening,
+                          },
+                          {
+                            icon: "fa-moon",
+                            label: "Night",
+                            value: event.schedule.night,
+                          },
+                        ]
+                          .filter((slot) => slot.value !== "-")
+                          .map((slot, slotIndex, visibleSlots) => (
                             <div
                               key={slot.label}
                               className={`grid grid-cols-[88px_1fr] gap-2 px-3 py-3 sm:grid-cols-[100px_1fr] sm:px-4 sm:py-3.5 ${
-                                slotIndex !== 3
+                                slotIndex !== visibleSlots.length - 1
                                   ? "border-b border-[#eadbc6]"
                                   : ""
                               }`}
@@ -1561,7 +1563,7 @@ export default function HomePage() {
                               </p>
                             </div>
                           ))}
-                        </div>
+                      </div>
                       </div>
                     </div>
 
