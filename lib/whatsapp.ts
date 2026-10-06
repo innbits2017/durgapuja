@@ -551,6 +551,56 @@ export async function sendInventoryHelpVerifiedWhatsApp({
 }
 
 /* =========================================================
+   STALL BOOKING - APPROVED
+
+   Template:
+   BUH Durga Utsav 2026 - Stall Booking Confirmation
+
+   IMAGE HEADER
+
+   BODY:
+   {{1}} Name
+   {{2}} Mobile
+   {{3}} Block
+   {{4}} Flat No.
+   {{5}} Stall Type
+   {{6}} Category
+========================================================= */
+
+export async function sendStallBookingApprovedWhatsApp({
+  mobile,
+  name,
+  block,
+  flatNo,
+  stallType,
+  category,
+}: {
+  mobile: string;
+  name: string;
+  block: string;
+  flatNo: string;
+  stallType: string;
+  category: string;
+}) {
+  return sendTemplate({
+    mobile,
+
+    templateName:
+      process.env.WHATSAPP_STALL_APPROVED_TEMPLATE ||
+      "stall_registration",
+
+    bodyParameters: [
+      name,
+      mobile,
+      block,
+      flatNo,
+      stallType,
+      category,
+    ],
+  });
+}
+
+/* =========================================================
    CULTURAL PROGRAM - SUBMITTED
 
    Template:

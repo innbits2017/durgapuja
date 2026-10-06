@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { sendStallBookingApprovedWhatsApp } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -444,10 +445,46 @@ export async function PATCH(request: Request) {
       );
     }
 
+    /* ========================================================
+       SEND WHATSAPP ONLY WHEN STALL IS APPROVED
+    ======================================================== */
+
+    let whatsapp = null;
+
+    if (status === "approved") {
+      try {
+        whatsapp =
+          await sendStallBookingApprovedWhatsApp({
+            mobile: data.mobile,
+            name: data.name,
+            block: data.block,
+            flatNo: data.flat_no,
+            stallType: data.stall_type,
+            category: data.category,
+          });
+      } catch (whatsappError) {
+        console.error(
+          "Stall approval WhatsApp error:",
+          whatsappError
+        );
+
+        whatsapp = {
+          sent: false,
+          skipped: false,
+          messageId: null,
+          error:
+            whatsappError instanceof Error
+              ? whatsappError.message
+              : "Unable to send WhatsApp notification.",
+        };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       enquiry: data,
-    });
+      whatsapp,
+    }); 
   } catch (error) {
     console.error(
       "Admin stall PATCH error:",
