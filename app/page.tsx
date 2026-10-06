@@ -8,7 +8,7 @@ const DURGA_IMAGE = "/images/durga-puja-collection.webp";
 
 const events = [
   {
-    day: "KALASH PUJA",
+    day: "KALASH STHAPAN PUJA",
     shortDay: "Day 1 to Day 5",
     date: "11th to 15th OCTOBER 2026",
     image: "/images/kalash-puja.webp",
@@ -29,8 +29,8 @@ const events = [
     icon: "fa-solid fa-hands-praying",
     color: "bg-[#8f1019]",
     schedule: {
-      morning: "Puja Preparation",
-      afternoon: "Maa Durga Welcome & Shashthi Puja",
+      morning: "Belwar Nyota Puja",
+      afternoon: "Games & Activities",
       evening: "Carnival (Food Stall + Flea Market + Games)",
       night: "Dinner",
     },
@@ -43,8 +43,8 @@ const events = [
     icon: "fa-solid fa-fire-flame-curved",
     color: "bg-[#a70e18]",
     schedule: {
-      morning: "Breakfast + Saptami Puja & Pushpanjali",
-      afternoon: "Kids Drawing & Painting",
+      morning: "Breakfast + Nayan Pooja Murti Pratishthan",
+      afternoon: "-",
       evening: "Dandia Night",
       night: "Dinner",
     },
@@ -57,8 +57,8 @@ const events = [
     icon: "fa-solid fa-om",
     color: "bg-[#8f1019]",
     schedule: {
-      morning: "Breakfast + Maha Ashtami Puja & Pushpanjali",
-      afternoon: "Tambola",
+      morning: "Breakfast + Mahagauri Puja Maha Ashtmi Puja",
+      afternoon: "-",
       evening: "Cultural Programme",
       night: "Dinner",
     },
@@ -71,7 +71,7 @@ const events = [
     icon: "fa-solid fa-spa",
     color: "bg-[#a70e18]",
     schedule: {
-      morning: "Breakfast + Navami Puja & Pushpanjali",
+      morning: "Breakfast + Mahanavami Puja",
       afternoon: "Kanya Pujan + Community Lunch",
       evening: "Grand Cultural Programme",
       night: "Dinner",
@@ -85,10 +85,24 @@ const events = [
     icon: "fa-solid fa-flag",
     color: "bg-[#8f1019]",
     schedule: {
-      morning: "Breakfast + Dashami Puja & Farewell Rituals",
-      afternoon: "Bhasani / Visarjan",
-      evening: "Community Lunch",
-      night: "—",
+      morning: "Breakfast + Vijayadashmi puja",
+      afternoon: "Tambola",
+      evening: "Sunderkaand",
+      night: "Dinner",
+    },
+  },
+  {
+    day: "VISARJAN",
+    shortDay: "BHASANI",
+    date: "21 OCTOBER 2026",
+    image: "/images/bhasani.webp",
+    icon: "fa-solid fa-flag",
+    color: "bg-[#8f1019]",
+    schedule: {
+      morning: "Visarjan",
+      afternoon: "Lunch",
+      evening: "-",
+      night: "-"
     },
   },
 ];
