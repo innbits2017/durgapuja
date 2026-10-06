@@ -95,7 +95,7 @@ const events = [
     day: "VISARJAN",
     shortDay: "BHASANI",
     date: "21 OCTOBER 2026",
-    image: "/images/bhasani.webp",
+    image: "/images/Bhasani.webp",
     icon: "fa-solid fa-flag",
     color: "bg-[#8f1019]",
     schedule: {
