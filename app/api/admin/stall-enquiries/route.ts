@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { sendStallBookingApprovedWhatsApp } from "@/lib/whatsapp";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -164,7 +164,6 @@ function validateStallData(body: any) {
       stall_type: stallType,
       category,
       description,
-      table_required: body?.tableRequired === true,
     },
   };
 }
@@ -187,7 +186,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from("stall_enquiries")
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, admin_notes, created_at, updated_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, status, admin_notes, created_at, updated_at"
       )
       .order("created_at", {
         ascending: false,
@@ -234,9 +233,22 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
@@ -287,7 +299,7 @@ export async function POST(request: Request) {
         admin_notes: adminNotes,
       })
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, admin_notes, created_at, updated_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, status, admin_notes, created_at, updated_at"
       )
       .single();
 
@@ -335,9 +347,22 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
@@ -426,7 +451,7 @@ export async function PATCH(request: Request) {
       })
       .eq("id", id)
       .select(
-        "id, name, mobile, block, flat_no, stall_type, category, description, table_required, status, admin_notes, created_at, updated_at"
+        "id, name, mobile, block, flat_no, stall_type, category, description, status, admin_notes, created_at, updated_at"
       )
       .single();
 
@@ -445,46 +470,10 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /* ========================================================
-       SEND WHATSAPP ONLY WHEN STALL IS APPROVED
-    ======================================================== */
-
-    let whatsapp = null;
-
-    if (status === "approved") {
-      try {
-        whatsapp =
-          await sendStallBookingApprovedWhatsApp({
-            mobile: data.mobile,
-            name: data.name,
-            block: data.block,
-            flatNo: data.flat_no,
-            stallType: data.stall_type,
-            category: data.category,
-          });
-      } catch (whatsappError) {
-        console.error(
-          "Stall approval WhatsApp error:",
-          whatsappError
-        );
-
-        whatsapp = {
-          sent: false,
-          skipped: false,
-          messageId: null,
-          error:
-            whatsappError instanceof Error
-              ? whatsappError.message
-              : "Unable to send WhatsApp notification.",
-        };
-      }
-    }
-
     return NextResponse.json({
       success: true,
       enquiry: data,
-      whatsapp,
-    }); 
+    });
   } catch (error) {
     console.error(
       "Admin stall PATCH error:",
@@ -507,9 +496,22 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }

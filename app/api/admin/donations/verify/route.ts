@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 import { sendExternalDonationConfirmedWhatsApp } from "@/lib/whatsapp";
 
 export async function POST(request: Request) {
@@ -10,7 +11,8 @@ export async function POST(request: Request) {
     // ADMIN AUTHENTICATION
     // =========================================================
 
-    const supabase = await createSupabaseServerClient();
+    const supabase =
+      await createSupabaseServerClient();
 
     const {
       data: { user },
@@ -18,8 +20,51 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
+        {
+          error: "Unauthorized.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    // =========================================================
+    // SUPER ADMIN AUTHORIZATION
+    // =========================================================
+    //
+    // Only Super Admin can:
+    // - Verify donations
+    // - Reject donations
+    //
+    // Admin users can view donations but cannot modify them.
+    // =========================================================
+
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: "Unauthorized.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -27,22 +72,39 @@ export async function POST(request: Request) {
     // REQUEST
     // =========================================================
 
-    const body = await request.json();
+    const body =
+      await request.json();
 
-    const id = String(body?.id || "").trim();
-    const status = String(body?.status || "").trim();
+    const id =
+      String(body?.id || "").trim();
+
+    const status =
+      String(body?.status || "").trim();
 
     if (!id) {
       return NextResponse.json(
-        { error: "Donation ID is required." },
-        { status: 400 }
+        {
+          error:
+            "Donation ID is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    if (status !== "verified" && status !== "rejected") {
+    if (
+      status !== "verified" &&
+      status !== "rejected"
+    ) {
       return NextResponse.json(
-        { error: "Invalid donation status." },
-        { status: 400 }
+        {
+          error:
+            "Invalid donation status.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
@@ -50,7 +112,10 @@ export async function POST(request: Request) {
     // FETCH EXISTING DONATION
     // =========================================================
 
-    const { data: existingDonation, error: fetchError } =
+    const {
+      data: existingDonation,
+      error: fetchError,
+    } =
       await supabaseAdmin
         .from("donations")
         .select(
@@ -73,19 +138,28 @@ export async function POST(request: Request) {
         .eq("id", id)
         .single();
 
-    if (fetchError || !existingDonation) {
+    if (
+      fetchError ||
+      !existingDonation
+    ) {
       console.error(
         "Donation fetch error:",
         fetchError
       );
 
       return NextResponse.json(
-        { error: "Donation not found." },
-        { status: 404 }
+        {
+          error:
+            "Donation not found.",
+        },
+        {
+          status: 404,
+        }
       );
     }
 
-    const previousStatus = existingDonation.status;
+    const previousStatus =
+      existingDonation.status;
 
     // =========================================================
     // UPDATE DONATION STATUS
@@ -96,12 +170,16 @@ export async function POST(request: Request) {
         ? new Date().toISOString()
         : null;
 
-    const { data: donation, error: updateError } =
+    const {
+      data: donation,
+      error: updateError,
+    } =
       await supabaseAdmin
         .from("donations")
         .update({
           status,
-          verified_at: verifiedAt,
+          verified_at:
+            verifiedAt,
         })
         .eq("id", id)
         .select()
@@ -119,7 +197,9 @@ export async function POST(request: Request) {
             updateError.message ||
             "Unable to update donation status.",
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
@@ -135,10 +215,19 @@ export async function POST(request: Request) {
     // Pending  -> Rejected = NO MESSAGE
     // =========================================================
 
-    let whatsappSent = false;
-    let whatsappSkipped = false;
-    let whatsappError: string | null = null;
-    let whatsappMessageId: string | null = null;
+    let whatsappSent =
+      false;
+
+    let whatsappSkipped =
+      false;
+
+    let whatsappError:
+      | string
+      | null = null;
+
+    let whatsappMessageId:
+      | string
+      | null = null;
 
     const shouldSendWhatsApp =
       status === "verified" &&
@@ -147,32 +236,47 @@ export async function POST(request: Request) {
     if (shouldSendWhatsApp) {
       try {
         const result =
-          await sendExternalDonationConfirmedWhatsApp({
-            mobile: donation.mobile,
-            contactName: donation.donor_name,
+          await sendExternalDonationConfirmedWhatsApp(
+            {
+              mobile:
+                donation.mobile,
 
-            // If organisation is available, use it.
-            // Otherwise use the donor/contact name.
-            donorName:
-              donation.organisation_name?.trim() ||
-              donation.donor_name,
+              contactName:
+                donation.donor_name,
 
-            amount: Number(donation.amount),
+              // If organisation is available, use it.
+              // Otherwise use the donor/contact name.
+              donorName:
+                donation.organisation_name?.trim() ||
+                donation.donor_name,
 
-            // External Support page currently accepts
-            // UPI payments only.
-            paymentMode: "UPI",
+              amount:
+                Number(
+                  donation.amount
+                ),
 
-            // UTR is the payment ID for the external
-            // support payment.
-            paymentId:
-              donation.utr?.trim() || "N/A",
-          });
+              // External Support page currently accepts
+              // UPI payments only.
+              paymentMode:
+                "UPI",
 
-        whatsappSent = Boolean(result.sent);
-        whatsappSkipped = Boolean(result.skipped);
+              // UTR is the payment ID for the external
+              // support payment.
+              paymentId:
+                donation.utr?.trim() ||
+                "N/A",
+            }
+          );
+
+        whatsappSent =
+          Boolean(result.sent);
+
+        whatsappSkipped =
+          Boolean(result.skipped);
+
         whatsappMessageId =
-          result.messageId || null;
+          result.messageId ||
+          null;
 
         if (!result.sent) {
           whatsappError =
@@ -187,9 +291,14 @@ export async function POST(request: Request) {
           console.log(
             "External Support WhatsApp sent successfully:",
             {
-              donationId: donation.id,
-              mobile: donation.mobile,
-              messageId: result.messageId,
+              donationId:
+                donation.id,
+
+              mobile:
+                donation.mobile,
+
+              messageId:
+                result.messageId,
             }
           );
         }
@@ -220,8 +329,11 @@ export async function POST(request: Request) {
       donation,
 
       whatsappSent,
+
       whatsappSkipped,
+
       whatsappMessageId,
+
       whatsappError,
     });
   } catch (error) {
@@ -237,7 +349,9 @@ export async function POST(request: Request) {
             ? error.message
             : "Invalid request.",
       },
-      { status: 400 }
+      {
+        status: 400,
+      }
     );
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -143,9 +144,16 @@ export async function GET() {
 // POST — Add expense OR confirm refund
 export async function POST(request: Request) {
   try {
-    const user = await requireAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (error instanceof Error && error.message === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -513,9 +521,16 @@ export async function POST(request: Request) {
 // PATCH — Update expense
 export async function PATCH(request: Request) {
   try {
-    const user = await requireAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (error instanceof Error && error.message === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -741,9 +756,16 @@ export async function DELETE(
   request: Request
 ) {
   try {
-    const user = await requireAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (error instanceof Error && error.message === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: "Forbidden" },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 import {
   sendContributionVerifiedWhatsApp,
@@ -14,6 +15,7 @@ import {
 
 const COLLECTION_STATUSES = [
   "Door Lock",
+  "Follow-up",
   "Not Interested",
   "Collect Later",
 ] as const;
@@ -43,6 +45,40 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    // =========================================================
+    // SUPER ADMIN AUTHORIZATION
+    // =========================================================
+    // Only Super Admin can verify, reject, or update
+    // contribution collection status.
+
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
       return NextResponse.json(
         {
           error: "Unauthorized.",
@@ -258,8 +294,8 @@ export async function POST(request: Request) {
     // =========================================================
     // COLLECTION STATUS UPDATE
     //
-    // Door Lock / Not Interested / Collect Later are collection
-    // decisions, not payments.
+    // Door Lock / Follow-up / Not Interested / Collect Later
+    // are collection decisions, not payments.
     //
     // Therefore:
     // - status remains pending

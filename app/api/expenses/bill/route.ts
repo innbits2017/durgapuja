@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,8 +44,27 @@ async function getExpenseDocuments(expenseId: string) {
 
 export async function POST(request: Request) {
   try {
-    const user = await checkAdmin();
-    if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
 
     const formData = await request.formData();
     const expenseId = String(formData.get("expenseId") || "").trim();
@@ -222,8 +242,27 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = await checkAdmin();
-    if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
     const expenseId = String(body.expenseId || "").trim();

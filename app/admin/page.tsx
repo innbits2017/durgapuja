@@ -1,9 +1,21 @@
+import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getAdminSession } from "@/lib/admin-auth";
 import DashboardClient from "./DashboardClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function DurgaPujaDashboard() {
+  // ============================================================
+  // ADMIN AUTHENTICATION + ROLE
+  // ============================================================
+
+  const adminSession = await getAdminSession();
+
+  if (!adminSession) {
+    redirect("/admin/login");
+  }
+
   const [
     { data: contributions, error: contributionsError },
     { data: donations, error: donationsError },
@@ -14,12 +26,20 @@ export default async function DurgaPujaDashboard() {
     { data: inventoryHelp, error: inventoryHelpError },
     { data: expenseDocuments, error: expenseDocumentsError },
   ] = await Promise.all([
+    // ============================================================
+    // CONTRIBUTIONS
+    // ============================================================
+
     supabaseAdmin
       .from("contributions")
       .select(
         "id, name, block, flat_no, resident_type, mobile, amount, collection_status, payment_method, utr, paid_to, status, created_at, verified_at, receipt_token"
       )
       .order("created_at", { ascending: false }),
+
+    // ============================================================
+    // DONATIONS
+    // ============================================================
 
     supabaseAdmin
       .from("donations")
@@ -28,6 +48,10 @@ export default async function DurgaPujaDashboard() {
       )
       .order("created_at", { ascending: false }),
 
+    // ============================================================
+    // EXPENSES
+    // ============================================================
+
     supabaseAdmin
       .from("expenses")
       .select(
@@ -35,14 +59,21 @@ export default async function DurgaPujaDashboard() {
       )
       .order("expense_date", { ascending: false }),
 
+    // ============================================================
+    // LAST YEAR PAID
+    // ============================================================
+
     supabaseAdmin
       .from("last_year_paid")
       .select("block, flat_no, resident_type, amount")
       .order("block", { ascending: true })
       .order("flat_no", { ascending: true }),
 
-    // Cultural Program: slot_number is assigned by PostgreSQL
-    // when the registration is created. The admin dashboard only reads it.
+    // ============================================================
+    // CULTURAL PROGRAM
+    // slot_number is assigned by PostgreSQL
+    // ============================================================
+
     supabaseAdmin
       .from("cultural_program_registrations")
       .select(
@@ -50,13 +81,20 @@ export default async function DurgaPujaDashboard() {
       )
       .order("created_at", { ascending: false }),
 
-    // Seva has no cultural-program slot.
+    // ============================================================
+    // SEVA
+    // ============================================================
+
     supabaseAdmin
       .from("seva_registrations")
       .select(
         "id, seva_no, name, block, flat_no, mobile, materials, volunteer_roles, volunteer_role_names, volunteer_note, status, admin_note, created_at, updated_at"
       )
       .order("created_at", { ascending: false }),
+
+    // ============================================================
+    // INVENTORY HELP
+    // ============================================================
 
     supabaseAdmin
       .from("inventory_help_requests")
@@ -84,7 +122,11 @@ export default async function DurgaPujaDashboard() {
         ascending: false,
       }),
 
-    // Multiple bills/documents attached to expenses.
+    // ============================================================
+    // EXPENSE DOCUMENTS
+    // Multiple bills/documents attached to expenses
+    // ============================================================
+
     supabaseAdmin
       .from("expense_documents")
       .select(
@@ -92,6 +134,10 @@ export default async function DurgaPujaDashboard() {
       )
       .order("created_at", { ascending: true }),
   ]);
+
+  // ============================================================
+  // ERROR HANDLING
+  // ============================================================
 
   const error =
     contributionsError ||
@@ -110,9 +156,11 @@ export default async function DurgaPujaDashboard() {
       <main className="min-h-screen bg-[#f8f1e7] p-5">
         <div className="mx-auto max-w-7xl rounded-2xl bg-white p-8 text-center shadow-sm">
           <i className="fa-solid fa-circle-exclamation mb-3 text-3xl text-[#a70e18]" />
+
           <h1 className="text-xl font-semibold text-[#292929]">
             Unable to load dashboard
           </h1>
+
           <p className="mt-2 text-sm text-[#737373]">
             Please check your Supabase configuration and database tables.
           </p>
@@ -120,6 +168,10 @@ export default async function DurgaPujaDashboard() {
       </main>
     );
   }
+
+  // ============================================================
+  // DASHBOARD
+  // ============================================================
 
   return (
     <>
@@ -129,22 +181,47 @@ export default async function DurgaPujaDashboard() {
       />
 
       <DashboardClient
+        /*
+         * IMPORTANT:
+         * This is the new role information.
+         *
+         * Possible values:
+         * - super_admin
+         * - admin
+         */
+        adminRole={adminSession.role}
+
+        // ========================================================
+        // CONTRIBUTIONS
+        // ========================================================
+
         initialContributions={(contributions ?? []).map((item) => ({
           ...item,
           amount: Number(item.amount ?? 0),
         }))}
+
+        // ========================================================
+        // DONATIONS
+        // ========================================================
 
         initialDonations={(donations ?? []).map((item) => ({
           ...item,
           amount: Number(item.amount ?? 0),
         }))}
 
+        // ========================================================
+        // EXPENSES
+        // ========================================================
+
         initialExpenses={(expenses ?? []).map((item) => ({
           ...item,
           amount: Number(item.amount ?? 0),
 
-          // Keep the legacy bill_path field required by the Expense type.
-          // New/multiple bills are loaded through expense_documents below.
+          // Keep the legacy bill_path field required by
+          // the Expense type.
+          //
+          // New/multiple bills are loaded through
+          // expense_documents below.
           bill_path:
             (item as { bill_path?: string | null }).bill_path ?? null,
 
@@ -157,10 +234,16 @@ export default async function DurgaPujaDashboard() {
               file_path: doc.file_path,
               file_type: doc.file_type ?? null,
               file_size:
-                doc.file_size == null ? null : Number(doc.file_size),
+                doc.file_size == null
+                  ? null
+                  : Number(doc.file_size),
               created_at: doc.created_at,
             })),
         }))}
+
+        // ========================================================
+        // LAST YEAR PAID
+        // ========================================================
 
         initialLastYearPaid={(lastYearPaid ?? []).map((item) => ({
           block: item.block,
@@ -169,51 +252,74 @@ export default async function DurgaPujaDashboard() {
           amount: Number(item.amount ?? 0),
         }))}
 
-        initialCulturalPrograms={(culturalPrograms ?? []).map((item) => ({
-          id: item.id,
-          registration_no: item.registration_no,
-          participant_name: item.participant_name,
-          age: Number(item.age),
-          block: item.block,
-          flat_no: String(item.flat_no).padStart(3, "0"),
-          participant_type: item.participant_type,
-          mobile: item.mobile,
-          email: item.email ?? null,
-          performance_type: item.performance_type,
-          group_name: item.group_name ?? null,
-          category: item.category,
-          performance_title: item.performance_title,
-          description: item.description ?? null,
-          duration: item.duration,
-          status: item.status,
-          slot_number:
-            item.slot_number === null || item.slot_number === undefined
-              ? null
-              : Number(item.slot_number),
-          created_at: item.created_at,
-          updated_at: item.updated_at ?? null,
-        }))}
+        // ========================================================
+        // CULTURAL PROGRAMS
+        // ========================================================
 
-        initialSevaRegistrations={(sevaRegistrations ?? []).map((item) => ({
-          id: item.id,
-          seva_no: item.seva_no,
-          name: item.name,
-          block: item.block,
-          flat_no: String(item.flat_no).padStart(3, "0"),
-          mobile: item.mobile,
-          materials: Array.isArray(item.materials) ? item.materials : [],
-          volunteer_roles: Array.isArray(item.volunteer_roles)
-            ? item.volunteer_roles
-            : [],
-          volunteer_role_names: Array.isArray(item.volunteer_role_names)
-            ? item.volunteer_role_names
-            : [],
-          volunteer_note: item.volunteer_note ?? null,
-          status: item.status,
-          admin_note: item.admin_note ?? null,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-        }))}
+        initialCulturalPrograms={(culturalPrograms ?? []).map(
+          (item) => ({
+            id: item.id,
+            registration_no: item.registration_no,
+            participant_name: item.participant_name,
+            age: Number(item.age),
+            block: item.block,
+            flat_no: String(item.flat_no).padStart(3, "0"),
+            participant_type: item.participant_type,
+            mobile: item.mobile,
+            email: item.email ?? null,
+            performance_type: item.performance_type,
+            group_name: item.group_name ?? null,
+            category: item.category,
+            performance_title: item.performance_title,
+            description: item.description ?? null,
+            duration: item.duration,
+            status: item.status,
+            slot_number:
+              item.slot_number === null ||
+              item.slot_number === undefined
+                ? null
+                : Number(item.slot_number),
+            created_at: item.created_at,
+            updated_at: item.updated_at ?? null,
+          })
+        )}
+
+        // ========================================================
+        // SEVA REGISTRATIONS
+        // ========================================================
+
+        initialSevaRegistrations={(sevaRegistrations ?? []).map(
+          (item) => ({
+            id: item.id,
+            seva_no: item.seva_no,
+            name: item.name,
+            block: item.block,
+            flat_no: String(item.flat_no).padStart(3, "0"),
+            mobile: item.mobile,
+
+            materials: Array.isArray(item.materials)
+              ? item.materials
+              : [],
+
+            volunteer_roles: Array.isArray(
+              item.volunteer_roles
+            )
+              ? item.volunteer_roles
+              : [],
+
+            volunteer_role_names: Array.isArray(
+              item.volunteer_role_names
+            )
+              ? item.volunteer_role_names
+              : [],
+
+            volunteer_note: item.volunteer_note ?? null,
+            status: item.status,
+            admin_note: item.admin_note ?? null,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          })
+        )}
       />
     </>
   );

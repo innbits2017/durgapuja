@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,45 @@ function generateRequestNo() {
 
 export async function POST(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    // Only Super Admin can add or edit member inventory help records.
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
@@ -188,9 +225,45 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    // Only Super Admin can add or edit member inventory help records.
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }

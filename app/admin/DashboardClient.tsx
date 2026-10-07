@@ -25,11 +25,13 @@ type ComparisonFilter =
 
 type CollectionStatus =
   | "Door Lock"
+  | "Follow-up"
   | "Not Interested"
   | "Collect Later";
 
 const COLLECTION_UPDATE_STATUSES: CollectionStatus[] = [
   "Door Lock",
+  "Follow-up",
   "Not Interested",
   "Collect Later",
 ];
@@ -251,6 +253,8 @@ type CulturalPerformanceFilter =
   | "Individual"
   | "Group";
 
+type AdminRole = "super_admin" | "admin";
+
 /* ============================================================
    MASTER FLAT LIST
 ============================================================ */
@@ -347,13 +351,15 @@ const PAYMENT_MODES = [
 ============================================================ */
 
 export default function DashboardClient({
+  adminRole,
   initialContributions,
   initialDonations,
   initialExpenses,
   initialLastYearPaid,
   initialCulturalPrograms,
   initialSevaRegistrations,
-}: {
+ }: {
+  adminRole: AdminRole;
   initialContributions: Contribution[];
   initialDonations: Donation[];
   initialExpenses: Expense[];
@@ -1530,6 +1536,10 @@ export default function DashboardClient({
   }
 
   async function saveCollectLater() {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setCollectLaterError("");
 
     const name = collectLaterForm.name.trim();
@@ -1621,6 +1631,10 @@ export default function DashboardClient({
       | "verified"
       | "rejected"
   ) {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setLoadingId(id);
     setMessage("");
 
@@ -1694,6 +1708,10 @@ export default function DashboardClient({
     id: string,
     status: "contacted" | "confirmed" | "completed" | "rejected"
   ) {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setLoadingId(id);
     setMessage("");
 
@@ -1823,6 +1841,10 @@ export default function DashboardClient({
       | "verified"
       | "rejected"
   ) {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setLoadingId(id);
     setMessage("");
 
@@ -1896,6 +1918,10 @@ export default function DashboardClient({
     id: string,
     status: "approved" | "rejected"
   ) {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setLoadingId(id);
     setMessage("");
 
@@ -2085,6 +2111,10 @@ export default function DashboardClient({
     paymentMode: string,
     referenceNo: string
   ) {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setLoadingId(`refund:${paidBy}`);
     setMessage("");
 
@@ -2181,6 +2211,10 @@ export default function DashboardClient({
   async function deleteExpense(
     id: string
   ) {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     const confirmed =
       window.confirm(
         "Are you sure you want to delete this expense?"
@@ -2835,6 +2869,19 @@ export default function DashboardClient({
             <h1 className="mt-1 font-opensans text-2xl font-bold">
               BUH Puja Management Dashboard
             </h1>
+
+            <div className="mt-2">
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                  adminRole === "super_admin"
+                    ? "bg-[#a70e18] text-white"
+                    : "bg-[#f3e8d8] text-[#7a4b20]"
+                }`}
+              >
+                <i className="fa-solid fa-shield-halved mr-1.5" />
+                {adminRole === "super_admin" ? "Super Admin" : "Admin"}
+              </span>
+            </div>
 
             <p className="mt-1 text-sm text-[#737373]">
               Manage contributions,
@@ -3824,47 +3871,51 @@ export default function DashboardClient({
 
                         <td className="px-5 py-4 text-right">
 
-                          {item.contribution &&
-                          item.status ===
-                            "pending" ? (
-                            <ActionButtons
-                              loading={
-                                loadingId ===
-                                item.id
-                              }
-                              onVerify={() =>
-                                updateContributionStatus(
-                                  item.id,
-                                  "verified"
-                                )
-                              }
-                              onReject={() =>
-                                updateContributionStatus(
-                                  item.id,
-                                  "rejected"
-                                )
-                              }
-                            />
-                          ) : item.contribution ? (
-                            <button
-                              type="button"
-                              onClick={() => openCollectLaterModal(item)}
-                              disabled={loadingId === item.id}
-                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
-                            >
-                              <i className="fa-solid fa-pen-to-square" />
-                              Update Collection
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openCollectLaterModal(item)}
-                              disabled={loadingId === item.id}
-                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
-                            >
-                              <i className="fa-solid fa-clock" />
-                              Collect Later
-                            </button>
+                          {adminRole === "super_admin" && (
+                            <>
+                              {item.contribution &&
+                              item.status ===
+                                "pending" ? (
+                                <ActionButtons
+                                  loading={
+                                    loadingId ===
+                                    item.id
+                                  }
+                                  onVerify={() =>
+                                    updateContributionStatus(
+                                      item.id,
+                                      "verified"
+                                    )
+                                  }
+                                  onReject={() =>
+                                    updateContributionStatus(
+                                      item.id,
+                                      "rejected"
+                                    )
+                                  }
+                                />
+                              ) : item.contribution ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openCollectLaterModal(item)}
+                                  disabled={loadingId === item.id}
+                                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
+                                >
+                                  <i className="fa-solid fa-pen-to-square" />
+                                  Update Collection
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openCollectLaterModal(item)}
+                                  disabled={loadingId === item.id}
+                                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[#ead8bd] bg-[#fff8eb] px-3 text-xs font-semibold text-[#9a6a16] disabled:opacity-50"
+                                >
+                                  <i className="fa-solid fa-clock" />
+                                  Collect Later
+                                </button>
+                              )}
+                            </>
                           )}
 
                         </td>
@@ -4065,6 +4116,7 @@ export default function DashboardClient({
                         <div className="mt-3">
 
                           <ActionButtons
+                            readOnly={adminRole !== "super_admin"}
                             loading={
                               loadingId ===
                               item.id
@@ -4086,6 +4138,7 @@ export default function DashboardClient({
                         </div>
                       )}
 
+                    {adminRole === "super_admin" && (
                     <button
                       type="button"
                       onClick={() => openCollectLaterModal(item)}
@@ -4095,6 +4148,7 @@ export default function DashboardClient({
                       <i className="fa-solid fa-clock" />
                       Update Collection
                     </button>
+                    )}
 
                   </div>
                 )
@@ -5055,12 +5109,15 @@ export default function DashboardClient({
                           </button>
                           {item.status === "pending" && (
                             <>
-                              <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "confirmed")} className="rounded-lg bg-[#23753b] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Confirm</button>
-                              <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "rejected")} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2 text-xs font-semibold text-[#a70e18] disabled:opacity-50">Reject</button>
+                              <button type="button" disabled={loadingId === item.id || adminRole !== "super_admin"} style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateSevaStatus(item.id, "confirmed")} className="rounded-lg bg-[#23753b] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Confirm</button>
+                              <button type="button" disabled={loadingId === item.id || adminRole !== "super_admin"} style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateSevaStatus(item.id, "rejected")} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2 text-xs font-semibold text-[#a70e18] disabled:opacity-50">Reject</button>
                             </>
                           )}
                           {item.status === "confirmed" && (
-                            <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "completed")} className="rounded-lg bg-[#a70e18] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Complete</button>
+                            <button type="button" disabled={loadingId === item.id || adminRole !== "super_admin"} style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateSevaStatus(item.id, "completed")} className="rounded-lg bg-[#a70e18] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Complete</button>
                           )}
                         </div>
                       </td>
@@ -5110,12 +5167,15 @@ export default function DashboardClient({
                     <button type="button" onClick={() => setSelectedSeva(item)} className="flex-1 rounded-lg border border-[#ddd] bg-white py-2.5 text-xs font-semibold text-[#666]">View Details</button>
                     {item.status === "pending" && (
                       <>
-                        <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "confirmed")} className="rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><i className="fa-solid fa-check" /></button>
-                        <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "rejected")} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"><i className="fa-solid fa-xmark" /></button>
+                        <button type="button" disabled={loadingId === item.id || adminRole !== "super_admin"} style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateSevaStatus(item.id, "confirmed")} className="rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><i className="fa-solid fa-check" /></button>
+                        <button type="button" disabled={loadingId === item.id || adminRole !== "super_admin"} style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateSevaStatus(item.id, "rejected")} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"><i className="fa-solid fa-xmark" /></button>
                       </>
                     )}
                     {item.status === "confirmed" && (
-                      <button type="button" disabled={loadingId === item.id} onClick={() => updateSevaStatus(item.id, "completed")} className="rounded-lg bg-[#a70e18] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><i className="fa-solid fa-check-double" /></button>
+                      <button type="button" disabled={loadingId === item.id || adminRole !== "super_admin"} style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateSevaStatus(item.id, "completed")} className="rounded-lg bg-[#a70e18] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><i className="fa-solid fa-check-double" /></button>
                     )}
                   </div>
                 </div>
@@ -5131,7 +5191,7 @@ export default function DashboardClient({
         ==================================================== */}
 
         {section === "inventory" && (
-          <InventoryManagement />
+          <InventoryManagement adminRole={adminRole} />
         )}
 
         {/* ====================================================
@@ -5139,7 +5199,7 @@ export default function DashboardClient({
         ==================================================== */}
 
         {section === "stall" && (
-          <StallManagement />
+          <StallManagement adminRole={adminRole} />
         )}
 
         {/* ====================================================
@@ -5288,6 +5348,7 @@ export default function DashboardClient({
                           {item.status ===
                           "pending" ? (
                             <ActionButtons
+                            readOnly={adminRole !== "super_admin"}
                               loading={
                                 loadingId ===
                                 item.id
@@ -5404,6 +5465,7 @@ export default function DashboardClient({
                       <div className="mt-3">
 
                         <ActionButtons
+                            readOnly={adminRole !== "super_admin"}
                           loading={
                             loadingId ===
                             item.id
@@ -5745,9 +5807,11 @@ export default function DashboardClient({
                               type="button"
                               disabled={
                                 loadingId ===
-                                item.id
+                                item.id ||
+                                adminRole !== "super_admin"
                               }
-                              onClick={() =>
+                              style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() =>
                                 deleteExpense(
                                   item.id
                                 )
@@ -5959,8 +6023,10 @@ export default function DashboardClient({
                         type="button"
                         disabled={
                           loadingId ===
-                          item.id
+                          item.id ||
+                          adminRole !== "super_admin"
                         }
+                        style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
                         onClick={() =>
                           deleteExpense(
                             item.id
@@ -6003,6 +6069,7 @@ export default function DashboardClient({
             onConfirm={() => updateSevaStatus(selectedSeva.id, "confirmed")}
             onComplete={() => updateSevaStatus(selectedSeva.id, "completed")}
             onReject={() => updateSevaStatus(selectedSeva.id, "rejected")}
+            readOnly={adminRole !== "super_admin"}
           />
         )}
 
@@ -6028,6 +6095,7 @@ export default function DashboardClient({
                 "rejected"
               )
             }
+            readOnly={adminRole !== "super_admin"}
           />
         )}
 
@@ -6194,7 +6262,7 @@ const STALL_CATEGORIES: Record<
   ],
 };
 
-function StallManagement() {
+function StallManagement({ adminRole }: { adminRole: AdminRole }) {
   const [enquiries, setEnquiries] = useState<StallEnquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -6360,6 +6428,10 @@ function StallManagement() {
     id: string,
     status: "approved" | "rejected"
   ) => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     const enquiry = enquiries.find(
       (item) => item.id === id
     );
@@ -6453,6 +6525,10 @@ function StallManagement() {
   const deleteEnquiry = async (
     enquiry: StallEnquiry
   ) => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     const confirmed = window.confirm(
       `Delete the stall enquiry from ${enquiry.name}?`
     );
@@ -6512,6 +6588,10 @@ function StallManagement() {
   };
 
   const saveAdminStall = async () => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setMessage("");
     setError("");
 
@@ -6849,8 +6929,10 @@ function StallManagement() {
                       <button
                         type="button"
                         disabled={
-                          actionId === item.id
+                          actionId === item.id ||
+                          adminRole !== "super_admin"
                         }
+                        style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
                         onClick={() =>
                           updateStatus(
                             item.id,
@@ -6866,8 +6948,10 @@ function StallManagement() {
                       <button
                         type="button"
                         disabled={
-                          actionId === item.id
+                          actionId === item.id ||
+                          adminRole !== "super_admin"
                         }
+                        style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
                         onClick={() =>
                           updateStatus(
                             item.id,
@@ -7273,7 +7357,7 @@ type DashboardInventoryRequest = {
   } | null;
 };
 
-function InventoryManagement() {
+function InventoryManagement({ adminRole }: { adminRole: AdminRole }) {
   const [items, setItems] = useState<DashboardInventoryItem[]>([]);
   const [requests, setRequests] = useState<DashboardInventoryRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -7405,6 +7489,10 @@ function InventoryManagement() {
   };
 
   const saveInventory = async () => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setError("");
     setMessage("");
 
@@ -7496,6 +7584,10 @@ function InventoryManagement() {
   };
 
   const removeInventory = async (item: DashboardInventoryItem) => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     const confirmed = window.confirm(
       `Remove "${item.item_name}" from the inventory requirements?`
     );
@@ -7583,6 +7675,10 @@ function InventoryManagement() {
   };
 
   const saveMemberHelp = async () => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     setError("");
     setMessage("");
 
@@ -7699,6 +7795,10 @@ function InventoryManagement() {
     request: DashboardInventoryRequest,
     status: "verified" | "rejected"
   ) => {
+    if (adminRole !== "super_admin") {
+      setMessage("Only Super Admin can perform this action.");
+      return;
+    }
     let adminNote = "";
 
     if (status === "rejected") {
@@ -8165,8 +8265,9 @@ function InventoryManagement() {
                         <div className="flex shrink-0 gap-2">
                           <button
                             type="button"
-                            disabled={actionId === request.id}
-                            onClick={() => updateRequest(request, "verified")}
+                            disabled={actionId === request.id || adminRole !== "super_admin"}
+                            style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateRequest(request, "verified")}
                             className="rounded-lg bg-[#23753b] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
                           >
                             <i className="fa-solid fa-check mr-1.5" />
@@ -8175,8 +8276,9 @@ function InventoryManagement() {
 
                           <button
                             type="button"
-                            disabled={actionId === request.id}
-                            onClick={() => updateRequest(request, "rejected")}
+                            disabled={actionId === request.id || adminRole !== "super_admin"}
+                            style={{ display: adminRole !== "super_admin" ? "none" : undefined }}
+                        onClick={() => updateRequest(request, "rejected")}
                             className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-4 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
                           >
                             <i className="fa-solid fa-xmark mr-1.5" />
@@ -9138,11 +9240,19 @@ function ActionButtons({
   loading,
   onVerify,
   onReject,
+  readOnly = false,
 }: {
   loading: boolean;
   onVerify: () => void;
   onReject: () => void;
+  readOnly?: boolean;
 }) {
+  // Admin users should see no mutation buttons at all.
+  // Super Admin continues to see Verify / Reject normally.
+  if (readOnly) {
+    return null;
+  }
+
   return (
     <div className="flex gap-2">
 
@@ -9160,7 +9270,7 @@ function ActionButtons({
         type="button"
         disabled={loading}
         onClick={onReject}
-        className="rounded-lg border border-[#ddd] bg-white px-3 py-2 text-xs font-semibold text-[#666] disabled:opacity-50"
+        className="rounded-lg border border-[#ddd] bg-white px-3 py-2 text-xs font-semibold text-[#666]"
       >
         Reject
       </button>
@@ -9299,7 +9409,14 @@ function SevaStatusBadge({ status }: { status: string }) {
 ============================================================ */
 
 function SevaDetailsModal({
-  seva, loading, onClose, onContact, onConfirm, onComplete, onReject,
+  seva,
+  loading,
+  onClose,
+  onContact,
+  onConfirm,
+  onComplete,
+  onReject,
+  readOnly,
 }: {
   seva: SevaRegistration;
   loading: boolean;
@@ -9308,6 +9425,7 @@ function SevaDetailsModal({
   onConfirm: () => void;
   onComplete: () => void;
   onReject: () => void;
+  readOnly: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -9387,12 +9505,14 @@ function SevaDetailsModal({
             </div>
           )}
 
+          {!readOnly && (
           <div className="flex flex-wrap gap-2 border-t border-[#eee5db] pt-4">
             {seva.status === "pending" && <button type="button" disabled={loading} onClick={onContact} className="flex-1 rounded-lg border border-[#ddd] bg-white py-3 text-sm font-semibold text-[#245a9b] disabled:opacity-50">Mark Contacted</button>}
             {(seva.status === "pending" || seva.status === "contacted") && <button type="button" disabled={loading} onClick={onConfirm} className="flex-1 rounded-lg bg-[#23753b] py-3 text-sm font-semibold text-white disabled:opacity-50">Confirm Seva</button>}
             {seva.status === "confirmed" && <button type="button" disabled={loading} onClick={onComplete} className="flex-1 rounded-lg bg-[#a70e18] py-3 text-sm font-semibold text-white disabled:opacity-50">Mark Completed</button>}
             {(seva.status === "pending" || seva.status === "contacted") && <button type="button" disabled={loading} onClick={onReject} className="flex-1 rounded-lg border border-[#f0cccc] bg-[#fff6f6] py-3 text-sm font-semibold text-[#a70e18] disabled:opacity-50">Reject</button>}
           </div>
+          )}
         </div>
       </div>
     </div>
@@ -9450,12 +9570,14 @@ function CulturalProgramModal({
   onClose,
   onApprove,
   onReject,
+  readOnly,
 }: {
   program: CulturalProgram;
   loading: boolean;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
+  readOnly: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

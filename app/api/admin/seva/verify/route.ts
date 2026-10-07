@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 import { sendSevaConfirmedWhatsApp } from "@/lib/whatsapp";
 
 const ALLOWED_STATUSES = [
@@ -36,10 +37,22 @@ function formatSevaDetails(seva: {
     if (!raw || typeof raw !== "object") continue;
 
     const item = raw as Record<string, unknown>;
-    const title = String(item.title || item.type || "").trim();
-    const pkg = String(item.package || "").trim();
-    const day = String(item.day || "").trim();
-    const price = Number(item.price || 0);
+
+    const title = String(
+      item.title || item.type || ""
+    ).trim();
+
+    const pkg = String(
+      item.package || ""
+    ).trim();
+
+    const day = String(
+      item.day || ""
+    ).trim();
+
+    const price = Number(
+      item.price || 0
+    );
 
     if (!title) continue;
 
@@ -52,19 +65,34 @@ function formatSevaDetails(seva: {
         : "",
     ].filter(Boolean);
 
-    parts.push(detailParts.join(": ").replace(": " + day, `, ${day}`));
+    parts.push(
+      detailParts
+        .join(": ")
+        .replace(": " + day, `, ${day}`)
+    );
   }
 
-  const volunteerRoles = Array.isArray(seva.volunteer_role_names)
+  const volunteerRoles = Array.isArray(
+    seva.volunteer_role_names
+  )
     ? seva.volunteer_role_names
     : [];
 
   for (const role of volunteerRoles) {
-    const name = String(role || "").trim();
-    if (name) parts.push(`${name}: Volunteer`);
+    const name = String(
+      role || ""
+    ).trim();
+
+    if (name) {
+      parts.push(
+        `${name}: Volunteer`
+      );
+    }
   }
 
-  const amount = Number(seva.amount || 0);
+  const amount = Number(
+    seva.amount || 0
+  );
 
   if (amount > 0) {
     parts.push(
@@ -72,21 +100,75 @@ function formatSevaDetails(seva: {
     );
 
     if (seva.payment_method) {
-      parts.push(`Payment: ${String(seva.payment_method).toUpperCase()}`);
+      parts.push(
+        `Payment: ${String(
+          seva.payment_method
+        ).toUpperCase()}`
+      );
     }
 
     if (seva.utr) {
-      parts.push(`UTR: ${String(seva.utr).trim()}`);
+      parts.push(
+        `UTR: ${String(
+          seva.utr
+        ).trim()}`
+      );
     }
   }
 
   return sanitizeWhatsAppParameter(
-    parts.join("; ") || "Seva registration confirmed."
+    parts.join("; ") ||
+      "Seva registration confirmed."
   );
 }
 
 export async function POST(request: Request) {
   try {
+    // =========================================================
+    // SUPER ADMIN AUTHORIZATION
+    // =========================================================
+    // Only Super Admin can:
+    // - Confirm Seva
+    // - Reject Seva
+    // - Mark Seva as contacted
+    // - Mark Seva as completed
+    //
+    // Admin users can view Seva registrations but cannot
+    // modify their status.
+    // =========================================================
+
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: "Unauthorized.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    // =========================================================
+    // REQUEST BODY
+    // =========================================================
+
     const body = await request.json();
 
     const id =
@@ -94,26 +176,49 @@ export async function POST(request: Request) {
         ? body.id.trim()
         : "";
 
-    const status = body.status as AllowedStatus;
+    const status =
+      body.status as AllowedStatus;
+
+    // =========================================================
+    // VALIDATION
+    // =========================================================
 
     if (!id) {
       return NextResponse.json(
-        { error: "Seva registration ID is required." },
-        { status: 400 }
+        {
+          error:
+            "Seva registration ID is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    if (!ALLOWED_STATUSES.includes(status)) {
+    if (
+      !ALLOWED_STATUSES.includes(status)
+    ) {
       return NextResponse.json(
-        { error: "Invalid Seva status." },
-        { status: 400 }
+        {
+          error:
+            "Invalid Seva status.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    // Fetch the complete existing record first.
+    // =========================================================
+    // GET EXISTING RECORD
+    // =========================================================
     // We need the previous status so the confirmation WhatsApp
     // is sent only when the registration moves INTO confirmed.
-    const { data: existing, error: lookupError } =
+
+    const {
+      data: existing,
+      error: lookupError,
+    } =
       await supabaseAdmin
         .from("seva_registrations")
         .select(
@@ -123,20 +228,37 @@ export async function POST(request: Request) {
         .maybeSingle();
 
     if (lookupError) {
-      console.error("Seva lookup error:", lookupError);
+      console.error(
+        "Seva lookup error:",
+        lookupError
+      );
 
       return NextResponse.json(
-        { error: "Unable to find Seva registration." },
-        { status: 500 }
+        {
+          error:
+            "Unable to find Seva registration.",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
     if (!existing) {
       return NextResponse.json(
-        { error: "Seva registration not found." },
-        { status: 404 }
+        {
+          error:
+            "Seva registration not found.",
+        },
+        {
+          status: 404,
+        }
       );
     }
+
+    // =========================================================
+    // PREVENT REACTIVATING REJECTED REGISTRATION
+    // =========================================================
 
     if (
       existing.status === "rejected" &&
@@ -147,67 +269,130 @@ export async function POST(request: Request) {
           error:
             "A rejected Seva registration cannot be moved back to an active status.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const wasConfirmed = existing.status === "confirmed";
-    const isBeingConfirmed = status === "confirmed";
-    const shouldSendConfirmationWhatsApp =
-      isBeingConfirmed && !wasConfirmed;
+    // =========================================================
+    // CHECK WHETHER CONFIRMATION WHATSAPP IS REQUIRED
+    // =========================================================
 
-    const { data, error } = await supabaseAdmin
-      .from("seva_registrations")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select(
-        "id, seva_no, name, block, flat_no, mobile, materials, volunteer_roles, volunteer_role_names, volunteer_note, amount, payment_method, utr, payment_status, status, admin_note, created_at, updated_at"
-      )
-      .single();
+    const wasConfirmed =
+      existing.status === "confirmed";
+
+    const isBeingConfirmed =
+      status === "confirmed";
+
+    const shouldSendConfirmationWhatsApp =
+      isBeingConfirmed &&
+      !wasConfirmed;
+
+    // =========================================================
+    // UPDATE SEVA STATUS
+    // =========================================================
+
+    const {
+      data,
+      error,
+    } =
+      await supabaseAdmin
+        .from("seva_registrations")
+        .update({
+          status,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select(
+          "id, seva_no, name, block, flat_no, mobile, materials, volunteer_roles, volunteer_role_names, volunteer_note, amount, payment_method, utr, payment_status, status, admin_note, created_at, updated_at"
+        )
+        .single();
 
     if (error) {
-      console.error("Seva status update error:", error);
+      console.error(
+        "Seva status update error:",
+        error
+      );
 
       return NextResponse.json(
-        { error: "Unable to update Seva registration." },
-        { status: 500 }
+        {
+          error:
+            "Unable to update Seva registration.",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
-    let whatsappSent = false;
-    let whatsappSkipped = false;
-    let whatsappMessageId: string | null = null;
-    let whatsappError: string | null = null;
+    // =========================================================
+    // WHATSAPP
+    // =========================================================
 
-    if (shouldSendConfirmationWhatsApp) {
+    let whatsappSent = false;
+
+    let whatsappSkipped = false;
+
+    let whatsappMessageId:
+      | string
+      | null = null;
+
+    let whatsappError:
+      | string
+      | null = null;
+
+    if (
+      shouldSendConfirmationWhatsApp
+    ) {
       try {
-        const sevaDetails = formatSevaDetails(data);
+        const sevaDetails =
+          formatSevaDetails(data);
 
         const result =
           await sendSevaConfirmedWhatsApp({
             mobile: data.mobile,
-            name: sanitizeWhatsAppParameter(data.name),
-            sevaNo: sanitizeWhatsAppParameter(data.seva_no),
+
+            name:
+              sanitizeWhatsAppParameter(
+                data.name
+              ),
+
+            sevaNo:
+              sanitizeWhatsAppParameter(
+                data.seva_no
+              ),
+
             sevaDetails,
           });
 
-        whatsappSent = Boolean(result.sent);
-        whatsappSkipped = Boolean(result.skipped);
-        whatsappMessageId = result.messageId || null;
-        whatsappError = result.sent
-          ? null
-          : result.error || null;
+        whatsappSent =
+          Boolean(result.sent);
+
+        whatsappSkipped =
+          Boolean(result.skipped);
+
+        whatsappMessageId =
+          result.messageId || null;
+
+        whatsappError =
+          result.sent
+            ? null
+            : result.error || null;
 
         if (result.sent) {
           console.log(
             "Seva confirmation WhatsApp sent:",
             {
-              sevaNo: data.seva_no,
-              recipient: data.mobile,
-              messageId: result.messageId,
+              sevaNo:
+                data.seva_no,
+
+              recipient:
+                data.mobile,
+
+              messageId:
+                result.messageId,
             }
           );
         } else {
@@ -216,7 +401,9 @@ export async function POST(request: Request) {
             result.error
           );
         }
-      } catch (whatsappErrorValue) {
+      } catch (
+        whatsappErrorValue
+      ) {
         whatsappError =
           whatsappErrorValue instanceof Error
             ? whatsappErrorValue.message
@@ -229,16 +416,28 @@ export async function POST(request: Request) {
       }
     }
 
+    // =========================================================
+    // FINAL RESPONSE
+    // =========================================================
+
     return NextResponse.json({
       success: true,
+
       seva: data,
+
       whatsappSent,
+
       whatsappSkipped,
+
       whatsappMessageId,
+
       whatsappError,
     });
   } catch (error) {
-    console.error("Admin Seva API error:", error);
+    console.error(
+      "Admin Seva API error:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -247,7 +446,9 @@ export async function POST(request: Request) {
             ? error.message
             : "Something went wrong. Please try again.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

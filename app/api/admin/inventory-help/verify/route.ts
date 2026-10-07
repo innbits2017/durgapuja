@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 import { sendInventoryHelpVerifiedWhatsApp } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,30 @@ export async function POST(
     const user = await checkAdmin();
 
     if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+
+    // Only Super Admin can verify or reject inventory help requests.
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }

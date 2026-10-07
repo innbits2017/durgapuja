@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -188,9 +189,45 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    // Only Super Admin can modify inventory management.
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
@@ -362,9 +399,45 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    // Only Super Admin can modify inventory management.
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
@@ -601,24 +674,28 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const user = await checkAdmin();
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized." },
         { status: 401 }
       );
     }
 
-    /*
-     * Accept ID in either:
-     *
-     * DELETE /api/admin/inventory-help?id=UUID
-     *
-     * OR
-     *
-     * body: { id: UUID }
-     */
     const { searchParams } =
       new URL(request.url);
 
@@ -633,7 +710,31 @@ export async function DELETE(request: Request) {
      */
     if (!id) {
       try {
-        const body = await request.json();
+    
+    // Only Super Admin can modify inventory management.
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
 
         id =
           body.id ||

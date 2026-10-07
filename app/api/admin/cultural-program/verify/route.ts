@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireSuperAdmin } from "@/lib/admin-auth";
 import { sendCulturalProgramConfirmedWhatsApp } from "@/lib/whatsapp";
 
 const VALID_STATUSES = ["approved", "rejected"] as const;
@@ -10,7 +11,9 @@ export async function POST(request: Request) {
     /* ==========================================================
        ADMIN AUTHENTICATION
     ========================================================== */
-    const supabase = await createSupabaseServerClient();
+
+    const supabase =
+      await createSupabaseServerClient();
 
     const {
       data: { user },
@@ -24,16 +27,55 @@ export async function POST(request: Request) {
     }
 
     /* ==========================================================
+       SUPER ADMIN AUTHORIZATION
+       
+       Only Super Admin can:
+       - Approve cultural program registrations
+       - Reject cultural program registrations
+       
+       Admin users can view registrations but cannot modify them.
+    ========================================================== */
+
+    try {
+      await requireSuperAdmin();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "FORBIDDEN"
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden. Only Super Admin can perform this action.",
+          },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    /* ==========================================================
        REQUEST VALIDATION
     ========================================================== */
+
     const body = await request.json();
 
-    const id = String(body?.id || "").trim();
-    const status = String(body?.status || "").trim();
+    const id =
+      String(body?.id || "").trim();
+
+    const status =
+      String(body?.status || "").trim();
 
     if (!id) {
       return NextResponse.json(
-        { error: "Registration ID is required." },
+        {
+          error:
+            "Registration ID is required.",
+        },
         { status: 400 }
       );
     }
@@ -44,7 +86,10 @@ export async function POST(request: Request) {
       )
     ) {
       return NextResponse.json(
-        { error: "Invalid registration status." },
+        {
+          error:
+            "Invalid registration status.",
+        },
         { status: 400 }
       );
     }
@@ -56,28 +101,40 @@ export async function POST(request: Request) {
        slot_number is read from the database.
        It is NEVER accepted from the admin/client request.
     ========================================================== */
-    const { data: existing, error: fetchError } =
-      await supabaseAdmin
-        .from("cultural_program_registrations")
-        .select(
-          "id, registration_no, participant_name, mobile, performance_title, slot_number, status"
-        )
-        .eq("id", id)
-        .single();
 
-    if (fetchError || !existing) {
+    const {
+      data: existing,
+      error: fetchError,
+    } = await supabaseAdmin
+      .from(
+        "cultural_program_registrations"
+      )
+      .select(
+        "id, registration_no, participant_name, mobile, performance_title, slot_number, status"
+      )
+      .eq("id", id)
+      .single();
+
+    if (
+      fetchError ||
+      !existing
+    ) {
       console.error(
         "Cultural program fetch error:",
         fetchError
       );
 
       return NextResponse.json(
-        { error: "Cultural program registration not found." },
+        {
+          error:
+            "Cultural program registration not found.",
+        },
         { status: 404 }
       );
     }
 
-    const previousStatus = existing.status;
+    const previousStatus =
+      existing.status;
 
     /* ==========================================================
        SLOT VALIDATION
@@ -87,10 +144,13 @@ export async function POST(request: Request) {
 
        Approval cannot proceed without a stored slot.
     ========================================================== */
+
     if (
       status === "approved" &&
-      (existing.slot_number === null ||
-        existing.slot_number === undefined)
+      (
+        existing.slot_number === null ||
+        existing.slot_number === undefined
+      )
     ) {
       console.error(
         "Cultural program has no slot number:",
@@ -114,15 +174,23 @@ export async function POST(request: Request) {
 
        Rejected slots are NOT released or reused.
     ========================================================== */
-    const { data, error } = await supabaseAdmin
-      .from("cultural_program_registrations")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select("*")
-      .single();
+
+    const {
+      data,
+      error,
+    } =
+      await supabaseAdmin
+        .from(
+          "cultural_program_registrations"
+        )
+        .update({
+          status,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
 
     if (error) {
       console.error(
@@ -151,10 +219,20 @@ export async function POST(request: Request) {
 
        The stored slot_number is used.
     ========================================================== */
-    let whatsappSent = false;
-    let whatsappSkipped = false;
-    let whatsappError: string | null = null;
-    let whatsappMessageId: string | null = null;
+
+    let whatsappSent =
+      false;
+
+    let whatsappSkipped =
+      false;
+
+    let whatsappError:
+      | string
+      | null = null;
+
+    let whatsappMessageId:
+      | string
+      | null = null;
 
     if (
       previousStatus !== "approved" &&
@@ -163,21 +241,40 @@ export async function POST(request: Request) {
       try {
         const result =
           await sendCulturalProgramConfirmedWhatsApp({
-            mobile: data.mobile,
-            participantName: data.participant_name,
-            registrationNo: data.registration_no,
-            performanceTitle: data.performance_title,
-            slotNumber: data.slot_number,
+            mobile:
+              data.mobile,
+
+            participantName:
+              data.participant_name,
+
+            registrationNo:
+              data.registration_no,
+
+            performanceTitle:
+              data.performance_title,
+
+            slotNumber:
+              data.slot_number,
           });
 
-        whatsappSent = Boolean(result.sent);
-        whatsappSkipped = Boolean(result.skipped);
-        whatsappError = result.sent
-          ? null
-          : result.error || null;
-        whatsappMessageId = result.messageId || null;
+        whatsappSent =
+          Boolean(result.sent);
 
-        if (!result.sent && result.error) {
+        whatsappSkipped =
+          Boolean(result.skipped);
+
+        whatsappError =
+          result.sent
+            ? null
+            : result.error || null;
+
+        whatsappMessageId =
+          result.messageId || null;
+
+        if (
+          !result.sent &&
+          result.error
+        ) {
           console.error(
             "Cultural program WhatsApp notification failed:",
             result.error
@@ -199,12 +296,18 @@ export async function POST(request: Request) {
     /* ==========================================================
        RESPONSE
     ========================================================== */
+
     return NextResponse.json({
       success: true,
+
       registration: data,
+
       whatsappSent,
+
       whatsappSkipped,
+
       whatsappMessageId,
+
       whatsappError,
     });
   } catch (error) {
