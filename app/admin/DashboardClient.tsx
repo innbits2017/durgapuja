@@ -455,6 +455,9 @@ export default function DashboardClient({
   const [loadingId, setLoadingId] =
     useState<string | null>(null);
 
+  const [pendingInventoryCount, setPendingInventoryCount] =
+    useState(0);
+
   const [message, setMessage] =
     useState("");
 
@@ -548,6 +551,45 @@ export default function DashboardClient({
       console.error("Unable to refresh expenses:", error);
     }
   }
+
+  useEffect(() => {
+    const refreshPendingInventoryCount = async () => {
+      try {
+        const response = await fetch(
+          "/api/admin/inventory-help",
+          { method: "GET", cache: "no-store" }
+        );
+
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const requests = Array.isArray(result.requests)
+          ? result.requests
+          : [];
+
+        setPendingInventoryCount(
+          requests.filter(
+            (request: { status?: string }) =>
+              request.status === "pending"
+          ).length
+        );
+      } catch (error) {
+        console.error(
+          "Unable to refresh pending inventory count:",
+          error
+        );
+      }
+    };
+
+    void refreshPendingInventoryCount();
+
+    const interval = window.setInterval(
+      refreshPendingInventoryCount,
+      10000
+    );
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const refreshDashboard = () => {
@@ -3000,6 +3042,7 @@ export default function DashboardClient({
               onClick={() => setSection("inventory")}
               icon="fa-boxes-stacked"
               label="Inventory Help"
+              notification={pendingInventoryCount > 0}
             />
 
             <NavButton
@@ -8707,11 +8750,13 @@ function NavButton({
   onClick,
   icon,
   label,
+  notification = false,
 }: {
   active: boolean;
   onClick: () => void;
   icon: string;
   label: string;
+  notification?: boolean;
 }) {
   return (
     <button
@@ -8727,7 +8772,16 @@ function NavButton({
         className={`fa-solid ${icon}`}
       />
 
-      {label}
+      <span className="relative inline-flex items-center">
+        {label}
+        {notification && (
+          <span
+            className="ml-1.5 h-2.5 w-2.5 rounded-full bg-red-600"
+            aria-label="New request"
+            title="New request"
+          />
+        )}
+      </span>
     </button>
   );
 }
