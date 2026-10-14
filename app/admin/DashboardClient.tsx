@@ -96,7 +96,7 @@ type EventRegistration = {
   id: string;
   registration_no: string;
   participant_name: string;
-  age: number;
+  age: number | null;
   gender: string | null;
   block: string;
   flat_no: string;
@@ -537,7 +537,19 @@ export default function DashboardClient({
       if (!response.ok) {
         throw new Error(result.error || "Unable to load event registrations.");
       }
-      setEventRegistrations(Array.isArray(result.registrations) ? result.registrations : []);
+      setEventRegistrations(
+        Array.isArray(result.registrations)
+          ? result.registrations.map((item: EventRegistration) => ({
+              ...item,
+              age: item.age ?? null,
+              competition: item.competition ?? null,
+              games: Array.isArray(item.games) ? item.games : [],
+              gender: item.gender ?? null,
+              email: item.email ?? null,
+              notes: item.notes ?? null,
+            }))
+          : []
+      );
       setEventRegistrationError("");
     } catch (error) {
       console.error("Unable to load event registrations:", error);
@@ -577,7 +589,7 @@ export default function DashboardClient({
     const rows = filteredEventRegistrations.map((item) => ({
       "Registration ID": item.registration_no,
       Participant: item.participant_name,
-      Age: item.age,
+      Age: item.age ?? "",
       Gender: item.gender || "",
       Block: item.block,
       "Flat No.": item.flat_no,
@@ -4841,7 +4853,7 @@ export default function DashboardClient({
 
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 <div className="rounded-lg bg-[#fcf8f1] px-3 py-2.5">
                   <div className="text-[10px] uppercase tracking-wide text-[#999]">Total</div>
                   <div className="mt-1 text-lg font-bold">{culturalStats.total}</div>
@@ -5163,6 +5175,8 @@ export default function DashboardClient({
                 <div className="rounded-lg bg-[#fcf8f1] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Total</div><div className="mt-1 text-lg font-bold">{eventRegistrations.length}</div></div>
                 <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Diya Decoration</div><div className="mt-1 text-lg font-bold">{eventRegistrations.filter((item) => item.competition === "Diya Decoration").length}</div></div>
                 <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Thali Decoration</div><div className="mt-1 text-lg font-bold">{eventRegistrations.filter((item) => item.competition === "Thali Decoration").length}</div></div>
+                <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Shankh Dhwani</div><div className="mt-1 text-lg font-bold">{eventRegistrations.filter((item) => item.competition === "Shankh Dhwani Competition").length}</div></div>
+                <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Ululu Competition</div><div className="mt-1 text-lg font-bold">{eventRegistrations.filter((item) => item.competition === "Ululu Competition").length}</div></div>
                 <div className="rounded-lg bg-[#edf8ef] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Game Entries</div><div className="mt-1 text-lg font-bold">{eventRegistrations.reduce((sum, item) => sum + (item.games || []).length, 0)}</div></div>
               </div>
             </div>
@@ -5182,7 +5196,7 @@ export default function DashboardClient({
                   {filteredEventRegistrations.map((item) => (
                     <tr key={item.id} className="align-top hover:bg-[#fffdf9]">
                       <td className="px-5 py-4"><div className="text-sm font-semibold text-[#a70e18]">{item.registration_no}</div><div className="mt-1 text-xs text-[#888]">{item.status || "pending"}</div></td>
-                      <td className="px-4 py-4"><div className="text-sm font-semibold">{item.participant_name}</div><div className="mt-1 text-xs text-[#777]">Age {item.age}{item.gender ? ` · ${item.gender}` : ""}</div></td>
+                      <td className="px-4 py-4"><div className="text-sm font-semibold">{item.participant_name}</div><div className="mt-1 text-xs text-[#777]">{item.age != null ? `Age ${item.age}` : "Age not provided"}{item.gender ? ` · ${item.gender}` : ""}</div></td>
                       <td className="px-4 py-4"><div className="text-sm font-semibold">{item.block}-{item.flat_no}</div><div className="mt-1 text-xs text-[#777]">{item.mobile}</div>{item.email && <div className="mt-1 text-xs text-[#777]">{item.email}</div>}</td>
                       <td className="px-4 py-4 text-sm">{item.competition || "—"}</td>
                       <td className="px-4 py-4"><div className="flex max-w-[320px] flex-wrap gap-1.5">{(item.games || []).length ? item.games.map((game) => <span key={game} className="rounded-full bg-[#fcf8f1] px-2.5 py-1 text-xs text-[#6b5141]">{game}</span>) : <span className="text-sm text-[#aaa]">—</span>}</div></td>
@@ -5197,7 +5211,7 @@ export default function DashboardClient({
             <div className="divide-y divide-[#eee5db] md:hidden">
               {filteredEventRegistrations.map((item) => (
                 <div key={item.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{item.participant_name}</div><div className="mt-1 text-xs text-[#777]">{item.block}-{item.flat_no} · Age {item.age}{item.gender ? ` · ${item.gender}` : ""}</div></div><span className="rounded-full bg-[#fff4dc] px-2.5 py-1 text-[10px] font-semibold text-[#9a6b00]">{item.status || "pending"}</span></div>
+                  <div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{item.participant_name}</div><div className="mt-1 text-xs text-[#777]">{item.block}-{item.flat_no} · {item.age != null ? `Age ${item.age}` : "Age not provided"}{item.gender ? ` · ${item.gender}` : ""}</div></div><span className="rounded-full bg-[#fff4dc] px-2.5 py-1 text-[10px] font-semibold text-[#9a6b00]">{item.status || "pending"}</span></div>
                   <div className="mt-3 rounded-lg bg-[#fcf8f1] p-3 text-xs"><div className="font-semibold text-[#a70e18]">{item.registration_no}</div><div className="mt-2">Mobile: {item.mobile}</div>{item.email && <div className="mt-1">Email: {item.email}</div>}{item.competition && <div className="mt-2"><strong>Competition:</strong> {item.competition}</div>}{(item.games || []).length > 0 && <div className="mt-2"><strong>Games:</strong> {(item.games || []).join(", ")}</div>}{item.notes && <div className="mt-2 whitespace-pre-wrap"><strong>Notes:</strong> {item.notes}</div>}<div className="mt-2 text-[#777]">Registered: {item.created_at ? formatDateTime(item.created_at) : "—"}</div></div>
                 </div>
               ))}
