@@ -92,6 +92,24 @@ type CulturalProgram = {
   updated_at?: string | null;
 };
 
+type EventRegistration = {
+  id: string;
+  registration_no: string;
+  participant_name: string;
+  age: number;
+  gender: string | null;
+  block: string;
+  flat_no: string;
+  mobile: string;
+  email: string | null;
+  competition: string | null;
+  games: string[];
+  notes: string | null;
+  event_date: string;
+  status: string;
+  created_at: string;
+};
+
 type SevaRegistration = {
   id: string;
   seva_no: string;
@@ -209,6 +227,7 @@ type Section =
   | "overview"
   | "contributions"
   | "culturalProgram"
+  | "eventRegistration"
   | "seva"
   | "inventory"
   | "stall"
@@ -405,6 +424,13 @@ export default function DashboardClient({
       initialSevaRegistrations
     );
 
+  const [eventRegistrations, setEventRegistrations] =
+    useState<EventRegistration[]>([]);
+  const [eventRegistrationSearch, setEventRegistrationSearch] = useState("");
+  const [eventRegistrationFilter, setEventRegistrationFilter] = useState("all");
+  const [eventRegistrationLoading, setEventRegistrationLoading] = useState(false);
+  const [eventRegistrationError, setEventRegistrationError] = useState("");
+
   const [contributionFilter, setContributionFilter] =
     useState<Filter>("all");
 
@@ -499,6 +525,81 @@ export default function DashboardClient({
 
   const [comparisonFilter, setComparisonFilter] =
   useState<ComparisonFilter>("all");
+
+  async function refreshEventRegistrations() {
+    setEventRegistrationLoading(true);
+    try {
+      const response = await fetch("/api/admin/event-registration", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to load event registrations.");
+      }
+      setEventRegistrations(Array.isArray(result.registrations) ? result.registrations : []);
+      setEventRegistrationError("");
+    } catch (error) {
+      console.error("Unable to load event registrations:", error);
+      setEventRegistrationError(
+        error instanceof Error ? error.message : "Unable to load event registrations."
+      );
+    } finally {
+      setEventRegistrationLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshEventRegistrations();
+    const interval = window.setInterval(() => {
+      void refreshEventRegistrations();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const filteredEventRegistrations = useMemo(() => {
+    const term = eventRegistrationSearch.trim().toLowerCase();
+    return eventRegistrations.filter((item) => {
+      const matchesType = eventRegistrationFilter === "all" ||
+        (eventRegistrationFilter === "competitions" && Boolean(item.competition)) ||
+        (eventRegistrationFilter === "games" && (item.games || []).length > 0);
+      if (!matchesType) return false;
+      if (!term) return true;
+      return [
+        item.registration_no, item.participant_name, item.age, item.gender || "",
+        item.block, item.flat_no, item.mobile, item.email || "", item.competition || "",
+        ...(item.games || []), item.notes || "", item.status,
+      ].join(" ").toLowerCase().includes(term);
+    });
+  }, [eventRegistrations, eventRegistrationSearch, eventRegistrationFilter]);
+
+  function exportEventRegistrations() {
+    const rows = filteredEventRegistrations.map((item) => ({
+      "Registration ID": item.registration_no,
+      Participant: item.participant_name,
+      Age: item.age,
+      Gender: item.gender || "",
+      Block: item.block,
+      "Flat No.": item.flat_no,
+      Mobile: item.mobile,
+      Email: item.email || "",
+      Competition: item.competition || "",
+      Games: (item.games || []).join("; "),
+      Notes: item.notes || "",
+      Status: item.status,
+      "Event Date": item.event_date,
+      "Registered On": formatDateTime(item.created_at),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [
+      { wch: 22 }, { wch: 24 }, { wch: 8 }, { wch: 18 }, { wch: 10 },
+      { wch: 12 }, { wch: 15 }, { wch: 28 }, { wch: 24 }, { wch: 60 },
+      { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 22 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Event Registrations");
+    XLSX.writeFile(workbook, `BUH-Event-Registrations-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
 
   /* ==========================================================
      LIVE 2026 CONTRIBUTION UPDATES
@@ -3031,6 +3132,13 @@ export default function DashboardClient({
             />
 
             <NavButton
+              active={section === "eventRegistration"}
+              onClick={() => setSection("eventRegistration")}
+              icon="fa-calendar-check"
+              label="Event Registrations"
+            />
+
+            <NavButton
               active={section === "seva"}
               onClick={() => setSection("seva")}
               icon="fa-hands-praying"
@@ -5009,6 +5117,93 @@ export default function DashboardClient({
               />
             )}
 
+          </section>
+        )}
+
+        {/* ====================================================
+            EVENT REGISTRATIONS
+        ==================================================== */}
+
+        {section === "eventRegistration" && (
+          <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
+            <div className="border-b border-[#eee5db] px-4 py-4 sm:px-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="font-serif text-xl font-bold">Event Registrations</h2>
+                  <p className="mt-1 text-xs text-[#858585]">
+                    {filteredEventRegistrations.length} shown · {eventRegistrations.length} total registrations · Refreshes automatically
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => void refreshEventRegistrations()} disabled={eventRegistrationLoading}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#ddd6cd] bg-white px-4 text-sm font-semibold text-[#555] disabled:opacity-50">
+                    <i className={`fa-solid fa-rotate ${eventRegistrationLoading ? "animate-spin" : ""}`} /> Refresh
+                  </button>
+                  <button type="button" onClick={exportEventRegistrations} disabled={filteredEventRegistrations.length === 0}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#23753b] px-4 text-sm font-semibold text-white disabled:opacity-50">
+                    <i className="fa-solid fa-file-excel" /> Export Excel
+                  </button>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="relative sm:col-span-2">
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#999]" />
+                  <input value={eventRegistrationSearch} onChange={(e) => setEventRegistrationSearch(e.target.value)}
+                    placeholder="Search name, registration ID, flat, mobile, competition or game..."
+                    className="h-10 w-full rounded-lg border border-[#ddd6cd] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#a70e18]" />
+                </div>
+                <select value={eventRegistrationFilter} onChange={(e) => setEventRegistrationFilter(e.target.value)}
+                  className="h-10 rounded-lg border border-[#ddd6cd] bg-white px-3 text-sm outline-none focus:border-[#a70e18]">
+                  <option value="all">All Registrations</option>
+                  <option value="competitions">Competitions Only</option>
+                  <option value="games">Games Only</option>
+                </select>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg bg-[#fcf8f1] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Total</div><div className="mt-1 text-lg font-bold">{eventRegistrations.length}</div></div>
+                <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Diya Decoration</div><div className="mt-1 text-lg font-bold">{eventRegistrations.filter((item) => item.competition === "Diya Decoration").length}</div></div>
+                <div className="rounded-lg bg-[#fff8e7] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Thali Decoration</div><div className="mt-1 text-lg font-bold">{eventRegistrations.filter((item) => item.competition === "Thali Decoration").length}</div></div>
+                <div className="rounded-lg bg-[#edf8ef] px-3 py-2.5"><div className="text-[10px] uppercase tracking-wide text-[#999]">Game Entries</div><div className="mt-1 text-lg font-bold">{eventRegistrations.reduce((sum, item) => sum + (item.games || []).length, 0)}</div></div>
+              </div>
+            </div>
+
+            {eventRegistrationError && (
+              <div className="m-4 rounded-lg border border-[#f0cccc] bg-[#fff6f6] p-3 text-sm text-[#a70e18]">
+                {eventRegistrationError} Check that GET /api/admin/event-registration is available and the admin session has access.
+              </div>
+            )}
+
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[1200px] text-left">
+                <thead className="bg-[#fcf8f1] text-xs uppercase tracking-wide text-[#777]"><tr>
+                  <th className="px-5 py-3">Registration</th><th className="px-4 py-3">Participant</th><th className="px-4 py-3">Flat / Contact</th><th className="px-4 py-3">Competition</th><th className="px-4 py-3">Games</th><th className="px-4 py-3">Notes</th><th className="px-5 py-3">Registered</th>
+                </tr></thead>
+                <tbody className="divide-y divide-[#f0ebe5]">
+                  {filteredEventRegistrations.map((item) => (
+                    <tr key={item.id} className="align-top hover:bg-[#fffdf9]">
+                      <td className="px-5 py-4"><div className="text-sm font-semibold text-[#a70e18]">{item.registration_no}</div><div className="mt-1 text-xs text-[#888]">{item.status || "pending"}</div></td>
+                      <td className="px-4 py-4"><div className="text-sm font-semibold">{item.participant_name}</div><div className="mt-1 text-xs text-[#777]">Age {item.age}{item.gender ? ` · ${item.gender}` : ""}</div></td>
+                      <td className="px-4 py-4"><div className="text-sm font-semibold">{item.block}-{item.flat_no}</div><div className="mt-1 text-xs text-[#777]">{item.mobile}</div>{item.email && <div className="mt-1 text-xs text-[#777]">{item.email}</div>}</td>
+                      <td className="px-4 py-4 text-sm">{item.competition || "—"}</td>
+                      <td className="px-4 py-4"><div className="flex max-w-[320px] flex-wrap gap-1.5">{(item.games || []).length ? item.games.map((game) => <span key={game} className="rounded-full bg-[#fcf8f1] px-2.5 py-1 text-xs text-[#6b5141]">{game}</span>) : <span className="text-sm text-[#aaa]">—</span>}</div></td>
+                      <td className="max-w-[220px] whitespace-pre-wrap px-4 py-4 text-xs text-[#777]">{item.notes || "—"}</td>
+                      <td className="px-5 py-4 text-xs text-[#777]">{item.created_at ? formatDateTime(item.created_at) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="divide-y divide-[#eee5db] md:hidden">
+              {filteredEventRegistrations.map((item) => (
+                <div key={item.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{item.participant_name}</div><div className="mt-1 text-xs text-[#777]">{item.block}-{item.flat_no} · Age {item.age}{item.gender ? ` · ${item.gender}` : ""}</div></div><span className="rounded-full bg-[#fff4dc] px-2.5 py-1 text-[10px] font-semibold text-[#9a6b00]">{item.status || "pending"}</span></div>
+                  <div className="mt-3 rounded-lg bg-[#fcf8f1] p-3 text-xs"><div className="font-semibold text-[#a70e18]">{item.registration_no}</div><div className="mt-2">Mobile: {item.mobile}</div>{item.email && <div className="mt-1">Email: {item.email}</div>}{item.competition && <div className="mt-2"><strong>Competition:</strong> {item.competition}</div>}{(item.games || []).length > 0 && <div className="mt-2"><strong>Games:</strong> {(item.games || []).join(", ")}</div>}{item.notes && <div className="mt-2 whitespace-pre-wrap"><strong>Notes:</strong> {item.notes}</div>}<div className="mt-2 text-[#777]">Registered: {item.created_at ? formatDateTime(item.created_at) : "—"}</div></div>
+                </div>
+              ))}
+            </div>
+
+            {!eventRegistrationLoading && filteredEventRegistrations.length === 0 && !eventRegistrationError && <EmptyState label="No event registrations found." />}
           </section>
         )}
 
