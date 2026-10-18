@@ -3214,6 +3214,16 @@ export default function DashboardClient({
               label="Gallery"
             />
 
+            
+<a
+  href="/admin/cultural-media"
+  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-[#ead9c7] bg-white px-3 py-2.5 text-sm font-semibold text-[#a70e18] hover:bg-[#fcf8f1]"
+>
+  <i className="fa-solid fa-photo-film" />
+  Cultural Media
+</a>
+
+
           </div>
         </nav>
 
