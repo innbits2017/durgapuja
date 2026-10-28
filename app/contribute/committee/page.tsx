@@ -110,6 +110,8 @@ export default function CommitteeContributePage() {
   const [paidFlats, setPaidFlats] = useState<string[]>(
     []
   );
+  const [isAdditionalContribution, setIsAdditionalContribution] =
+    useState(false);
 
   const [lastYearPaid, setLastYearPaid] = useState<
     LastYearPaidRecord[]
@@ -271,6 +273,7 @@ export default function CommitteeContributePage() {
   ) {
     setBlock(value);
     setFlatNo("");
+    setIsAdditionalContribution(false);
     setFlatSearch("");
     setShowFlatDropdown(false);
     setError("");
@@ -343,11 +346,10 @@ export default function CommitteeContributePage() {
   const selectedLastYearPaid = getLastYearPaid(flatNo);
 
   function selectFlat(flat: string) {
-    if (isFlatPaid(flat)) {
-      return;
-    }
-
+    // Paid flats remain selectable so the committee can record
+    // an additional contribution as a separate transaction.
     setFlatNo(flat);
+    setIsAdditionalContribution(isFlatPaid(flat));
     setFlatSearch(flat);
     setShowFlatDropdown(false);
     setError("");
@@ -415,9 +417,9 @@ export default function CommitteeContributePage() {
       return;
     }
 
-    if (isFlatPaid(flatNo)) {
+    if (isFlatPaid(flatNo) && collectionStatus !== "Pay Now") {
       setError(
-        "This flat has already completed its contribution."
+        "This flat is already marked Paid. Select Pay Now to record an additional contribution."
       );
       return;
     }
@@ -499,13 +501,7 @@ export default function CommitteeContributePage() {
       return;
     }
 
-    if (isFlatPaid(flatNo)) {
-      setError(
-        "This flat has already completed its contribution."
-      );
-      return;
-    }
-
+    // A previously paid flat can make an additional contribution.
     if (!residentType) {
       setError(
         "Please select Owner or Tenant."
@@ -544,14 +540,8 @@ export default function CommitteeContributePage() {
       return;
     }
 
-    if (isFlatPaid(flatNo)) {
-      setError(
-        "This flat has already completed its contribution."
-      );
-      setStep(1);
-      return;
-    }
-
+    // Do not block repeat contributions here. Each contribution is
+    // submitted as a separate record by the contributions API.
     if (
       paymentMethod === "upi" &&
       !utr.trim()
@@ -929,7 +919,6 @@ export default function CommitteeContributePage() {
                                     <button
                                       key={`${block}-${flat}`}
                                       type="button"
-                                      disabled={paid}
                                       onClick={() =>
                                         selectFlat(
                                           flat
@@ -937,7 +926,7 @@ export default function CommitteeContributePage() {
                                       }
                                       className={`flex w-full items-center justify-between rounded-[8px] px-3 py-2.5 text-left text-[13px] font-semibold transition ${
                                         paid
-                                          ? "cursor-not-allowed bg-[#f3f3f3] text-[#aaa]"
+                                          ? "bg-[#fff8eb] text-[#8a641c] hover:bg-[#fff0d4]"
                                           : flatNo ===
                                               flat
                                             ? "bg-[#faeeee] text-[#a70e18]"
@@ -951,7 +940,7 @@ export default function CommitteeContributePage() {
                                       {paid && (
                                         <span className="text-[11px] font-semibold text-[#999]">
                                           <i className="mr-1 fa-solid fa-check" />
-                                          Paid
+                                          Paid · Add Again
                                         </span>
                                       )}
                                     </button>
@@ -964,6 +953,25 @@ export default function CommitteeContributePage() {
 
                     </div>
                   </div>
+
+                  {collectionStatus === "Pay Now" &&
+                    block &&
+                    flatNo &&
+                    isAdditionalContribution && (
+                      <div className="flex items-start gap-3 rounded-[11px] border border-[#e8d3a5] bg-[#fff8e8] px-4 py-3 text-[12px] text-[#725e3a]">
+                        <i className="mt-0.5 fa-solid fa-circle-info" />
+                        <div>
+                          <p className="font-bold text-[#8a641c]">
+                            Additional Contribution
+                          </p>
+                          <p className="mt-1 leading-[1.5]">
+                            This flat has already contributed. You can record another contribution;
+                            it will be submitted as a separate transaction and will not replace the
+                            previous payment.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                   {collectionStatus === "Pay Now" && (
                     <>
@@ -1061,7 +1069,9 @@ export default function CommitteeContributePage() {
                   <div className="flex flex-col gap-1">
 
                     <label className="text-[13px] font-semibold text-[#333]">
-                      Contribution Amount
+                      {isAdditionalContribution
+                        ? "Additional Contribution Amount"
+                        : "Contribution Amount"}
                     </label>
 
                     <div className="grid grid-cols-[minmax(220px,1fr)_auto] items-center gap-2 max-[850px]:grid-cols-1">
@@ -1518,7 +1528,7 @@ export default function CommitteeContributePage() {
 
                 <p className="mt-2">
                   {collectionStatus === "Pay Now"
-                    ? <>Thank you, <strong>{name}</strong>.</>
+                    ? <>Thank you, <strong>{name}</strong>.{isAdditionalContribution ? " Additional contribution recorded." : ""}</>
                     : <>Collection status updated for <strong>{block}-{flatNo}</strong>.</>}
                 </p>
 

@@ -1033,168 +1033,64 @@ export default function DashboardClient({
      CREATE MASTER LIST OF ALL FLATS
   ========================================================== */
 
-  const allFlatRows =
-    useMemo<FlatRow[]>(() => {
-      const rows: FlatRow[] = [];
+  const allFlatRows = useMemo<FlatRow[]>(() => {
+    const normalizeFlat = (value: string | number | null | undefined) => {
+      const match = String(value ?? "").trim().match(/\\d+/);
+      return match ? match[0].padStart(3, "0") : "";
+    };
 
-      const blocks: Array<
-        keyof typeof ALL_FLATS
-      > = [
-        "P1",
-        "P2",
-        "Villa",
-      ];
+    // One dashboard row per contribution record. Do not collapse records
+    // by block/flat: the same flat can make several separate contributions.
+    return contributions
+      .filter((item) => Boolean(item.block && item.flat_no))
+      .map((contribution) => {
+        const block = contribution.block as string;
+        const flat = normalizeFlat(contribution.flat_no);
 
-      blocks.forEach((block) => {
-        ALL_FLATS[block].forEach(
-          (flat) => {
-            /*
-             * Find current-year contribution.
-             *
-             * If none exists, contribution = null.
-             */
-            const matchingContributions =
-              contributions.filter(
-                (item) =>
-                  item.block === block &&
-                  String(
-                    item.flat_no
-                  ).padStart(
-                    3,
-                    "0"
-                  ) === flat
-              );
-
-            /*
-             * Keep latest current-year
-             * contribution.
-             */
-            const contribution =
-              matchingContributions.sort(
-                (a, b) =>
-                  new Date(
-                    b.created_at
-                  ).getTime() -
-                  new Date(
-                    a.created_at
-                  ).getTime()
-              )[0] || null;
-
-            /*
-             * Find last-year record.
-             */
-            const lastYearRecords =
-              lastYearPaid.filter(
-                (item) =>
-                  item.block ===
-                    block &&
-                  String(
-                    item.flat_no
-                  ).padStart(
-                    3,
-                    "0"
-                  ) === flat
-              );
-
-            let lastYearRecord =
-              lastYearRecords[0] ||
-              null;
-
-            /*
-             * Prefer matching resident type
-             * when available.
-             */
-            if (
-              contribution?.resident_type &&
-              lastYearRecords.length
-            ) {
-              const exactMatch =
-                lastYearRecords.find(
-                  (item) =>
-                    item.resident_type ===
-                    contribution.resident_type
-                );
-
-              if (exactMatch) {
-                lastYearRecord =
-                  exactMatch;
-              }
-            }
-
-            // The Contributions tab should contain only actual
-            // current-year contribution records, not empty flats.
-            if (!contribution) {
-              return;
-            }
-
-            rows.push({
-              id: contribution.id,
-
-              name:
-                contribution.name || "—",
-
-              block,
-
-              flat_no: flat,
-
-              last_year_amount:
-                lastYearRecord
-                  ? Number(
-                      lastYearRecord.amount
-                    )
-                  : null,
-
-              resident_type:
-                contribution?.resident_type ||
-                lastYearRecord?.resident_type ||
-                null,
-
-              mobile:
-                contribution?.mobile ||
-                "",
-
-              collection_status:
-                contribution?.collection_status ||
-                null,
-
-              payment_method:
-                contribution?.payment_method ||
-                null,
-
-              amount:
-                contribution
-                  ? Number(
-                      contribution.amount
-                    )
-                  : null,
-
-              utr:
-                contribution?.utr ||
-                null,
-
-              paid_to:
-                contribution?.paid_to ||
-                null,
-
-              created_at:
-                contribution?.created_at ||
-                null,
-
-              status:
-                contribution?.status ||
-                null,
-
-              contribution,
-            });
-          }
+        const lastYearRecords = lastYearPaid.filter(
+          (item) =>
+            item.block === block &&
+            normalizeFlat(item.flat_no) === flat
         );
-      });
 
-      return rows;
-    }, [
-      contributions,
-      lastYearPaid,
-    ]);
+        let lastYearRecord = lastYearRecords[0] || null;
+
+        if (contribution.resident_type && lastYearRecords.length > 0) {
+          const matchingResidentType = lastYearRecords.find(
+            (item) => item.resident_type === contribution.resident_type
+          );
+          if (matchingResidentType) lastYearRecord = matchingResidentType;
+        }
+
+        return {
+          id: contribution.id,
+          name: contribution.name || "—",
+          block,
+          flat_no: flat,
+          last_year_amount: lastYearRecord
+            ? Number(lastYearRecord.amount || 0)
+            : null,
+          resident_type:
+            contribution.resident_type ||
+            lastYearRecord?.resident_type ||
+            null,
+          mobile: contribution.mobile || "",
+          collection_status: contribution.collection_status || null,
+          payment_method: contribution.payment_method || null,
+          amount: Number(contribution.amount || 0),
+          utr: contribution.utr || null,
+          paid_to: contribution.paid_to || null,
+          created_at: contribution.created_at || null,
+          status: contribution.status || null,
+          contribution,
+        };
+      })
+      .sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [contributions, lastYearPaid]);
 
   /* ==========================================================
      FILTERED CONTRIBUTIONS
@@ -1481,8 +1377,10 @@ export default function DashboardClient({
       return match[0].padStart(3, "0");
     };
 
-    // Current-year records: latest non-rejected contribution per flat.
+    // Use the latest non-rejected record for flat-level status/category,
+    // but total every verified payment when comparing contribution amounts.
     const currentByFlat = new Map<string, Contribution>();
+    const verifiedAmountByFlat = new Map<string, number>();
 
     contributions.forEach((item) => {
       if (
@@ -1497,8 +1395,15 @@ export default function DashboardClient({
       if (!flat) return;
 
       const key = `${item.block}-${flat}`;
-      const existing = currentByFlat.get(key);
 
+      if (item.status === "verified") {
+        verifiedAmountByFlat.set(
+          key,
+          (verifiedAmountByFlat.get(key) || 0) + Number(item.amount || 0)
+        );
+      }
+
+      const existing = currentByFlat.get(key);
       if (
         !existing ||
         new Date(item.created_at).getTime() >
@@ -1560,7 +1465,7 @@ export default function DashboardClient({
             : null;
 
           const currentAmount = current
-            ? Number(current.amount || 0)
+            ? Number(verifiedAmountByFlat.get(key) || 0)
             : null;
 
           let category: ComparisonRow["category"];

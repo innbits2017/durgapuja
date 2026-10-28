@@ -486,25 +486,14 @@ export async function POST(request: Request) {
         );
       }
 
-      // A verified payment means the flat is genuinely paid.
-      // It cannot be submitted again.
-      if (
-        existingContribution &&
-        existingContribution.status ===
-          "verified"
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "This flat has already completed its contribution.",
-            paymentId:
-              existingContribution.payment_id ||
-              existingContribution.id ||
-              null,
-          },
-          { status: 409 }
+      // A verified contribution does not block another committee
+      // contribution. The additional payment must be inserted as a
+      // separate row so the previous payment and receipt remain intact.
+      const isAdditionalContribution =
+        Boolean(
+          existingContribution &&
+          existingContribution.status === "verified"
         );
-      }
 
       // Check duplicate UTR.
       if (cleanUtr) {
@@ -592,23 +581,30 @@ export async function POST(request: Request) {
         | { message?: string; code?: string }
         | null = null;
 
-      // If the flat previously had a collection tracking
-      // record, convert that same record into the actual payment.
-      if (
-        existingContribution &&
-        existingContribution.status !==
-          "verified" &&
-        existingContribution.collection_channel ===
-          "committee"
-      ) {
+      // Reuse a committee tracking row only when it is not already
+      // a verified payment. If a verified payment exists, insert a
+      // brand-new row for this additional contribution.
+      const canConvertTrackingRecord =
+        Boolean(
+          existingContribution &&
+          existingContribution.status !== "verified" &&
+          existingContribution.collection_channel === "committee" &&
+          NON_PAYMENT_STATUSES.includes(
+            existingContribution.collection_status as
+              (typeof NON_PAYMENT_STATUSES)[number]
+          )
+        );
+
+      // Only reuse a committee follow-up/tracking row. Never overwrite a
+      // real payment record; each additional payment gets its own row.
+      const shouldInsertNewPayment = !canConvertTrackingRecord;
+
+      if (canConvertTrackingRecord) {
         const { data, error } =
           await supabaseAdmin
             .from("contributions")
             .update(paymentPayload)
-            .eq(
-              "id",
-              existingContribution.id
-            )
+            .eq("id", existingContribution!.id)
             .select()
             .single();
 
@@ -616,7 +612,7 @@ export async function POST(request: Request) {
           ? (data as SavedContribution)
           : null;
         saveError = error;
-      } else if (!existingContribution) {
+      } else if (shouldInsertNewPayment) {
         const { data, error } =
           await supabaseAdmin
             .from("contributions")
@@ -635,7 +631,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "This flat already has an active contribution record.",
+              "This flat has an existing contribution that is still pending. Resolve that record before adding another payment.",
           },
           { status: 409 }
         );
@@ -772,6 +768,7 @@ export async function POST(request: Request) {
               contribution.block,
             flatNo:
               contribution.flat_no,
+            isAdditionalContribution,
           },
           whatsappSent,
           whatsappError,
@@ -876,19 +873,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (existingContribution) {
-      return NextResponse.json(
-        {
-          error:
-            "This flat already has an active contribution record.",
-          paymentId:
-            existingContribution.payment_id ||
-            existingContribution.id ||
-            null,
-        },
-        { status: 409 }
-      );
-    }
+    // Multiple online contributions per flat are allowed. Each submission
+    // is inserted as a new record; the UTR check below prevents reuse of
+    // the same transaction reference.
 
     const {
       data: existingUtr,
