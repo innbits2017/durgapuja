@@ -11077,45 +11077,37 @@ type GalleryFilter =
   | "approved"
   | "rejected";
 
+
 function GalleryManager() {
-  const [items, setItems] =
-    useState<GalleryItem[]>([]);
+  const [items, setItems] = useState<GalleryItem[]>([]);
+  const [filter, setFilter] = useState<GalleryFilter>("pending");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [filter, setFilter] =
-    useState<GalleryFilter>("pending");
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [actionId, setActionId] =
-    useState<string | null>(null);
-
-  const [message, setMessage] =
-    useState("");
-
-  async function loadGallery() {
-    try {
+  async function loadGallery(manual = false) {
+    if (manual) {
+      setRefreshing(true);
+    } else if (items.length === 0) {
       setLoading(true);
-      setMessage("");
+    }
 
-      const response = await fetch(
-        "/api/admin/gallery",
-        {
-          cache: "no-store",
-        }
-      );
+    try {
+      const response = await fetch("/api/admin/gallery", {
+        cache: "no-store",
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          result.error ||
-            "Unable to load gallery."
-        );
+        throw new Error(result.error || "Unable to load gallery.");
       }
 
-      setItems(result.items || []);
+      setItems(Array.isArray(result.items) ? result.items : []);
+      setMessage("");
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -11124,21 +11116,55 @@ function GalleryManager() {
       );
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
+  // Load once when the gallery opens. No automatic refresh timer.
   useEffect(() => {
-    loadGallery();
-
-    const interval =
-      window.setInterval(
-        loadGallery,
-        15000
-      );
-
-    return () =>
-      window.clearInterval(interval);
+    void loadGallery();
   }, []);
+
+  const counts = useMemo(
+    () => ({
+      all: items.length,
+      pending: items.filter((item) => item.status === "pending").length,
+      approved: items.filter((item) => item.status === "approved").length,
+      rejected: items.filter((item) => item.status === "rejected").length,
+    }),
+    [items]
+  );
+
+  const filteredItems = useMemo(() => {
+    if (filter === "all") return items;
+    return items.filter((item) => item.status === filter);
+  }, [items, filter]);
+
+  const visiblePendingIds = filteredItems
+    .filter((item) => item.status === "pending")
+    .map((item) => item.id);
+
+  const allVisibleSelected =
+    visiblePendingIds.length > 0 &&
+    visiblePendingIds.every((id) => selectedIds.includes(id));
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter((id) => !visiblePendingIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...visiblePendingIds]));
+    });
+  }
 
   async function updateStatus(
     id: string,
@@ -11148,167 +11174,147 @@ function GalleryManager() {
       setActionId(id);
       setMessage("");
 
-      const response = await fetch(
-        "/api/admin/gallery",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            id,
-            status,
-          }),
-        }
-      );
+      const response = await fetch("/api/admin/gallery", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          result.error ||
-            "Unable to update gallery item."
-        );
+        throw new Error(result.error || "Unable to update gallery item.");
       }
 
       setItems((current) =>
         current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                status,
-              }
-            : item
+          item.id === id ? { ...item, status } : item
         )
       );
 
-      // Immediately show the list the item moved into.
-      setFilter(status);
+      setSelectedIds((current) => current.filter((itemId) => itemId !== id));
+      setMessage(status === "approved" ? "Memory approved successfully." : "Memory rejected.");
 
-      setMessage(
-        status === "approved"
-          ? "Memory approved successfully. It is now shown in the Approved list."
-          : "Memory rejected. It is now shown in the Rejected list."
-      );
+      setFilter(status);
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to update memory."
+        error instanceof Error ? error.message : "Unable to update memory."
       );
     } finally {
       setActionId(null);
     }
   }
 
-  async function deleteItem(
-    item: GalleryItem
-  ) {
-    const confirmed =
-      window.confirm(
-        `Delete "${item.file_name}" permanently?`
-      );
+  async function approveSelected() {
+    const idsToApprove = selectedIds.filter((id) =>
+      items.some((item) => item.id === id && item.status === "pending")
+    );
+
+    if (!idsToApprove.length) {
+      setMessage("Please select at least one pending item.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Approve ${idsToApprove.length} selected photo(s)/video(s)?`
+    );
 
     if (!confirmed) return;
+
+    setBulkApproving(true);
+    setMessage("");
+
+    const approvedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    try {
+      for (const id of idsToApprove) {
+        try {
+          const response = await fetch("/api/admin/gallery", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, status: "approved" }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "Approval failed.");
+          }
+
+          approvedIds.push(id);
+        } catch {
+          failedIds.push(id);
+        }
+      }
+
+      if (approvedIds.length > 0) {
+        setItems((current) =>
+          current.map((item) =>
+            approvedIds.includes(item.id)
+              ? { ...item, status: "approved" }
+              : item
+          )
+        );
+      }
+
+      setSelectedIds(failedIds);
+
+      if (failedIds.length === 0) {
+        setMessage(`${approvedIds.length} item(s) approved successfully.`);
+        setFilter("approved");
+      } else {
+        setMessage(
+          `${approvedIds.length} item(s) approved. ${failedIds.length} failed. Failed items remain selected so you can retry.`
+        );
+        setFilter("pending");
+      }
+    } finally {
+      setBulkApproving(false);
+    }
+  }
+
+  async function deleteItem(item: GalleryItem) {
+    if (!window.confirm(`Delete "${item.file_name}" permanently?`)) {
+      return;
+    }
 
     try {
       setActionId(item.id);
       setMessage("");
 
-      const response = await fetch(
-        "/api/admin/gallery",
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            id: item.id,
-          }),
-        }
-      );
+      const response = await fetch("/api/admin/gallery", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id }),
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          result.error ||
-            "Unable to delete item."
-        );
+        throw new Error(result.error || "Unable to delete item.");
       }
 
-      setItems((current) =>
-        current.filter(
-          (galleryItem) =>
-            galleryItem.id !== item.id
-        )
-      );
-
-      setMessage(
-        "Gallery item deleted successfully."
-      );
+      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      setSelectedIds((current) => current.filter((id) => id !== item.id));
+      setMessage("Gallery item deleted successfully.");
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to delete item."
+        error instanceof Error ? error.message : "Unable to delete item."
       );
     } finally {
       setActionId(null);
     }
   }
 
-  const counts = useMemo(
-    () => ({
-      all: items.length,
-      pending: items.filter(
-        (item) =>
-          item.status === "pending"
-      ).length,
-      approved: items.filter(
-        (item) =>
-          item.status === "approved"
-      ).length,
-      rejected: items.filter(
-        (item) =>
-          item.status === "rejected"
-      ).length,
-    }),
-    [items]
-  );
-
-  const filteredItems =
-    useMemo(() => {
-      if (filter === "all") {
-        return items;
-      }
-
-      return items.filter(
-        (item) =>
-          item.status === filter
-      );
-    }, [items, filter]);
-
   return (
     <div className="space-y-5">
-
-      {/* HEADER */}
-
       <div className="flex flex-wrap items-center justify-between gap-4">
-
         <div>
           <p className="text-xs font-bold tracking-[0.25em] text-[#a77a2b]">
             COMMUNITY MEMORIES
           </p>
-
-          <h2 className="mt-1 text-2xl font-bold text-[#761019]">
-            Gallery
-          </h2>
-
+          <h2 className="mt-1 text-2xl font-bold text-[#761019]">Gallery</h2>
           <p className="mt-1 text-sm text-[#777]">
             Review photos and videos submitted by residents.
           </p>
@@ -11316,247 +11322,222 @@ function GalleryManager() {
 
         <button
           type="button"
-          onClick={loadGallery}
-          disabled={loading}
+          onClick={() => void loadGallery(true)}
+          disabled={loading || refreshing || bulkApproving}
           className="rounded-lg border border-[#eadfd2] bg-white px-4 py-2.5 text-xs font-semibold text-[#555] hover:bg-[#fffaf2] disabled:opacity-50"
         >
-          <i className="fa-solid fa-rotate-right mr-2" />
-          Refresh
+          <i className={`fa-solid fa-rotate-right mr-2 ${refreshing ? "fa-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh"}
         </button>
-
       </div>
 
-      {/* COUNTS */}
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-
-        {[
+        {([
           ["all", "All", "fa-images"],
           ["pending", "Pending", "fa-clock"],
           ["approved", "Approved", "fa-circle-check"],
           ["rejected", "Rejected", "fa-circle-xmark"],
-        ].map(
-          ([key, label, icon]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() =>
-                setFilter(
-                  key as GalleryFilter
-                )
-              }
-              className={`rounded-xl border p-4 text-left transition ${
-                filter === key
-                  ? "border-[#d7b66a] bg-[#fffaf2]"
-                  : "border-[#eee5db] bg-white hover:border-[#ead8bd]"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#777]">
-                  {label}
-                </span>
-
-                <i
-                  className={`fa-solid ${icon} text-[#a70e18]`}
-                />
-              </div>
-
-              <div className="mt-2 text-2xl font-bold text-[#761019]">
-                {counts[key as GalleryFilter]}
-              </div>
-            </button>
-          )
-        )}
-
+        ] as const).map(([key, label, icon]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            className={`rounded-xl border p-4 text-left transition ${
+              filter === key
+                ? "border-[#d7b66a] bg-[#fffaf2]"
+                : "border-[#eee5db] bg-white hover:border-[#ead8bd]"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-[#777]">{label}</span>
+              <i className={`fa-solid ${icon} text-[#a70e18]`} />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-[#761019]">
+              {counts[key]}
+            </div>
+          </button>
+        ))}
       </div>
 
-      {/* MESSAGE */}
-
       {message && (
-        <div className="rounded-xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#725e3a]">
+        <div className="whitespace-pre-line rounded-xl border border-[#ead9c7] bg-white px-4 py-3 text-sm text-[#725e3a]">
           {message}
         </div>
       )}
 
-      {/* ITEMS */}
+      {!loading && visiblePendingIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#eadfd2] bg-white p-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#444]">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAll}
+              disabled={bulkApproving}
+              className="h-4 w-4 accent-[#a70e18]"
+            />
+            Select All Pending ({visiblePendingIds.length})
+          </label>
+
+          <button
+            type="button"
+            onClick={() => void approveSelected()}
+            disabled={
+              selectedIds.filter((id) =>
+                items.some((item) => item.id === id && item.status === "pending")
+              ).length === 0 || bulkApproving
+            }
+            className="rounded-lg bg-[#23753b] px-5 py-3 text-sm font-bold text-white hover:bg-[#195c2d] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {bulkApproving ? (
+              <>
+                <i className="fa-solid fa-spinner fa-spin mr-2" />
+                Approving...
+              </>
+            ) : (
+              <>
+                <i className="fa-solid fa-check-double mr-2" />
+                Approve Selected (
+                {selectedIds.filter((id) =>
+                  items.some((item) => item.id === id && item.status === "pending")
+                ).length}
+                )
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="rounded-2xl border border-[#eadfd2] bg-white p-12 text-center">
           <i className="fa-solid fa-spinner fa-spin text-2xl text-[#a70e18]" />
-          <p className="mt-3 text-sm text-[#777]">
-            Loading gallery...
-          </p>
+          <p className="mt-3 text-sm text-[#777]">Loading gallery...</p>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#dfd0bd] bg-white p-12 text-center">
           <i className="fa-solid fa-images text-4xl text-[#d7b66a]" />
-
-          <h3 className="mt-4 font-semibold text-[#555]">
-            No gallery items
-          </h3>
-
+          <h3 className="mt-4 font-semibold text-[#555]">No gallery items</h3>
           <p className="mt-1 text-sm text-[#999]">
             There are no items in this category.
           </p>
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredItems.map((item) => (
+            <div
+              key={item.id}
+              className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm"
+            >
+              <div className="relative aspect-[4/3] overflow-hidden bg-[#f5eee5]">
+                {item.preview_url && item.type === "photo" ? (
+                  <img
+                    src={item.preview_url}
+                    alt={item.file_name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : item.preview_url && item.type === "video" ? (
+                  <video
+                    src={item.preview_url}
+                    controls
+                    preload="metadata"
+                    className="h-full w-full bg-black object-contain"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-4xl text-[#d7b66a]">
+                    <i className={item.type === "video" ? "fa-solid fa-video" : "fa-solid fa-image"} />
+                  </div>
+                )}
 
-          {filteredItems.map(
-            (item) => (
-              <div
-                key={item.id}
-                className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm"
-              >
+                <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                  {item.type}
+                </div>
 
-                {/* PREVIEW */}
-
-                <div className="relative aspect-[4/3] overflow-hidden bg-[#f5eee5]">
-
-                  {item.preview_url &&
-                  item.type === "photo" ? (
-                    <img
-                      src={item.preview_url}
-                      alt={item.file_name}
-                      className="h-full w-full object-cover"
+                {item.status === "pending" && (
+                  <label className="absolute right-3 top-3 flex cursor-pointer items-center gap-2 rounded-lg bg-white/95 px-3 py-2 text-xs font-bold text-[#761019] shadow">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                      disabled={bulkApproving}
+                      className="h-4 w-4 accent-[#a70e18]"
                     />
-                  ) : item.preview_url &&
-                    item.type === "video" ? (
-                    <video
-                      src={item.preview_url}
-                      controls
-                      preload="metadata"
-                      className="h-full w-full bg-black object-contain"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-4xl text-[#d7b66a]">
-                      <i
-                        className={
-                          item.type ===
-                          "video"
-                            ? "fa-solid fa-video"
-                            : "fa-solid fa-image"
-                        }
-                      />
-                    </div>
+                    Select
+                  </label>
+                )}
+              </div>
+
+              <div className="p-4">
+                <div className="truncate text-sm font-semibold text-[#444]">
+                  {item.file_name}
+                </div>
+
+                <div className="mt-2 text-xs text-[#999]">
+                  {item.uploaded_by && (
+                    <>
+                      By <span className="font-medium text-[#666]">{item.uploaded_by}</span>
+                      {" · "}
+                    </>
+                  )}
+                  {new Date(item.created_at).toLocaleString("en-IN")}
+                </div>
+
+                <div className="mt-3">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
+                      item.status === "approved"
+                        ? "bg-[#edf8f0] text-[#23753b]"
+                        : item.status === "rejected"
+                          ? "bg-[#fff0f0] text-[#a70e18]"
+                          : "bg-[#fff7e8] text-[#9a6a16]"
+                    }`}
+                  >
+                    {item.status === "approved"
+                      ? "Approved"
+                      : item.status === "rejected"
+                        ? "Rejected"
+                        : "Pending Review"}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  {item.status === "pending" && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={actionId === item.id || bulkApproving}
+                        onClick={() => void updateStatus(item.id, "approved")}
+                        className="flex-1 rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        <i className="fa-solid fa-check mr-1.5" />
+                        Approve
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={actionId === item.id || bulkApproving}
+                        onClick={() => void updateStatus(item.id, "rejected")}
+                        className="flex-1 rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
+                      >
+                        <i className="fa-solid fa-xmark mr-1.5" />
+                        Reject
+                      </button>
+                    </>
                   )}
 
-                  <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                    {item.type}
-                  </div>
-
+                  <button
+                    type="button"
+                    disabled={actionId === item.id || bulkApproving}
+                    onClick={() => void deleteItem(item)}
+                    className="rounded-lg border border-[#eadfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#777] hover:bg-[#fff6f4] hover:text-[#a70e18] disabled:opacity-50"
+                  >
+                    <i className="fa-solid fa-trash mr-1.5" />
+                    Delete
+                  </button>
                 </div>
-
-                {/* DETAILS */}
-
-                <div className="p-4">
-
-                  <div className="truncate text-sm font-semibold text-[#444]">
-                    {item.file_name}
-                  </div>
-
-                  <div className="mt-2 text-xs text-[#999]">
-                    {item.uploaded_by && (
-                      <>
-                        By{" "}
-                        <span className="font-medium text-[#666]">
-                          {item.uploaded_by}
-                        </span>
-                        {" · "}
-                      </>
-                    )}
-
-                    {new Date(
-                      item.created_at
-                    ).toLocaleString("en-IN")}
-                  </div>
-
-                  <div className="mt-3">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${
-                        item.status === "approved"
-                          ? "bg-[#edf8f0] text-[#23753b]"
-                          : item.status === "rejected"
-                            ? "bg-[#fff0f0] text-[#a70e18]"
-                            : "bg-[#fff7e8] text-[#9a6a16]"
-                      }`}
-                    >
-                      {item.status === "approved"
-                        ? "Approved"
-                        : item.status === "rejected"
-                          ? "Rejected"
-                          : "Pending Review"}
-                    </span>
-                  </div>
-
-                  {/* ACTIONS */}
-
-                  <div className="mt-4 flex gap-2">
-
-                    {item.status === "pending" && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={
-                            actionId === item.id
-                          }
-                          onClick={() =>
-                            updateStatus(
-                              item.id,
-                              "approved"
-                            )
-                          }
-                          className="flex-1 rounded-lg bg-[#23753b] px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
-                        >
-                          <i className="fa-solid fa-check mr-1.5" />
-                          Approve
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={
-                            actionId === item.id
-                          }
-                          onClick={() =>
-                            updateStatus(
-                              item.id,
-                              "rejected"
-                            )
-                          }
-                          className="flex-1 rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2.5 text-xs font-semibold text-[#a70e18] disabled:opacity-50"
-                        >
-                          <i className="fa-solid fa-xmark mr-1.5" />
-                          Reject
-                        </button>
-                      </>
-                    )}
-
-                    <button
-                      type="button"
-                      disabled={
-                        actionId === item.id
-                      }
-                      onClick={() =>
-                        deleteItem(item)
-                      }
-                      className="rounded-lg border border-[#eadfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#777] transition hover:border-[#e8caca] hover:bg-[#fff6f4] hover:text-[#a70e18] disabled:opacity-50"
-                      title="Delete gallery item"
-                    >
-                      <i className="fa-solid fa-trash mr-1.5" />
-                      Delete
-                    </button>
-
-                  </div>
-
-                </div>
-
               </div>
-            )
-          )}
-
+            </div>
+          ))}
         </div>
       )}
-
     </div>
   );
 }

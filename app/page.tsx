@@ -911,6 +911,9 @@ export default function HomePage() {
   const [communityPhotos, setCommunityPhotos] =
     useState<any[]>([]);
 
+  const [activePhotoYear, setActivePhotoYear] =
+    useState<"2026" | "old">("2026");
+
   const [communityVideos, setCommunityVideos] =
     useState<any[]>([]);
 
@@ -983,11 +986,6 @@ export default function HomePage() {
       window.clearInterval(interval);
     };
   }, []);
-
-  const displayPhotoGallery = [
-    ...photoGallery,
-    ...communityPhotos,
-  ];
 
   const displayVideoGallery = [
     ...videoGallery,
@@ -1743,43 +1741,95 @@ export default function HomePage() {
           ================================================== */}
 
           <div className="mt-14">
-
-            <div className="mb-6 flex items-end justify-between">
-
-              <div>
-
-                <div className="flex items-center gap-3">
-
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a70e18] text-white shadow-sm">
-
-                    <i className="fa-solid fa-camera" />
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-xs font-bold tracking-[0.25em] text-[#a77a2b]">
-                      PHOTO GALLERY
-                    </p>
-
-                    <h3 className="mt-1 text-2xl font-bold text-[#761019]">
-                      Memories in Pictures
-                    </h3>
-
-                  </div>  
-
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#a70e18] text-white shadow-sm">
+                  <i className="fa-solid fa-camera" />
                 </div>
 
+                <div>
+                  <p className="text-xs font-bold tracking-[0.25em] text-[#a77a2b]">
+                    PHOTO GALLERY
+                  </p>
+                  <h3 className="mt-1 text-2xl font-bold text-[#761019]">
+                    Memories in Pictures
+                  </h3>
+                </div>
               </div>
 
+              {/* YEAR TABS */}
+              <div className="flex items-center gap-2 rounded-full border border-[#ead8bd] bg-white p-1.5">
+                <button
+                  type="button"
+                  onClick={() => setActivePhotoYear("2026")}
+                  aria-pressed={activePhotoYear === "2026"}
+                  className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${
+                    activePhotoYear === "2026"
+                      ? "bg-[#a70e18] text-white shadow-sm"
+                      : "text-[#761019] hover:bg-[#fff5e8]"
+                  }`}
+                >
+                  2026
+                  <span className="ml-2 text-xs opacity-80">
+                    ({communityPhotos.length})
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivePhotoYear("old")}
+                  aria-pressed={activePhotoYear === "old"}
+                  className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${
+                    activePhotoYear === "old"
+                      ? "bg-[#a70e18] text-white shadow-sm"
+                      : "text-[#761019] hover:bg-[#fff5e8]"
+                  }`}
+                >
+                  Old Memories
+                  <span className="ml-2 text-xs opacity-80">
+                    ({photoGallery.length})
+                  </span>
+                </button>
+              </div>
             </div>
 
+            {/* Approved uploads appear in 2026; existing hardcoded photos stay in Old Memories. */}
+            {activePhotoYear === "2026" ? (
+              communityPhotos.length > 0 ? (
+                <GallerySlider
+                  key="gallery-2026"
+                  items={communityPhotos}
+                  type="image"
+                />
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[#dfc9a8] bg-white/70 px-6 py-14 text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff3e3] text-xl text-[#a70e18]">
+                    <i className="fa-solid fa-camera" />
+                  </div>
 
-            <GallerySlider
-              items={displayPhotoGallery}
-              type="image"
-            />
+                  <h4 className="mt-4 text-lg font-bold text-[#761019]">
+                    2026 Memories
+                  </h4>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#766457]">
+                    Approved community photos will appear here. Upload your Durga Puja memories and the committee will review them.
+                  </p>
 
+                  <Link
+                    href="/upload-memories"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#a70e18] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#7d0b13]"
+                  >
+                    <i className="fa-solid fa-cloud-arrow-up" />
+                    Upload Your Memories
+                  </Link>
+                </div>
+              )
+            ) : (
+              <GallerySlider
+                key="gallery-old"
+                items={photoGallery}
+                type="image"
+              />
+            )}
           </div>
 
 
