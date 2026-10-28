@@ -1035,7 +1035,7 @@ export default function DashboardClient({
 
   const allFlatRows = useMemo<FlatRow[]>(() => {
     const normalizeFlat = (value: string | number | null | undefined) => {
-      const match = String(value ?? "").trim().match(/\\d+/);
+      const match = String(value ?? "").trim().match(/\d+/);
       return match ? match[0].padStart(3, "0") : "";
     };
 
