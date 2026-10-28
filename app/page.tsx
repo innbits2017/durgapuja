@@ -898,16 +898,6 @@ function GallerySlider({
 }
 
 export default function HomePage() {
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
-
-  const [showContributionNotice, setShowContributionNotice] =
-    useState(false);
-
   const [communityPhotos, setCommunityPhotos] =
     useState<any[]>([]);
 
@@ -992,77 +982,6 @@ export default function HomePage() {
     ...communityVideos,
   ];
 
-  useEffect(() => {
-    const targetDate = new Date(
-      "2026-10-11T00:00:00"
-    );
-
-    const updateCountdown = () => {
-      const now = new Date();
-
-      const difference =
-        targetDate.getTime() - now.getTime();
-
-      if (difference <= 0) {
-        setTimeLeft({
-          days: 0,
-          hours: 0,
-          minutes: 0,
-          seconds: 0,
-        });
-
-        return;
-      }
-
-      setTimeLeft({
-        days: Math.floor(
-          difference / (1000 * 60 * 60 * 24)
-        ),
-        hours: Math.floor(
-          (difference / (1000 * 60 * 60)) % 24
-        ),
-        minutes: Math.floor(
-          (difference / (1000 * 60)) % 60
-        ),
-        seconds: Math.floor(
-          (difference / 1000) % 60
-        ),
-      });
-    };
-
-    updateCountdown();
-
-    const interval = setInterval(
-      updateCountdown,
-      1000
-    );
-
-    return () => clearInterval(interval);
-  }, []);
-
-
-  const countdownItems = [
-    {
-      label: "Days",
-      value: timeLeft.days,
-      icon: "fa-regular fa-calendar-days",
-    },
-    {
-      label: "Hours",
-      value: timeLeft.hours,
-      icon: "fa-regular fa-clock",
-    },
-    {
-      label: "Minutes",
-      value: timeLeft.minutes,
-      icon: "fa-solid fa-hourglass-half",
-    },
-    {
-      label: "Seconds",
-      value: timeLeft.seconds,
-      icon: "fa-solid fa-bolt",
-    },
-  ];
 
   return (
     <main className="page-load min-h-screen overflow-hidden bg-[#f8f1e7] font-sans text-[#241b17]">
@@ -1100,7 +1019,7 @@ export default function HomePage() {
             <div className="page-load-left hidden text-right lg:block">
 
               <p className="mb-5 text-xs font-bold tracking-[0.4em] text-[#9b7432]">
-                TOGETHER WE CELEBRATE
+                MEMORIES THAT BRING US TOGETHER
               </p>
 
               <h2 className="text-4xl font-bold leading-tight text-[#641016]">
@@ -1164,7 +1083,7 @@ export default function HomePage() {
             <div className="page-load-right text-center lg:text-left">
 
               <p className="text-xs font-bold tracking-[0.5em] text-[#9b7432]">
-                BUH PRESENTS
+                THANK YOU, BUH FAMILY
               </p>
 
               <h1 className="mt-5 text-5xl font-bold leading-[1.05] text-[#8f1019] sm:text-6xl lg:text-7xl">
@@ -1178,7 +1097,7 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-5 text-xs font-semibold tracking-[0.25em] text-[#8a6c45]">
-                OCTOBER 11 – 20, 2026
+                DURGA UTSAV 2026 · OCTOBER 11–21
               </p>
 
               <div className="my-6 flex items-center justify-center gap-3 lg:justify-start">
@@ -1192,11 +1111,11 @@ export default function HomePage() {
               </div>
 
               <p className="text-2xl font-semibold text-[#5f171d]">
-                Let’s Come Together
+                Celebrating Togetherness
               </p>
 
               <p className="mt-2 text-sm leading-6 text-[#735f50]">
-                To Welcome Maa Durga to BUH
+                Thank you for making this year unforgettable
               </p>
 
               <div className="mt-6 flex flex-wrap justify-center gap-2 lg:justify-start">
@@ -1249,7 +1168,7 @@ export default function HomePage() {
         <div className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 text-center">
 
           <p className="text-[9px] font-bold tracking-[0.4em] text-[#927044]">
-            SCROLL TO EXPLORE
+            RELIVE THE CELEBRATION
           </p>
 
           <i className="fa-solid fa-chevron-down mt-2 animate-bounce text-[#a70e18]" />
@@ -1338,330 +1257,49 @@ export default function HomePage() {
       </Reveal>
 
       {/* =====================================================
-          COUNTDOWN
+          EVENT SPONSORS
       ====================================================== */}
-
-      <section className="relative overflow-hidden bg-[#7d0c15] px-5 py-20 text-white">
-
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(201,155,61,0.2),_transparent_60%)]" />
-
-        <div className="absolute left-[-100px] top-[-100px] h-72 w-72 rounded-full border border-[#e8c979]/10" />
-
-        <div className="absolute bottom-[-120px] right-[-100px] h-80 w-80 rounded-full border border-[#e8c979]/10" />
-
-        <div className="relative mx-auto max-w-5xl text-center">
-
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#e8c979]/40 bg-white/5">
-
-            <i className="fa-solid fa-calendar-days text-xl text-[#e8c979]" />
-
-          </div>
-
-          <p className="mt-5 text-xs font-bold tracking-[0.4em] text-[#e8c979]">
-            THE WAIT IS ALMOST OVER
+      <section id="sponsors" className="bg-[#fffaf2] px-5 py-16 sm:py-20">
+        <div className="mx-auto max-w-6xl text-center">
+          <p className="text-xs font-bold tracking-[0.35em] text-[#a77a2b]">
+            WITH GRATITUDE
           </p>
-
-          <h2 className="mt-4 text-4xl font-bold sm:text-5xl">
-            Maa Durga is Coming
+          <h2 className="mt-3 text-3xl font-bold text-[#761019] sm:text-4xl">
+            Thank You to Our Sponsors
           </h2>
-
-          <p className="mt-3 text-sm text-[#f3dfbd]">
-            October 11, 2026
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#766457]">
+            BUH Durga Utsav 2026 was made more special with the generous support
+            of our sponsors. We sincerely thank them for being part of our celebration.
           </p>
-
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5">
-
-            {countdownItems.map((item) => (
-
-              <div
-                key={item.label}
-                className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur-sm sm:p-7"
-              >
-
-                <i
-                  className={`${item.icon} mb-3 text-[#e8c979]`}
-                />
-
-                <p className="text-3xl font-bold sm:text-5xl">
-                  {String(item.value).padStart(2, "0")}
-                </p>
-
-                <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.3em] text-[#e8c979] sm:text-xs">
-                  {item.label}
-                </p>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =====================================================
-          EVENTS
-      ====================================================== */}
-
-      <section
-        id="events"
-        className="relative overflow-hidden bg-[#f8f0e5] px-5 py-16 sm:py-20"
-      >
-        <div className="pointer-events-none absolute left-[-100px] top-20 h-72 w-72 rounded-full border border-[#c7a66b]/10" />
-        <div className="pointer-events-none absolute bottom-20 right-[-120px] h-80 w-80 rounded-full border border-[#c7a66b]/10" />
-
-        <div className="relative mx-auto max-w-6xl">
-          {/* Section heading */}
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#d7b66a] bg-[#fffaf2] text-lg text-[#a70e18] shadow-sm">
-              <i className="fa-solid fa-calendar-days" />
+          <div className="mt-9 grid grid-cols-1 items-center gap-5 rounded-2xl border border-[#eadbc6] bg-white px-5 py-7 shadow-sm sm:grid-cols-3 sm:gap-6 sm:px-8">
+            <div className="flex h-28 items-center justify-center rounded-xl bg-white p-4 sm:h-32">
+              <img
+                src="/images/suyug-logo.webp"
+                alt="Suyug logo"
+                className="max-h-full max-w-full object-contain"
+                loading="lazy"
+              />
             </div>
-
-            <p className="text-[10px] font-bold tracking-[0.35em] text-[#a77a2b]">
-              PUJA & CELEBRATIONS
-            </p>
-
-            <h2 className="mt-3 text-4xl font-bold text-[#761019] sm:text-5xl">
-              Events & Celebrations
-            </h2>
-
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#766457]">
-              Five days of devotion, music, dance, culture and community celebration.
-            </p>
-          </div>
-
-          {/* Events timeline */}
-          <div className="relative mt-12 sm:mt-14">
-            {/* One continuous centre line */}
-            <div className="pointer-events-none absolute bottom-0 left-1/2 top-0 hidden w-px -translate-x-1/2 bg-[#d7b66a]/55 md:block" />
-
-            <div className="space-y-14 sm:space-y-16">
-              {events.map((event, index) => {
-                const imageOnLeft = index % 2 === 0;
-
-                return (
-                  <article
-                    key={event.day}
-                    className="relative grid items-center md:grid-cols-[minmax(0,1fr)_70px_minmax(0,1fr)] md:gap-x-8 lg:gap-x-10"
-                  >
-                    {/* Centre dot */}
-                    <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 md:flex">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-[5px] border-[#f8f0e5] bg-[#a70e18] shadow-[0_3px_12px_rgba(80,20,20,0.18)]">
-                        <div className="h-2.5 w-2.5 rounded-full bg-white" />
-                      </div>
-                    </div>
-
-                    {/* IMAGE */}
-                    <div
-                      className={
-                        imageOnLeft
-                          ? "md:col-start-1 md:row-start-1"
-                          : "md:col-start-3 md:row-start-1"
-                      }
-                    >
-                      <div className="overflow-hidden rounded-[1.35rem] border border-[#e4d3bc] bg-white shadow-sm">
-                        <div className="relative aspect-[16/8] overflow-hidden">
-                          <img
-                            src={event.image}
-                            alt={event.day}
-                            className="h-full w-full object-cover transition duration-700 hover:scale-105"
-                          />
-
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#3b090d]/85 via-[#3b090d]/10 to-transparent" />
-
-                          <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 sm:bottom-5 sm:left-5 sm:right-5">
-                            <div>
-                              <p className="text-[9px] font-bold tracking-[0.2em] text-[#f0d27d]">
-                                {event.date}
-                              </p>
-
-                              <p className="mt-1 text-xl font-bold text-white sm:text-2xl">
-                                {event.day}
-                              </p>
-                            </div>
-
-                            <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${event.color} text-white shadow-lg`}
-                            >
-                              <i className={`${event.icon} text-sm`} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* CONTENT */}
-                    <div
-                      className={
-                        imageOnLeft
-                          ? "md:col-start-3 md:row-start-1"
-                          : "md:col-start-1 md:row-start-1"
-                      }
-                    >
-                      <div className="rounded-[1.35rem] border border-[#e4d3bc] bg-white p-4 shadow-sm sm:p-5">
-                        <div className="mb-3 flex items-end justify-between gap-3">
-                          <div>
-                            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#a77a2b]">
-                              {event.shortDay}
-                            </p>
-
-                            <h3 className="mt-1 text-xl font-bold text-[#761019] sm:text-2xl">
-                              {event.day}
-                            </h3>
-                          </div>
-
-                          <p className="shrink-0 text-[10px] font-semibold text-[#8a7667] sm:text-xs">
-                            {event.date}
-                          </p>
-                        </div>
-
-                        <div className="overflow-hidden rounded-xl border border-[#eadbc6] bg-[#fffaf2]">
-                        {[
-                          {
-                            icon: "fa-sun",
-                            label: "Morning",
-                            value: event.schedule.morning,
-                          },
-                          {
-                            icon: "fa-cloud-sun",
-                            label: "Afternoon",
-                            value: event.schedule.afternoon,
-                          },
-                          {
-                            icon: "fa-music",
-                            label: "Evening",
-                            value: event.schedule.evening,
-                          },
-                          {
-                            icon: "fa-moon",
-                            label: "Night",
-                            value: event.schedule.night,
-                          },
-                        ]
-                          .filter((slot) => slot.value !== "-")
-                          .map((slot, slotIndex, visibleSlots) => (
-                            <div
-                              key={slot.label}
-                              className={`grid grid-cols-[88px_1fr] gap-2 px-3 py-3 sm:grid-cols-[100px_1fr] sm:px-4 sm:py-3.5 ${
-                                slotIndex !== visibleSlots.length - 1
-                                  ? "border-b border-[#eadbc6]"
-                                  : ""
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.11em] text-[#a77a2b] sm:text-[10px]">
-                                <i
-                                  className={`fa-solid ${slot.icon} text-[#a70e18]`}
-                                />
-                                <span>{slot.label}</span>
-                              </div>
-
-                              <p className="text-xs font-semibold leading-5 text-[#392823] sm:text-sm">
-                                {slot.value}
-                              </p>
-                            </div>
-                          ))}
-                      </div>
-                      </div>
-                    </div>
-
-                    {/* Mobile connector between events */}
-                    {index < events.length - 1 && (
-                      <div className="col-span-full mx-auto mt-8 flex flex-col items-center md:hidden">
-                        <div className="h-6 w-px bg-[#d7b66a]/55" />
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#a70e18] ring-4 ring-[#f8f0e5]" />
-                        <div className="h-6 w-px bg-[#d7b66a]/55" />
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
+            <div className="flex h-28 items-center justify-center rounded-xl bg-white p-4 sm:h-32">
+              <img
+                src="/images/ramdev-medical.webp"
+                alt="Ramdev Medical logo"
+                className="max-h-full max-w-full object-contain"
+                loading="lazy"
+              />
+            </div>
+            <div className="flex h-28 items-center justify-center rounded-xl bg-white p-4 sm:h-32">
+              <img
+                src="/images/janaki-jewellers.webp"
+                alt="Janaki Jewellers logo"
+                className="max-h-full max-w-full object-contain"
+                loading="lazy"
+              />
             </div>
           </div>
-
-          <div className="mt-10 flex items-center justify-center gap-2 text-center">
-            <i className="fa-solid fa-circle-info text-[11px] text-[#a77a2b]" />
-            <p className="text-[10px] text-[#8a7667]">
-              Timings are subject to change. Please check the website for the latest updates.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================================
-          PARTICIPATE
-      ====================================================== */}
-      <section id="participate" className="relative overflow-hidden bg-[#fffaf2] px-5 py-24">
-        <div className="pointer-events-none absolute left-[-120px] top-20 h-72 w-72 rounded-full bg-[#b8892d]/10 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-[-120px] right-[-100px] h-80 w-80 rounded-full bg-[#a70e18]/10 blur-3xl" />
-        <div className="relative mx-auto max-w-6xl">
-          <div className="mx-auto max-w-3xl text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#d7b66a] bg-[#fff8ec] text-xl text-[#a70e18] shadow-sm"><i className="fa-solid fa-people-group" /></div>
-            <p className="text-xs font-bold tracking-[0.4em] text-[#a77a2b]">BE PART OF THE CELEBRATION</p>
-            <h2 className="mt-4 text-4xl font-bold text-[#761019] sm:text-5xl">Participate With Us</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#766457]">Durga Puja becomes special when everyone brings something to it. Choose how you would like to participate and be part of our community celebration.</p>
-          </div>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {participationItems.map((item) => {
-              const isDonation = item.title === "Make a Donation";
-
-              const cardContent = (
-                <>
-                  <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 rounded-full bg-[#a70e18]/5 transition group-hover:scale-125" />
-
-                  <div className="relative flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#d7b66a] bg-[#fff8ec] text-lg text-[#a70e18] transition group-hover:bg-[#a70e18] group-hover:text-white">
-                      <i className={item.icon} />
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-lg font-bold text-[#761019]">
-                          {item.title}
-                        </h3>
-
-                        <i
-                          className={`fa-solid ${
-                            isDonation
-                              ? "fa-heart"
-                              : "fa-arrow-up-right-from-square"
-                          } text-xs text-[#b8892d] opacity-0 transition group-hover:opacity-100`}
-                        />
-                      </div>
-
-                      <p className="mt-2 text-xs leading-6 text-[#766457]">
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="relative mt-5 flex items-center gap-2 text-[10px] font-bold tracking-[0.16em] text-[#a70e18]">
-                    {isDonation ? "CONTRIBUTE" : "PARTICIPATE"}
-                    <i className="fa-solid fa-arrow-right transition group-hover:translate-x-1" />
-                  </div>
-                </>
-              );
-
-              return isDonation ? (
-                <button
-                  key={item.title}
-                  type="button"
-                  onClick={() => setShowContributionNotice(true)}
-                  className="group relative w-full overflow-hidden rounded-3xl border border-[#e5d7c4] bg-white p-6 text-left shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#d7b66a] hover:shadow-xl"
-                >
-                  {cardContent}
-                </button>
-              ) : (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="group relative overflow-hidden rounded-3xl border border-[#e5d7c4] bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-[#d7b66a] hover:shadow-xl"
-                >
-                  {cardContent}
-                </Link>
-              );
-            })}
-          </div>
+          <p className="mt-4 text-xs text-[#8a7667]">
+            Interested in supporting future BUH community celebrations? Please contact the Durga Puja Committee.
+          </p>
         </div>
       </section>
 
@@ -1889,66 +1527,6 @@ export default function HomePage() {
       </section>
 
       {/* =====================================================
-          CONTRIBUTION
-      ====================================================== */}
-
-      <section className="relative overflow-hidden bg-[#fffaf2] px-5 py-24">
-
-        <div className="absolute left-[8%] top-12 hidden text-7xl text-[#a70e18]/10 md:block">
-          <i className="fa-solid fa-spa" />
-        </div>
-
-        <div className="absolute right-[8%] bottom-12 hidden text-7xl text-[#a70e18]/10 md:block">
-          <i className="fa-solid fa-spa" />
-        </div>
-
-        <div className="absolute left-[-120px] top-20 h-72 w-72 rounded-full bg-[#b8892d]/10 blur-3xl" />
-
-        <div className="absolute bottom-[-120px] right-[-80px] h-72 w-72 rounded-full bg-[#a70e18]/10 blur-3xl" />
-
-        <div className="relative mx-auto max-w-5xl text-center">
-
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#d7b66a] bg-[#fff8ec] text-2xl text-[#a70e18] shadow-sm">
-
-            <i className="fa-solid fa-heart" />
-
-          </div>
-
-          <p className="mt-6 text-xs font-bold tracking-[0.35em] text-[#a77a2b]">
-            EVERY CONTRIBUTION MATTERS
-          </p>
-
-          <h2 className="mt-4 text-4xl font-bold text-[#761019] sm:text-5xl">
-            Make Our Celebration Grand
-          </h2>
-
-          <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-[#766457]">
-            Whether big or small, every contribution becomes
-            a part of our collective celebration and helps us
-            create a memorable Durga Puja for the entire BUH community.
-          </p>
-
-          <div className="mt-9">
-
-            
-
-            <button
-              type="button"
-              onClick={() => setShowContributionNotice(true)}
-              className="inline-flex items-center rounded-full bg-[#a70e18] px-8 py-4 text-sm font-bold tracking-wide text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-[#7d0b13]"
-            >
-              <i className="fa-solid fa-heart mr-3" />
-              CONTRIBUTE TO PUJA
-              <i className="fa-solid fa-arrow-right ml-3" />
-            </button>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =====================================================
           FOOTER
       ====================================================== */}
 
@@ -2096,59 +1674,6 @@ export default function HomePage() {
       </footer>
 
 
-      {/* =====================================================
-          CONTRIBUTION NOTICE MODAL
-      ====================================================== */}
-
-      {showContributionNotice && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-          onClick={() => setShowContributionNotice(false)}
-        >
-          <div
-            className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#e5cfaa] bg-[#fffaf2] shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="bg-gradient-to-br from-[#fff4df] via-[#fffaf2] to-[#f8e8d2] px-6 pb-5 pt-7 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#a70e18] text-2xl text-white shadow-lg">
-                <i className="fa-solid fa-heart" />
-              </div>
-
-              <h2 className="text-xl font-bold text-[#7f0b13]">
-                Contribution Collection Will Open Soon
-              </h2>
-            </div>
-
-            <div className="px-6 pb-6 pt-5 text-center">
-
-              <p className="text-sm leading-6 text-[#6b5044]">
-                Resident contribution collection will begin shortly. Your support means a lot to us.
-              </p>
-
-              <p className="mt-4 text-sm font-semibold text-[#7f0b13]">
-                🙏 Thank you for your support and cooperation.
-              </p>
-
-              <button
-                type="button"
-                onClick={() => setShowContributionNotice(false)}
-                className="mt-6 w-full rounded-full bg-[#a70e18] px-5 py-3 font-semibold text-white shadow-md transition hover:bg-[#7f0b13]"
-              >
-                Okay, Thank You
-              </button>
-            </div>
-
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={() => setShowContributionNotice(false)}
-              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-[#7f0b13] shadow-sm transition hover:bg-white"
-            >
-              <i className="fa-solid fa-xmark" />
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
