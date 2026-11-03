@@ -354,7 +354,8 @@ const EXPENSE_CATEGORIES = [
 "Tent",
 "Transportation",
 "Vegetables",
-"Water"
+"Water",
+"Kitchen Appliances"
 ];
 
 const PAYMENT_MODES = [
