@@ -248,25 +248,25 @@ export default async function PublicFinancialsPage() {
     (item) => Array.isArray(item.materials) && item.materials.length > 0
   );
 
-  const materialSevaTotal = materialSevaList.reduce(
-    (registrationTotal, seva) => {
-      const materialTotal = (seva.materials as unknown[]).reduce(
-        (sum, raw) => {
-          if (!raw || typeof raw !== "object") return sum;
+const materialSevaTotal = materialSevaList.reduce<number>(
+  (registrationTotal: number, seva: any) => {
+    const materialTotal = (seva.materials as unknown[]).reduce<number>(
+      (sum: number, raw: unknown) => {
+        if (!raw || typeof raw !== "object") return sum;
 
-          const price = Number(
-            (raw as Record<string, unknown>).price || 0
-          );
+        const price = Number(
+          (raw as Record<string, unknown>).price || 0
+        );
 
-          return sum + (Number.isFinite(price) ? price : 0);
-        },
-        0
-      );
+        return sum + (Number.isFinite(price) ? price : 0);
+      },
+      0
+    );
 
-      return registrationTotal + materialTotal;
-    },
-    0
-  );
+    return registrationTotal + materialTotal;
+  },
+  0
+);
 
   const totalCollection =
     memberTotal + materialSevaTotal + externalTotal;
