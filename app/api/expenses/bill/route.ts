@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic";
 
 const BUCKET = "expense-bills";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const MAX_DOCUMENTS_PER_EXPENSE = 10;
 const ALLOWED_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -84,14 +83,6 @@ export async function POST(request: Request) {
       .single();
 
     if (expenseError || !expense) return NextResponse.json({ error: "Expense not found." }, { status: 404 });
-
-    const existingDocuments = await getExpenseDocuments(expenseId);
-    if (existingDocuments.length + files.length > MAX_DOCUMENTS_PER_EXPENSE) {
-      return NextResponse.json(
-        { error: `An expense can have a maximum of ${MAX_DOCUMENTS_PER_EXPENSE} bills.` },
-        { status: 400 }
-      );
-    }
 
     for (const file of files) {
       if (!ALLOWED_TYPES.has(file.type)) {

@@ -10363,7 +10363,6 @@ function ExpenseModal({
   const [error, setError] = useState("");
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
-  const MAX_DOCUMENTS = 10;
 
   function downloadBill(
     expenseId: string,
@@ -10424,13 +10423,6 @@ function ExpenseModal({
     if (oversized) {
       setError(
         `Bill file must be 10 MB or smaller: ${oversized.name}`
-      );
-      return;
-    }
-
-    if (totalBillCount + incoming.length > MAX_DOCUMENTS) {
-      setError(
-        `An expense can have a maximum of ${MAX_DOCUMENTS} bills.`
       );
       return;
     }
@@ -10532,15 +10524,6 @@ function ExpenseModal({
 
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       setError("Please enter a valid amount.");
-      return;
-    }
-
-    if (
-      totalBillCount > MAX_DOCUMENTS
-    ) {
-      setError(
-        `An expense can have a maximum of ${MAX_DOCUMENTS} bills.`
-      );
       return;
     }
 
@@ -10735,7 +10718,7 @@ function ExpenseModal({
             />
           </FormField>
 
-          <FormField label={`Bills / Receipts (${totalBillCount}/${MAX_DOCUMENTS})`}>
+          <FormField label={`Bills / Receipts (${totalBillCount})`}>
             <div className="rounded-xl border border-dashed border-[#dcc9af] bg-[#fffaf2] p-3">
               <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#eadfd2] bg-white px-3 py-3 hover:bg-[#fffdf9]">
                 <div className="flex min-w-0 items-center gap-3">
@@ -10762,7 +10745,7 @@ function ExpenseModal({
                   multiple
                   accept="application/pdf,image/jpeg,image/png,image/webp"
                   className="hidden"
-                  disabled={loading || totalBillCount >= MAX_DOCUMENTS}
+                  disabled={loading}
                   onChange={(e) => {
                     addBillFiles(e.target.files);
                     e.currentTarget.value = "";
