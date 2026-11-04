@@ -355,7 +355,8 @@ const EXPENSE_CATEGORIES = [
 "Transportation",
 "Vegetables",
 "Water",
-"Kitchen Appliances"
+"Kitchen Appliances",
+"Pandal Works"
 ];
 
 const PAYMENT_MODES = [
