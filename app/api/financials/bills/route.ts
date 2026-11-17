@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import JSZip from "jszip";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -6,7 +7,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BUCKET = "expense-bills";
-const MAX_EXPENSES_PER_ZIP = 100;
 
 function safeFileName(name: string) {
   return (
@@ -117,7 +117,7 @@ export async function GET(request: Request) {
   }
 }
 
-// Bulk ZIP download for selected expense IDs
+// Bulk ZIP download - no 100-expense restriction
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -142,15 +142,6 @@ export async function POST(request: Request) {
     if (!expenseIds.length) {
       return NextResponse.json(
         { error: "Select at least one expense." },
-        { status: 400 }
-      );
-    }
-
-    if (expenseIds.length > MAX_EXPENSES_PER_ZIP) {
-      return NextResponse.json(
-        {
-          error: `Select no more than ${MAX_EXPENSES_PER_ZIP} expenses at a time.`,
-        },
         { status: 400 }
       );
     }
@@ -237,9 +228,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // Convert Uint8Array into ArrayBuffer for Response compatibility
     const zipArrayBuffer = new ArrayBuffer(zipBytes.byteLength);
-
     new Uint8Array(zipArrayBuffer).set(zipBytes);
 
     return new Response(zipArrayBuffer, {
