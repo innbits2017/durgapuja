@@ -1,8 +1,10 @@
+
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { requireSuperAdmin } from "@/lib/admin-auth";
+import { generateExpenseArchive } from "@/lib/expense-archive";
 
 async function requireAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -12,6 +14,42 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
 
   return user;
+}
+
+async function refreshExpenseArchive() {
+  try {
+    await generateExpenseArchive();
+    return "ready";
+  } catch (error) {
+    console.error(
+      "Expense archive refresh failed:",
+      error
+    );
+
+    return "failed";
+  }
+}
+
+async function authorizeSuperAdmin() {
+  try {
+    await requireSuperAdmin();
+    return null;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "FORBIDDEN"
+    ) {
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
 }
 
 // GET — Fetch all expenses
@@ -42,15 +80,10 @@ export async function GET() {
     }
 
     const expenses = data ?? [];
-    const expenseIds = expenses.map((expense) => expense.id);
+    const expenseIds = expenses.map(
+      (expense) => expense.id
+    );
 
-    /*
-     * Multiple bills / receipts
-     *
-     * The old expenses table has bill_path for the original
-     * single-bill implementation. The new expense_documents
-     * table stores zero or more documents for each expense.
-     */
     let documents: any[] = [];
 
     if (expenseIds.length > 0) {
@@ -80,52 +113,54 @@ export async function GET() {
       documents = documentRows ?? [];
     }
 
-    const documentsByExpense = new Map<string, any[]>();
+    const documentsByExpense =
+      new Map<string, any[]>();
 
     for (const document of documents) {
       const current =
         documentsByExpense.get(document.expense_id) || [];
 
       current.push(document);
-      documentsByExpense.set(document.expense_id, current);
+
+      documentsByExpense.set(
+        document.expense_id,
+        current
+      );
     }
 
-    const enrichedExpenses = expenses.map((expense) => {
-      const existingDocuments =
-        documentsByExpense.get(expense.id) || [];
+    const enrichedExpenses = expenses.map(
+      (expense) => {
+        const existingDocuments =
+          documentsByExpense.get(expense.id) || [];
 
-      /*
-       * Backward compatibility:
-       * If an older expense still has bill_path but no row in
-       * expense_documents, expose it as a legacy document so the
-       * dashboard can still display/download it.
-       */
-      if (
-        existingDocuments.length === 0 &&
-        expense.bill_path
-      ) {
+        // Legacy bill_path fallback.
+        if (
+          existingDocuments.length === 0 &&
+          expense.bill_path
+        ) {
+          return {
+            ...expense,
+            documents: [
+              {
+                id: `legacy-${expense.id}`,
+                expense_id: expense.id,
+                file_name: "Bill / Receipt",
+                file_path: expense.bill_path,
+                file_type: null,
+                file_size: null,
+                created_at: expense.created_at,
+                legacy: true,
+              },
+            ],
+          };
+        }
+
         return {
           ...expense,
-          documents: [
-            {
-              id: `legacy-${expense.id}`,
-              expense_id: expense.id,
-              file_name: "Bill / Receipt",
-              file_path: expense.bill_path,
-              file_type: null,
-              file_size: null,
-              created_at: expense.created_at,
-              legacy: true,
-            },
-          ],
+          documents: existingDocuments,
         };
       }
-
-      return {
-        ...expense,
-        documents: existingDocuments,
-      };
-    });
+    );
 
     return NextResponse.json({
       success: true,
@@ -144,53 +179,39 @@ export async function GET() {
 // POST — Add expense OR confirm refund
 export async function POST(request: Request) {
   try {
-    try {
-      await requireSuperAdmin();
-    } catch (error) {
-      if (error instanceof Error && error.message === "FORBIDDEN") {
-        return NextResponse.json(
-          { error: "Forbidden" },
-          { status: 403 }
-        );
-      }
+    const authResponse = await authorizeSuperAdmin();
 
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    if (authResponse) return authResponse;
 
     const body = await request.json();
 
-    /* ==========================================================
-       CONFIRM REFUND
-    ========================================================== */
+    // ==========================================================
+    // CONFIRM REFUND
+    // ==========================================================
 
     if (body.action === "refund") {
-      const paidBy = String(body.paidBy || "").trim();
+      const paidBy = String(
+        body.paidBy || ""
+      ).trim();
+
       const paymentMode = String(
         body.paymentMode || ""
       ).trim();
+
       const referenceNo = String(
         body.referenceNo || ""
       ).trim();
 
       if (!paidBy) {
         return NextResponse.json(
-          {
-            error:
-              "Paid By name is required.",
-          },
+          { error: "Paid By name is required." },
           { status: 400 }
         );
       }
 
       if (!paymentMode) {
         return NextResponse.json(
-          {
-            error:
-              "Mode of payment is required.",
-          },
+          { error: "Mode of payment is required." },
           { status: 400 }
         );
       }
@@ -205,10 +226,8 @@ export async function POST(request: Request) {
         );
       }
 
-      /*
-       * Find all expenses paid personally by this person
-       * which have NOT been refunded yet.
-       */
+      // Find expenses paid personally by this person
+      // which have not been refunded yet.
       const {
         data: pendingExpenses,
         error: expenseFetchError,
@@ -227,10 +246,7 @@ export async function POST(request: Request) {
         );
 
         return NextResponse.json(
-          {
-            error:
-              expenseFetchError.message,
-          },
+          { error: expenseFetchError.message },
           { status: 500 }
         );
       }
@@ -251,8 +267,7 @@ export async function POST(request: Request) {
       const totalAmount =
         pendingExpenses.reduce(
           (total, expense) =>
-            total +
-            Number(expense.amount || 0),
+            total + Number(expense.amount || 0),
           0
         );
 
@@ -261,17 +276,12 @@ export async function POST(request: Request) {
         totalAmount <= 0
       ) {
         return NextResponse.json(
-          {
-            error:
-              "Invalid refund amount.",
-          },
+          { error: "Invalid refund amount." },
           { status: 400 }
         );
       }
 
-      /*
-       * Create the refund record.
-       */
+      // Create refund record.
       const {
         data: refund,
         error: refundError,
@@ -293,22 +303,15 @@ export async function POST(request: Request) {
         );
 
         return NextResponse.json(
-          {
-            error:
-              refundError.message,
-          },
+          { error: refundError.message },
           { status: 500 }
         );
       }
 
-      /*
-       * Attach the refund ID to all pending expenses
-       * belonging to this person.
-       */
-      const expenseIds =
-        pendingExpenses.map(
-          (expense) => expense.id
-        );
+      // Attach refund ID to all pending expenses.
+      const expenseIds = pendingExpenses.map(
+        (expense) => expense.id
+      );
 
       const {
         data: updatedExpenses,
@@ -317,8 +320,7 @@ export async function POST(request: Request) {
         .from("expenses")
         .update({
           refund_id: refund.id,
-          updated_at:
-            new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .in("id", expenseIds)
         .is("refund_id", null)
@@ -330,39 +332,28 @@ export async function POST(request: Request) {
           updateError
         );
 
-        /*
-         * Best-effort cleanup so that an orphan refund
-         * record is not left behind.
-         */
+        // Best-effort cleanup of orphan refund record.
         await supabaseAdmin
           .from("expense_refunds")
           .delete()
           .eq("id", refund.id);
 
         return NextResponse.json(
-          {
-            error:
-              updateError.message,
-          },
+          { error: updateError.message },
           { status: 500 }
         );
       }
 
-      /*
-       * Safety check — make sure every expense we intended
-       * to refund was actually updated.
-       */
+      // Safety check: verify every intended expense was updated.
       if (
         !updatedExpenses ||
-        updatedExpenses.length !==
-          pendingExpenses.length
+        updatedExpenses.length !== pendingExpenses.length
       ) {
         await supabaseAdmin
           .from("expenses")
           .update({
             refund_id: null,
-            updated_at:
-              new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           })
           .eq("refund_id", refund.id);
 
@@ -380,19 +371,18 @@ export async function POST(request: Request) {
         );
       }
 
+      // No archive refresh is needed for a refund.
       return NextResponse.json({
         success: true,
-        message:
-          "Refund confirmed successfully.",
+        message: "Refund confirmed successfully.",
         refund,
-        expenses:
-          updatedExpenses ?? [],
+        expenses: updatedExpenses ?? [],
       });
     }
 
-    /* ==========================================================
-       ADD EXPENSE
-    ========================================================== */
+    // ==========================================================
+    // ADD EXPENSE
+    // ==========================================================
 
     const {
       title,
@@ -437,52 +427,30 @@ export async function POST(request: Request) {
     }
 
     const cleanPaidBy =
-      paidBy !== undefined &&
-      paidBy !== null
+      paidBy !== undefined && paidBy !== null
         ? String(paidBy).trim()
         : "";
 
-    const { data, error } =
-      await supabaseAdmin
-        .from("expenses")
-        .insert({
-          title: String(title).trim(),
-          category:
-            String(category).trim(),
-          paid_to:
-            paidTo?.trim() || null,
+    const { data, error } = await supabaseAdmin
+      .from("expenses")
+      .insert({
+        title: String(title).trim(),
+        category: String(category).trim(),
+        paid_to: paidTo?.trim() || null,
 
-          /*
-           * Optional.
-           *
-           * NULL means the committee paid the expense
-           * directly.
-           *
-           * A name means a person paid it personally
-           * and it is pending reimbursement.
-           */
-          paid_by:
-            cleanPaidBy || null,
+        // NULL means the committee paid directly.
+        // A name means a person paid personally.
+        paid_by: cleanPaidBy || null,
 
-          amount: numericAmount,
-          expense_date: expenseDate,
-          payment_mode:
-            paymentMode || "cash",
-          reference_no:
-            referenceNo?.trim() || null,
-          notes:
-            notes?.trim() || null,
-
-          /*
-           * Every newly created expense starts without
-           * a refund. If paid_by is present, it remains
-           * outside the actual committee expense total
-           * until this becomes non-null.
-           */
-          refund_id: null,
-        })
-        .select()
-        .single();
+        amount: numericAmount,
+        expense_date: expenseDate,
+        payment_mode: paymentMode || "cash",
+        reference_no: referenceNo?.trim() || null,
+        notes: notes?.trim() || null,
+        refund_id: null,
+      })
+      .select()
+      .single();
 
     if (error) {
       console.error(
@@ -496,20 +464,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // Refresh archive after successful expense creation.
+    const archiveStatus =
+      await refreshExpenseArchive();
+
     return NextResponse.json({
       success: true,
-      message:
-        "Expense added successfully.",
+      message: "Expense added successfully.",
+      archiveStatus,
       expense: {
         ...data,
         documents: [],
       },
     });
   } catch (error) {
-    console.error(
-      "Expense POST error:",
-      error
-    );
+    console.error("Expense POST error:", error);
 
     return NextResponse.json(
       { error: "Invalid request." },
@@ -521,21 +490,9 @@ export async function POST(request: Request) {
 // PATCH — Update expense
 export async function PATCH(request: Request) {
   try {
-    try {
-      await requireSuperAdmin();
-    } catch (error) {
-      if (error instanceof Error && error.message === "FORBIDDEN") {
-        return NextResponse.json(
-          { error: "Forbidden" },
-          { status: 403 }
-        );
-      }
+    const authResponse = await authorizeSuperAdmin();
 
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    if (authResponse) return authResponse;
 
     const body = await request.json();
 
@@ -554,10 +511,7 @@ export async function PATCH(request: Request) {
 
     if (!id) {
       return NextResponse.json(
-        {
-          error:
-            "Expense ID is required.",
-        },
+        { error: "Expense ID is required." },
         { status: 400 }
       );
     }
@@ -577,17 +531,13 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /*
-     * Check the existing expense first.
-     */
+    // Check existing expense.
     const {
       data: existingExpense,
       error: existingError,
     } = await supabaseAdmin
       .from("expenses")
-      .select(
-        "refund_id, paid_by, amount"
-      )
+      .select("refund_id, paid_by, amount")
       .eq("id", id)
       .single();
 
@@ -598,35 +548,22 @@ export async function PATCH(request: Request) {
       );
 
       return NextResponse.json(
-        {
-          error:
-            existingError.message,
-        },
+        { error: existingError.message },
         { status: 500 }
       );
     }
 
     const cleanPaidBy =
-      paidBy !== undefined &&
-      paidBy !== null
+      paidBy !== undefined && paidBy !== null
         ? String(paidBy).trim()
         : "";
 
-    /*
-     * Once an expense has already been refunded,
-     * don't allow the Paid By or amount to be changed.
-     *
-     * Otherwise the refund history could become
-     * financially inconsistent.
-     */
+    // Do not allow Paid By or amount changes after refund.
     if (existingExpense?.refund_id) {
       const oldPaidBy =
         existingExpense.paid_by || null;
 
-      if (
-        oldPaidBy !==
-        (cleanPaidBy || null)
-      ) {
+      if (oldPaidBy !== (cleanPaidBy || null)) {
         return NextResponse.json(
           {
             error:
@@ -650,38 +587,23 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("expenses")
       .update({
         title: String(title).trim(),
-        category:
-          String(category).trim(),
-        paid_to:
-          paidTo?.trim() || null,
-        paid_by:
-          cleanPaidBy || null,
+        category: String(category).trim(),
+        paid_to: paidTo?.trim() || null,
+        paid_by: cleanPaidBy || null,
         amount: numericAmount,
         expense_date: expenseDate,
-        payment_mode:
-          paymentMode || "cash",
-        reference_no:
-          referenceNo?.trim() || null,
-        notes:
-          notes?.trim() || null,
+        payment_mode: paymentMode || "cash",
+        reference_no: referenceNo?.trim() || null,
+        notes: notes?.trim() || null,
 
-        /*
-         * Preserve the refund status of an already
-         * refunded expense.
-         */
-        refund_id:
-          existingExpense?.refund_id ||
-          null,
+        // Preserve existing refund status.
+        refund_id: existingExpense?.refund_id || null,
 
-        updated_at:
-          new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq("id", id)
       .select()
@@ -699,13 +621,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /*
-     * Bills / receipts are intentionally NOT changed here.
-     *
-     * The separate /api/expenses/bill endpoint manages
-     * expense_documents so editing expense details never
-     * accidentally removes existing bills.
-     */
+    // Bills are managed by /api/expenses/bill.
+    // Editing expense details must not remove bill records.
     const {
       data: documentRows,
       error: documentsError,
@@ -729,20 +646,21 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Refresh archive after successful expense update.
+    const archiveStatus =
+      await refreshExpenseArchive();
+
     return NextResponse.json({
       success: true,
-      message:
-        "Expense updated successfully.",
+      message: "Expense updated successfully.",
+      archiveStatus,
       expense: {
         ...data,
         documents: documentRows ?? [],
       },
     });
   } catch (error) {
-    console.error(
-      "Expense PATCH error:",
-      error
-    );
+    console.error("Expense PATCH error:", error);
 
     return NextResponse.json(
       { error: "Invalid request." },
@@ -752,44 +670,23 @@ export async function PATCH(request: Request) {
 }
 
 // DELETE — Delete expense
-export async function DELETE(
-  request: Request
-) {
+export async function DELETE(request: Request) {
   try {
-    try {
-      await requireSuperAdmin();
-    } catch (error) {
-      if (error instanceof Error && error.message === "FORBIDDEN") {
-        return NextResponse.json(
-          { error: "Forbidden" },
-          { status: 403 }
-        );
-      }
+    const authResponse = await authorizeSuperAdmin();
 
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    if (authResponse) return authResponse;
 
     const body = await request.json();
-
     const { id } = body;
 
     if (!id) {
       return NextResponse.json(
-        {
-          error:
-            "Expense ID is required.",
-        },
+        { error: "Expense ID is required." },
         { status: 400 }
       );
     }
 
-    /*
-     * Check whether this expense has already
-     * been included in a refund.
-     */
+    // Check whether expense has already been refunded.
     const {
       data: existingExpense,
       error: existingError,
@@ -799,11 +696,7 @@ export async function DELETE(
       .eq("id", id)
       .single();
 
-    /*
-     * Fetch all attached bills BEFORE deleting the expense.
-     * We need the storage paths so they can be removed after
-     * the database record is successfully deleted.
-     */
+    // Fetch attached bills before deleting the expense.
     const {
       data: expenseDocuments,
       error: documentsError,
@@ -831,19 +724,12 @@ export async function DELETE(
       );
 
       return NextResponse.json(
-        {
-          error:
-            existingError.message,
-        },
+        { error: existingError.message },
         { status: 500 }
       );
     }
 
-    /*
-     * Don't allow deletion of an expense that has
-     * already been refunded because that would make
-     * the refund record inconsistent.
-     */
+    // Prevent deletion of refunded expenses.
     if (existingExpense?.refund_id) {
       return NextResponse.json(
         {
@@ -854,11 +740,10 @@ export async function DELETE(
       );
     }
 
-    const { error } =
-      await supabaseAdmin
-        .from("expenses")
-        .delete()
-        .eq("id", id);
+    const { error } = await supabaseAdmin
+      .from("expenses")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       console.error(
@@ -872,25 +757,18 @@ export async function DELETE(
       );
     }
 
-    /*
-     * Delete all attached bill files from the private
-     * "expense-bills" bucket.
-     *
-     * This is intentionally best-effort: the expense deletion
-     * should not be rolled back just because Storage cleanup
-     * fails.
-     */
-    const documentPaths = (expenseDocuments || [])
+    // Delete attached bill files from Storage.
+    const documentPaths = (
+      expenseDocuments || []
+    )
       .map((document) => document.file_path)
       .filter(
         (path): path is string =>
-          typeof path === "string" && path.length > 0
+          typeof path === "string" &&
+          path.length > 0
       );
 
-    /*
-     * Keep backward compatibility with the original single-bill
-     * implementation. Avoid deleting the same path twice.
-     */
+    // Backward compatibility with legacy bill_path.
     if (existingExpense?.bill_path) {
       documentPaths.push(existingExpense.bill_path);
     }
@@ -913,11 +791,7 @@ export async function DELETE(
       }
     }
 
-    /*
-     * Remove the document rows as well. This is done after the
-     * expense has been deleted so a failed expense deletion does
-     * not orphan the document metadata.
-     */
+    // Remove document metadata rows.
     if ((expenseDocuments || []).length > 0) {
       const { error: documentsDeleteError } =
         await supabaseAdmin
@@ -933,16 +807,18 @@ export async function DELETE(
       }
     }
 
+    // Refresh archive after expense and bill deletion.
+    const archiveStatus =
+      await refreshExpenseArchive();
+
     return NextResponse.json({
       success: true,
       message:
         "Expense and attached bills deleted successfully.",
+      archiveStatus,
     });
   } catch (error) {
-    console.error(
-      "Expense DELETE error:",
-      error
-    );
+    console.error("Expense DELETE error:", error);
 
     return NextResponse.json(
       { error: "Invalid request." },

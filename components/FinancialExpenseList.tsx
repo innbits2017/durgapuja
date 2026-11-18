@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -50,7 +51,6 @@ export default function FinancialExpenseList({
   expenses: Expense[];
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
 
   const expensesWithBills = useMemo(
@@ -58,9 +58,21 @@ export default function FinancialExpenseList({
     [expenses]
   );
 
+  const allBillExpenseIds = useMemo(
+    () => expensesWithBills.map((expense) => expense.id),
+    [expensesWithBills]
+  );
+
   const allSelected =
     expensesWithBills.length > 0 &&
-    expensesWithBills.every((expense) => selectedIds.includes(expense.id));
+    expensesWithBills.every((expense) =>
+      selectedIds.includes(expense.id)
+    );
+
+  const total = expenses.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
+  );
 
   function toggleExpense(id: string) {
     setSelectedIds((current) =>
@@ -71,65 +83,57 @@ export default function FinancialExpenseList({
   }
 
   function toggleAll() {
-    setSelectedIds(
-      allSelected ? [] : expensesWithBills.map((expense) => expense.id)
-    );
+    setSelectedIds(allSelected ? [] : allBillExpenseIds);
   }
 
-  async function downloadBills(ids: string[]) {
-    if (!ids.length || downloading) return;
-
-    setDownloading(true);
+  // Download the pre-generated archive.
+  function downloadAllBills() {
     setError("");
 
-    try {
-      const response = await fetch("/api/financials/bills", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expenseIds: ids }),
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.error || "Unable to download bills.");
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = "BUH-Expense-Bills.zip";
-
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to download bills."
-      );
-    } finally {
-      setDownloading(false);
-    }
+    window.location.href = "/api/financials/bills/download";
   }
 
-  const total = expenses.reduce(
-    (sum, item) => sum + Number(item.amount || 0),
-    0
-  );
+  // Download ZIP containing only selected expenses.
+  function downloadSelectedBills() {
+    if (!selectedIds.length) {
+      setError("Please select at least one expense.");
+      return;
+    }
+
+    setError("");
+
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/financials/bills/selected";
+    form.style.display = "none";
+
+    selectedIds.forEach((id) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "expenseIds";
+      input.value = id;
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+  }
 
   return (
     <section className="mt-6 rounded-3xl border border-[#ead9c7] bg-white p-5 shadow-sm sm:p-7">
+
+      {/* HEADER */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[10px] font-bold tracking-[0.25em] text-[#a77a2b]">
             EXPENSES
           </p>
+
           <h2 className="mt-2 text-2xl font-bold text-[#761019]">
             Expense List
           </h2>
+
           <p className="mt-1 text-sm text-[#766457]">
             Bills attached to each recorded expense.
           </p>
@@ -137,11 +141,15 @@ export default function FinancialExpenseList({
 
         <div className="rounded-xl bg-[#fff8ee] px-4 py-2 text-right">
           <p className="text-[10px] text-[#8c7868]">Total</p>
-          <p className="font-bold text-[#761019]">{money(total)}</p>
+          <p className="font-bold text-[#761019]">
+            {money(total)}
+          </p>
         </div>
       </div>
 
+      {/* DOWNLOAD CONTROLS */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fffaf2] p-3">
+
         <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-[#392823]">
           <input
             type="checkbox"
@@ -149,20 +157,33 @@ export default function FinancialExpenseList({
             onChange={toggleAll}
             className="h-4 w-4 accent-[#761019]"
           />
-          Select all expenses with bills
+
+          Select all expenses with bills ({expensesWithBills.length})
         </label>
 
-        <button
-          type="button"
-          disabled={!selectedIds.length || downloading}
-          onClick={() => void downloadBills(selectedIds)}
-          className="rounded-lg bg-[#761019] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#5b0c13] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <i className="fa-solid fa-file-zipper mr-2" />
-          {downloading
-            ? "Preparing ZIP..."
-            : `Download Selected (${selectedIds.length})`}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+
+          <button
+            type="button"
+            disabled={!allBillExpenseIds.length}
+            onClick={downloadAllBills}
+            className="rounded-lg bg-[#761019] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5b0c13] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <i className="fa-solid fa-file-zipper mr-2" />
+            Download All Bills ({allBillExpenseIds.length})
+          </button>
+
+          <button
+            type="button"
+            disabled={!selectedIds.length}
+            onClick={downloadSelectedBills}
+            className="rounded-lg border border-[#761019] px-4 py-2.5 text-sm font-semibold text-[#761019] transition hover:bg-[#fff4ee] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <i className="fa-solid fa-download mr-2" />
+            Download Selected ({selectedIds.length})
+          </button>
+
+        </div>
       </div>
 
       {error && (
@@ -174,8 +195,10 @@ export default function FinancialExpenseList({
         </p>
       )}
 
+      {/* EXPENSE TABLE */}
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[850px] text-left text-sm">
+
           <thead>
             <tr className="border-b border-[#ead9c7] text-[10px] uppercase tracking-[0.12em] text-[#8c7868]">
               <th className="px-3 py-3">Select</th>
@@ -232,10 +255,11 @@ export default function FinancialExpenseList({
                   <td className="px-3 py-4">
                     {documents.length ? (
                       <div className="space-y-2">
+
                         {documents.map((document) => (
                           <a
                             key={document.id}
-                            href={`/api/financials/bills?expenseId=${encodeURIComponent(
+                            href={`/api/expenses/bill?id=${encodeURIComponent(
                               expense.id
                             )}${
                               document.legacy
@@ -247,9 +271,11 @@ export default function FinancialExpenseList({
                             className="flex max-w-[280px] items-center gap-2 text-xs font-semibold text-[#a70e18] hover:underline"
                           >
                             <i className="fa-solid fa-file-arrow-down shrink-0" />
+
                             <span className="min-w-0 break-all">
                               {document.file_name}
                             </span>
+
                             {document.file_size ? (
                               <span className="shrink-0 text-gray-400">
                                 {formatSize(document.file_size)}
@@ -257,6 +283,7 @@ export default function FinancialExpenseList({
                             ) : null}
                           </a>
                         ))}
+
                       </div>
                     ) : (
                       <span className="text-xs text-gray-400">
@@ -283,8 +310,10 @@ export default function FinancialExpenseList({
       </div>
 
       <p className="mt-3 text-[11px] text-[#8c7868]">
-        Bulk download includes every bill attached to the selected expenses.
+        Download all bills in one ZIP, download selected bills, or download
+        individual receipts. Multiple bills attached to an expense are supported.
       </p>
+
     </section>
   );
 }
