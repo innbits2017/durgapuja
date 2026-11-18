@@ -504,6 +504,9 @@ export default function DashboardClient({
   const [loadingId, setLoadingId] =
     useState<string | null>(null);
 
+  const [archiveGenerating, setArchiveGenerating] =
+    useState(false);
+
   const [pendingInventoryCount, setPendingInventoryCount] =
     useState(0);
 
@@ -2348,6 +2351,36 @@ export default function DashboardClient({
       "_blank",
       "noopener,noreferrer"
     );
+  }
+
+  async function regenerateExpenseArchive() {
+    if (adminRole !== "super_admin" || archiveGenerating) return;
+
+    setArchiveGenerating(true);
+    setMessage("Generating bills archive. Please wait...");
+
+    try {
+      const response = await fetch("/api/expenses/archive", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Unable to regenerate bills archive.");
+      }
+
+      setMessage(result.message || "Bills archive regenerated successfully.");
+    } catch (error) {
+      console.error("Bills archive regeneration error:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to regenerate bills archive."
+      );
+    } finally {
+      setArchiveGenerating(false);
+    }
   }
 
   /* ==========================================================
@@ -5935,6 +5968,19 @@ export default function DashboardClient({
                     <i className="fa-solid fa-plus" />
                     Add Expense
                   </button>
+
+                  {adminRole === "super_admin" && (
+                    <button
+                      type="button"
+                      onClick={regenerateExpenseArchive}
+                      disabled={archiveGenerating}
+                      title="Rebuild the downloadable ZIP using the latest expense bills"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#a70e18] bg-white px-4 text-sm font-semibold text-[#a70e18] transition hover:bg-[#fff7f5] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <i className={`fa-solid ${archiveGenerating ? "fa-spinner fa-spin" : "fa-file-zipper"}`} />
+                      {archiveGenerating ? "Generating ZIP..." : "Regenerate Bills ZIP"}
+                    </button>
+                  )}
 
                   <button
                     type="button"
