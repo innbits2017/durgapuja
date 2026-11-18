@@ -25,6 +25,7 @@ export default async function DurgaPujaDashboard() {
     { data: sevaRegistrations, error: sevaRegistrationsError },
     { data: inventoryHelp, error: inventoryHelpError },
     { data: expenseDocuments, error: expenseDocumentsError },
+    { data: committeeRefunds, error: committeeRefundsError },
   ] = await Promise.all([
     // ============================================================
     // CONTRIBUTIONS
@@ -133,6 +134,12 @@ export default async function DurgaPujaDashboard() {
         "id, expense_id, file_name, file_path, file_type, file_size, created_at"
       )
       .order("created_at", { ascending: true }),
+
+    // Committee refunds received back into Puja funds.
+    supabaseAdmin
+      .from("committee_refunds")
+      .select("id, title, refund_type, amount, received_from, refund_date, payment_mode, reference_no, notes, created_at, updated_at")
+      .order("refund_date", { ascending: false }),
   ]);
 
   // ============================================================
@@ -147,7 +154,8 @@ export default async function DurgaPujaDashboard() {
     culturalProgramsError ||
     sevaRegistrationsError ||
     inventoryHelpError ||
-    expenseDocumentsError;
+    expenseDocumentsError ||
+    committeeRefundsError;
 
   if (error) {
     console.error("Dashboard data fetch error:", error);
@@ -320,6 +328,13 @@ export default async function DurgaPujaDashboard() {
             updated_at: item.updated_at,
           })
         )}
+
+        initialCommitteeRefunds={(committeeRefunds ?? []).map((item) => ({
+          ...item,
+          amount: Number(item.amount ?? 0),
+          reference_no: item.reference_no ?? null,
+          notes: item.notes ?? null,
+        }))}
       />
     </>
   );

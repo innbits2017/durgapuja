@@ -223,6 +223,14 @@ type FlatRow = {
   
 };
 
+type CommitteeRefund = {
+  id: string; title: string;
+  refund_type: "Leftover Grocery" | "Wrong Payment Refund" | "Other Refund";
+  amount: number; received_from: string; refund_date: string;
+  payment_mode: string; reference_no: string | null; notes: string | null;
+  created_at: string; updated_at: string;
+};
+
 type Section =
   | "overview"
   | "contributions"
@@ -233,6 +241,7 @@ type Section =
   | "stall"
   | "donations"
   | "expenses"
+  | "refunds"
   | "lastYear"
   | "gallery";
 
@@ -379,6 +388,7 @@ export default function DashboardClient({
   initialLastYearPaid,
   initialCulturalPrograms,
   initialSevaRegistrations,
+  initialCommitteeRefunds,
  }: {
   adminRole: AdminRole;
   initialContributions: Contribution[];
@@ -387,6 +397,7 @@ export default function DashboardClient({
   initialLastYearPaid: LastYearPaid[];
   initialCulturalPrograms: CulturalProgram[];
   initialSevaRegistrations: SevaRegistration[];
+  initialCommitteeRefunds: CommitteeRefund[];
 }) {
   const router = useRouter();
 
@@ -415,6 +426,16 @@ export default function DashboardClient({
     useState<Expense[]>(
       initialExpenses
     );
+
+  const [committeeRefunds, setCommitteeRefunds] = useState<CommitteeRefund[]>(initialCommitteeRefunds);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [editingCommitteeRefund, setEditingCommitteeRefund] = useState<CommitteeRefund | null>(null);
+  const [refundForm, setRefundForm] = useState({
+    title: "", refund_type: "Leftover Grocery" as CommitteeRefund["refund_type"],
+    amount: "", received_from: "", refund_date: new Date().toISOString().slice(0, 10),
+    payment_mode: "UPI", reference_no: "", notes: "",
+  });
 
   const [culturalPrograms, setCulturalPrograms] =
     useState<CulturalProgram[]>(
@@ -728,6 +749,81 @@ export default function DashboardClient({
     };
   }, [router]);
 
+  async function refreshCommitteeRefunds() {
+    setRefundLoading(true);
+    try {
+      const response = await fetch("/api/admin/committee-refunds", { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load refunds.");
+      setCommitteeRefunds(Array.isArray(result.refunds) ? result.refunds : []);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to load refunds.");
+    } finally { setRefundLoading(false); }
+  }
+
+  useEffect(() => {
+    setCommitteeRefunds(initialCommitteeRefunds);
+    void refreshCommitteeRefunds();
+  }, [initialCommitteeRefunds]);
+
+  function resetCommitteeRefundForm() {
+    setEditingCommitteeRefund(null);
+    setRefundForm({
+      title: "", refund_type: "Leftover Grocery", amount: "", received_from: "",
+      refund_date: new Date().toISOString().slice(0, 10), payment_mode: "UPI",
+      reference_no: "", notes: "",
+    });
+  }
+
+  function editCommitteeRefund(item: CommitteeRefund) {
+    setEditingCommitteeRefund(item);
+    setRefundForm({
+      title: item.title, refund_type: item.refund_type, amount: String(item.amount),
+      received_from: item.received_from, refund_date: item.refund_date,
+      payment_mode: item.payment_mode, reference_no: item.reference_no || "", notes: item.notes || "",
+    });
+  }
+
+  async function saveCommitteeRefund(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (adminRole !== "super_admin") { setMessage("Only Super Admin can manage refunds."); return; }
+    const amount = Number(refundForm.amount);
+    if (!refundForm.title.trim() || !refundForm.received_from.trim() || !Number.isFinite(amount) || amount <= 0) {
+      setMessage("Please enter a title, valid amount and received-from name."); return;
+    }
+    setRefundSaving(true); setMessage("");
+    try {
+      const response = await fetch("/api/admin/committee-refunds", {
+        method: editingCommitteeRefund ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(editingCommitteeRefund ? { id: editingCommitteeRefund.id } : {}),
+          ...refundForm, amount, title: refundForm.title.trim(),
+          received_from: refundForm.received_from.trim(),
+          reference_no: refundForm.reference_no.trim() || null,
+          notes: refundForm.notes.trim() || null,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save refund.");
+      await refreshCommitteeRefunds(); resetCommitteeRefundForm();
+      setMessage(editingCommitteeRefund ? "Refund updated." : "Refund recorded.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save refund.");
+    } finally { setRefundSaving(false); }
+  }
+
+  async function deleteCommitteeRefund(id: string) {
+    if (adminRole !== "super_admin" || !window.confirm("Delete this refund record?")) return;
+    try {
+      const response = await fetch(`/api/admin/committee-refunds?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to delete refund.");
+      setCommitteeRefunds((current) => current.filter((item) => item.id !== id));
+      setMessage("Refund deleted.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to delete refund."); }
+  }
+
   /* ==========================================================
      CONTRIBUTION STATS
   ========================================================== */
@@ -1010,9 +1106,8 @@ export default function DashboardClient({
         contributionStats.verifiedAmount +
         donationStats.verifiedAmount;
 
-      const totalAvailableFunds =
-        verifiedFunds +
-        sevaAmount;
+      const totalRefunds = committeeRefunds.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+      const totalAvailableFunds = verifiedFunds + sevaAmount + totalRefunds;
 
       const remaining =
         totalAvailableFunds -
@@ -1021,6 +1116,7 @@ export default function DashboardClient({
       return {
         verifiedFunds,
         sevaAmount,
+        totalRefunds,
         totalAvailableFunds,
         remaining,
       };
@@ -1029,6 +1125,7 @@ export default function DashboardClient({
       donationStats.verifiedAmount,
       expenseStats.total,
       sevaRegistrations,
+      committeeRefunds,
     ]);
 
   /* ==========================================================
@@ -2697,6 +2794,11 @@ export default function DashboardClient({
       },
 
       {
+        Particular: "Refunds Received",
+        Amount: financialStats.totalRefunds,
+      },
+
+      {
         Particular:
           "Total Available Funds",
 
@@ -2890,6 +2992,16 @@ export default function DashboardClient({
         donationRows
       ),
       "External Support"
+    );
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(committeeRefunds.map((item) => ({
+        Title: item.title, Category: item.refund_type, Amount: Number(item.amount),
+        "Received From": item.received_from, Date: item.refund_date,
+        "Payment Mode": item.payment_mode, "Reference No.": item.reference_no || "", Notes: item.notes || "",
+      }))),
+      "Refunds"
     );
 
     XLSX.utils.book_append_sheet(
@@ -3107,6 +3219,8 @@ export default function DashboardClient({
               label="Expenses"
             />
 
+            <NavButton active={section === "refunds"} onClick={() => setSection("refunds")} icon="fa-money-bill-transfer" label="Refunds" />
+
             <NavButton
               active={
                 section ===
@@ -3158,7 +3272,7 @@ export default function DashboardClient({
 
         {section === "overview" && (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
 
               <FinancialCard
                 icon="fa-house-user"
@@ -3188,6 +3302,13 @@ export default function DashboardClient({
               />
 
               <FinancialCard
+                icon="fa-money-bill-transfer"
+                label="Refunds"
+                value={money(financialStats.totalRefunds)}
+                sub={`${committeeRefunds.length} refund records`}
+              />
+
+              <FinancialCard
                 icon="fa-receipt"
                 label="Total Expenses"
                 value={money(
@@ -3202,7 +3323,7 @@ export default function DashboardClient({
                 value={money(
                   financialStats.remaining
                 )}
-                sub="Contributions + Support + Seva − Expenses"
+                sub="Contributions + Support + Seva + Refunds − Expenses"
                 highlight
               />
 
@@ -3262,6 +3383,8 @@ export default function DashboardClient({
                   }
                   positive
                 />
+
+                <SummaryRow label="Refunds Received" amount={financialStats.totalRefunds} positive />
 
                 <div className="border-t border-[#eee5db] pt-3">
 
@@ -5669,6 +5792,37 @@ export default function DashboardClient({
               />
             )}
 
+          </section>
+        )}
+
+        {section === "refunds" && (
+          <section className="overflow-hidden rounded-2xl border border-[#eadfd2] bg-white shadow-sm">
+            <div className="border-b border-[#eee5db] p-5">
+              <h2 className="font-serif text-xl font-bold">Refunds Received</h2>
+              <p className="mt-1 text-sm text-[#858585]">Money returned to the Puja committee · Total {money(financialStats.totalRefunds)}</p>
+            </div>
+            {adminRole === "super_admin" && (
+              <form onSubmit={saveCommitteeRefund} className="grid gap-3 border-b border-[#eee5db] bg-[#fffdf9] p-4 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="text-xs font-semibold text-[#666]">Title *<input required value={refundForm.title} onChange={(e) => setRefundForm(f => ({...f,title:e.target.value}))} className="form-input mt-1" placeholder="Remaining grocery returned" /></label>
+                <label className="text-xs font-semibold text-[#666]">Category *<select value={refundForm.refund_type} onChange={(e) => setRefundForm(f => ({...f,refund_type:e.target.value as CommitteeRefund["refund_type"]}))} className="form-input mt-1"><option>Leftover Grocery</option><option>Wrong Payment Refund</option><option>Other Refund</option></select></label>
+                <label className="text-xs font-semibold text-[#666]">Amount (₹) *<input required type="number" min="0.01" step="0.01" value={refundForm.amount} onChange={(e) => setRefundForm(f => ({...f,amount:e.target.value}))} className="form-input mt-1" /></label>
+                <label className="text-xs font-semibold text-[#666]">Received From *<input required value={refundForm.received_from} onChange={(e) => setRefundForm(f => ({...f,received_from:e.target.value}))} className="form-input mt-1" placeholder="Member / Vendor" /></label>
+                <label className="text-xs font-semibold text-[#666]">Date Received *<input required type="date" value={refundForm.refund_date} onChange={(e) => setRefundForm(f => ({...f,refund_date:e.target.value}))} className="form-input mt-1" /></label>
+                <label className="text-xs font-semibold text-[#666]">Payment Mode<select value={refundForm.payment_mode} onChange={(e) => setRefundForm(f => ({...f,payment_mode:e.target.value}))} className="form-input mt-1"><option>UPI</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option></select></label>
+                <label className="text-xs font-semibold text-[#666]">Reference No.<input value={refundForm.reference_no} onChange={(e) => setRefundForm(f => ({...f,reference_no:e.target.value}))} className="form-input mt-1" /></label>
+                <label className="text-xs font-semibold text-[#666] sm:col-span-2 lg:col-span-4">Notes<textarea rows={2} value={refundForm.notes} onChange={(e) => setRefundForm(f => ({...f,notes:e.target.value}))} className="form-input mt-1" /></label>
+                <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
+                  <button disabled={refundSaving} className="rounded-lg bg-[#a70e18] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{refundSaving ? "Saving..." : editingCommitteeRefund ? "Update Refund" : "Add Refund"}</button>
+                  {editingCommitteeRefund && <button type="button" onClick={resetCommitteeRefundForm} className="rounded-lg border px-4 py-2.5 text-sm">Cancel</button>}
+                </div>
+              </form>
+            )}
+            {refundLoading ? <p className="p-8 text-center text-sm text-[#888]">Loading refunds...</p> : committeeRefunds.length === 0 ? <p className="p-8 text-center text-sm text-[#888]">No refunds recorded yet.</p> : (
+              <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left">
+                <thead className="bg-[#fcf8f1] text-xs uppercase text-[#777]"><tr><th className="px-5 py-3">Description</th><th className="px-4 py-3">Category</th><th className="px-4 py-3">Received From</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Payment</th><th className="px-5 py-3 text-right">Actions</th></tr></thead>
+                <tbody className="divide-y divide-[#f0ebe5]">{committeeRefunds.map(item => <tr key={item.id}><td className="px-5 py-3 text-sm font-semibold">{item.title}{item.reference_no && <div className="text-xs font-normal text-[#999]">Ref: {item.reference_no}</div>}</td><td className="px-4 py-3 text-sm">{item.refund_type}</td><td className="px-4 py-3 text-sm">{item.received_from}</td><td className="px-4 py-3 text-sm font-bold text-[#23753b]">{money(Number(item.amount))}</td><td className="px-4 py-3 text-xs">{formatDateOnly(item.refund_date)}</td><td className="px-4 py-3 text-sm">{item.payment_mode}</td><td className="px-5 py-3 text-right">{adminRole === "super_admin" && <div className="flex justify-end gap-2"><button type="button" onClick={() => editCommitteeRefund(item)} className="rounded-lg border px-3 py-2 text-xs">Edit</button><button type="button" onClick={() => void deleteCommitteeRefund(item.id)} className="rounded-lg border border-[#f0cccc] bg-[#fff6f6] px-3 py-2 text-xs text-[#a70e18]">Delete</button></div>}</td></tr>)}</tbody>
+              </table></div>
+            )}
           </section>
         )}
 
