@@ -302,12 +302,10 @@ export async function POST(request: Request) {
     const documents =
       await getExpenseDocuments(expenseId);
 
-    const archiveStatus =
-      await refreshExpenseArchive();
-
+    // Return as soon as the bill and its database record are saved.
+    // Archive regeneration is intentionally not part of this upload request.
     return NextResponse.json({
       success: true,
-      archiveStatus,
       expense: {
         ...updatedExpense,
         documents,

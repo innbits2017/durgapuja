@@ -21,11 +21,7 @@ async function refreshExpenseArchive() {
     await generateExpenseArchive();
     return "ready";
   } catch (error) {
-    console.error(
-      "Expense archive refresh failed:",
-      error
-    );
-
+    console.error("Expense archive refresh failed:", error);
     return "failed";
   }
 }
@@ -464,14 +460,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Refresh archive after successful expense creation.
-    const archiveStatus =
-      await refreshExpenseArchive();
-
     return NextResponse.json({
       success: true,
       message: "Expense added successfully.",
-      archiveStatus,
       expense: {
         ...data,
         documents: [],
@@ -646,14 +637,9 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Refresh archive after successful expense update.
-    const archiveStatus =
-      await refreshExpenseArchive();
-
     return NextResponse.json({
       success: true,
       message: "Expense updated successfully.",
-      archiveStatus,
       expense: {
         ...data,
         documents: documentRows ?? [],
