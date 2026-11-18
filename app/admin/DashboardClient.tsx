@@ -727,27 +727,14 @@ export default function DashboardClient({
     return () => window.clearInterval(interval);
   }, []);
 
+  // Load expense records and their bill documents once when the
+  // dashboard mounts. Do not periodically call router.refresh():
+  // that refreshes the entire server page and causes every tab to
+  // reload repeatedly. Expense mutations already refresh this list
+  // after a successful save.
   useEffect(() => {
-    const refreshDashboard = () => {
-      router.refresh();
-      void refreshExpensesWithDocuments();
-    };
-
-    // Load expense documents immediately and keep the expense list
-    // in sync with the database.
     void refreshExpensesWithDocuments();
-
-    // Refresh regularly so a new 2026 payment/submission appears
-    // on the dashboard without the admin needing to reload manually.
-    const interval = window.setInterval(
-      refreshDashboard,
-      10000
-    );
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [router]);
+  }, []);
 
   async function refreshCommitteeRefunds() {
     setRefundLoading(true);
