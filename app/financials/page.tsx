@@ -28,6 +28,20 @@ type Donation = {
   verified_at: string | null;
 };
 
+type CommitteeRefund = {
+  id: string;
+  title: string;
+  refund_type: string;
+  amount: number | string | null;
+  received_from: string;
+  refund_date: string;
+  payment_mode: string;
+  reference_no: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type ExpenseDocument = {
   id: string;
   expense_id: string;
@@ -111,6 +125,7 @@ export default async function PublicFinancialsPage() {
     { data: donations, error: donationsError },
     { data: expenses, error: expensesError },
     { data: sevaRegistrations, error: sevaError },
+    { data: committeeRefunds, error: refundsError },
   ] = await Promise.all([
     supabaseAdmin
       .from("contributions")
@@ -141,6 +156,14 @@ export default async function PublicFinancialsPage() {
         "id, seva_no, name, block, flat_no, materials, volunteer_role_names, amount, status, created_at"
       )
       .eq("status", "confirmed")
+      .order("created_at", { ascending: false }),
+
+    supabaseAdmin
+      .from("committee_refunds")
+      .select(
+        "id, title, refund_type, amount, received_from, refund_date, payment_mode, reference_no, notes, created_at, updated_at"
+      )
+      .order("refund_date", { ascending: false })
       .order("created_at", { ascending: false }),
   ]);
 
@@ -174,6 +197,7 @@ export default async function PublicFinancialsPage() {
     donationsError ||
     expensesError ||
     sevaError ||
+    refundsError ||
     expenseDocumentsError;
 
   if (error) {
@@ -197,6 +221,7 @@ export default async function PublicFinancialsPage() {
   const memberContributions = (contributions ?? []) as Contribution[];
   const externalContributions = (donations ?? []) as Donation[];
   const sevaList = (sevaRegistrations ?? []) as Seva[];
+  const refundList = (committeeRefunds ?? []) as CommitteeRefund[];
 
   const documentsByExpense = new Map<string, ExpenseDocument[]>();
 
@@ -268,8 +293,14 @@ const materialSevaTotal = materialSevaList.reduce<number>(
   0
 );
 
+  const totalRefunds = refundList.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
+  );
+
+  // Refunds received are added back to the funds available to the committee.
   const totalCollection =
-    memberTotal + materialSevaTotal + externalTotal;
+    memberTotal + materialSevaTotal + externalTotal + totalRefunds;
 
   const totalExpenses = expenseList.reduce(
     (sum, item) => sum + Number(item.amount || 0),
@@ -307,6 +338,9 @@ const materialSevaTotal = materialSevaList.reduce<number>(
   const externalPercent =
     totalCollection > 0 ? (externalTotal / totalCollection) * 100 : 0;
 
+  const refundPercent =
+    totalCollection > 0 ? (totalRefunds / totalCollection) * 100 : 0;
+
   /* LAST UPDATED */
 
   const allDates = [
@@ -318,6 +352,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
     ),
     ...expenseList.map((item) => item.expense_date),
     ...sevaList.map((item) => item.created_at),
+    ...refundList.map((item) => item.refund_date || item.created_at),
   ]
     .filter(Boolean)
     .map((date) => new Date(date as string).getTime())
@@ -430,8 +465,8 @@ const materialSevaTotal = materialSevaList.reduce<number>(
         </section>
 
         <div className="mx-auto max-w-7xl px-5 py-8 sm:py-10">
-          {/* FIVE SUMMARY BOXES */}
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {/* SIX SUMMARY BOXES */}
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             {[
               {
                 label: "Resident Collection",
@@ -452,6 +487,12 @@ const materialSevaTotal = materialSevaList.reduce<number>(
                 icon: "fa-handshake",
               },
               {
+                label: "Refunds Received",
+                value: totalRefunds,
+                sub: `${refundList.length} recorded refunds`,
+                icon: "fa-rotate-left",
+              },
+              {
                 label: "Total Expenses",
                 value: totalExpenses,
                 sub: `${expenseList.length} recorded expenses`,
@@ -470,7 +511,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
               <div
                 key={item.label}
                 className={`group rounded-2xl border p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
-                  index === 4
+                  index === 5
                     ? "border-[#d9c092] bg-[#fffaf2]"
                     : "border-[#ead9c7] bg-white"
                 }`}
@@ -504,7 +545,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
                   FINANCIAL FLOW
                 </p>
                 <p className="mt-1 text-sm font-semibold text-[#392823]">
-                  Collection → Expenses → Balance
+                  Collections + Refunds → Expenses → Balance
                 </p>
               </div>
 
@@ -545,6 +586,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
                     { value: memberPercent, color: "#a70e18" },
                     { value: materialPercent, color: "#d09a32" },
                     { value: externalPercent, color: "#761019" },
+                    { value: refundPercent, color: "#8d6923" },
                   ]}
                   center={
                     <div>
@@ -601,6 +643,21 @@ const materialSevaTotal = materialSevaList.reduce<number>(
                     </p>
                     <p className="pl-4 text-[10px] text-[#8c7868]">
                       {externalPercent.toFixed(1)}%
+                    </p>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#8d6923]" />
+                      <span className="text-xs font-semibold text-[#392823]">
+                        Refunds Received
+                      </span>
+                    </div>
+                    <p className="mt-1 pl-4 text-sm font-bold text-[#761019]">
+                      {money(totalRefunds)}
+                    </p>
+                    <p className="pl-4 text-[10px] text-[#8c7868]">
+                      {refundPercent.toFixed(1)}%
                     </p>
                   </div>
                 </div>
@@ -991,6 +1048,65 @@ const materialSevaTotal = materialSevaList.reduce<number>(
             </div>
           </section>
 
+          {/* REFUNDS RECEIVED */}
+          <section className="mt-6 rounded-3xl border border-[#ead9c7] bg-white p-5 shadow-sm sm:p-7">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-bold tracking-[0.25em] text-[#a77a2b]">
+                  FUNDS RETURNED TO COMMITTEE
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-[#761019]">
+                  Refunds Received
+                </h2>
+                <p className="mt-1 text-sm text-[#766457]">
+                  Amounts returned or recovered and added back to the available Puja funds.
+                </p>
+              </div>
+              <div className="rounded-xl bg-[#fff8ee] px-4 py-2 sm:text-right">
+                <p className="text-[10px] text-[#8c7868]">Total Received</p>
+                <p className="font-bold text-[#761019]">{money(totalRefunds)}</p>
+                <p className="text-[10px] text-[#8c7868]">{refundList.length} records</p>
+              </div>
+            </div>
+
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[850px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#ead9c7] text-[10px] uppercase tracking-[0.12em] text-[#8c7868]">
+                    <th className="px-3 py-3">Refund Details</th>
+                    <th className="px-3 py-3">Category</th>
+                    <th className="px-3 py-3">Received From</th>
+                    <th className="px-3 py-3">Amount</th>
+                    <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">Payment Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {refundList.map((item) => (
+                    <tr key={item.id} className="border-b border-[#f1e7da] transition-colors hover:bg-[#fffaf2] last:border-0">
+                      <td className="px-3 py-3.5 font-semibold text-[#392823]">
+                        {item.title || "Refund"}
+                        {item.notes && <p className="mt-1 max-w-xs text-xs font-normal text-[#8c7868]">{item.notes}</p>}
+                      </td>
+                      <td className="px-3 py-3.5 text-[#766457]">{item.refund_type || "Other Refund"}</td>
+                      <td className="px-3 py-3.5 font-medium text-[#392823]">{item.received_from || "—"}</td>
+                      <td className="px-3 py-3.5 font-bold text-[#761019]">{money(Number(item.amount || 0))}</td>
+                      <td className="px-3 py-3.5 text-[#766457]">{formatDate(item.refund_date || item.created_at)}</td>
+                      <td className="px-3 py-3.5 text-[#766457]">{item.payment_mode || "—"}</td>
+                    </tr>
+                  ))}
+                  {!refundList.length && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-10 text-center text-sm text-[#8c7868]">
+                        No refunds have been recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           {/* EXPENSES AND ATTACHED BILLS */}
           <FinancialExpenseList expenses={expenseList} />
 
@@ -1004,7 +1120,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[#8c7868]">
                   This page provides a transparent view of verified
-                  contributions, Seva and recorded expenses. Visitors cannot
+                  contributions, Seva, refunds received and recorded expenses. Visitors cannot
                   add, edit, verify or delete financial records.
                 </p>
               </div>

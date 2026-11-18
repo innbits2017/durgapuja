@@ -60,7 +60,21 @@ function validate(body: Record<string, unknown>) {
   if (!REFUND_TYPES.includes(refund_type)) return { error: "Invalid refund category." };
   if (!Number.isFinite(amount) || amount <= 0) return { error: "Enter a valid refund amount." };
   if (!received_from) return { error: "Received-from name is required." };
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(refund_date)) return { error: "A valid refund date is required." };
+  // HTML date inputs submit dates as YYYY-MM-DD. Validate both the format
+  // and the actual calendar date (e.g. reject 2026-02-31).
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(refund_date);
+  const validDate = dateMatch
+    ? (() => {
+        const year = Number(dateMatch[1]);
+        const month = Number(dateMatch[2]);
+        const day = Number(dateMatch[3]);
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        return parsed.getUTCFullYear() === year &&
+          parsed.getUTCMonth() === month - 1 &&
+          parsed.getUTCDate() === day;
+      })()
+    : false;
+  if (!validDate) return { error: "Please select a valid date received." };
   if (!PAYMENT_MODES.includes(payment_mode)) return { error: "Invalid payment mode." };
 
   return { value: { title, refund_type, amount, received_from, refund_date, payment_mode, reference_no, notes } };

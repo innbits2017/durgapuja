@@ -5802,18 +5802,71 @@ export default function DashboardClient({
               <p className="mt-1 text-sm text-[#858585]">Money returned to the Puja committee · Total {money(financialStats.totalRefunds)}</p>
             </div>
             {adminRole === "super_admin" && (
-              <form onSubmit={saveCommitteeRefund} className="grid gap-3 border-b border-[#eee5db] bg-[#fffdf9] p-4 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="text-xs font-semibold text-[#666]">Title *<input required value={refundForm.title} onChange={(e) => setRefundForm(f => ({...f,title:e.target.value}))} className="form-input mt-1" placeholder="Remaining grocery returned" /></label>
-                <label className="text-xs font-semibold text-[#666]">Category *<select value={refundForm.refund_type} onChange={(e) => setRefundForm(f => ({...f,refund_type:e.target.value as CommitteeRefund["refund_type"]}))} className="form-input mt-1"><option>Leftover Grocery</option><option>Wrong Payment Refund</option><option>Other Refund</option></select></label>
-                <label className="text-xs font-semibold text-[#666]">Amount (₹) *<input required type="number" min="0.01" step="0.01" value={refundForm.amount} onChange={(e) => setRefundForm(f => ({...f,amount:e.target.value}))} className="form-input mt-1" /></label>
-                <label className="text-xs font-semibold text-[#666]">Received From *<input required value={refundForm.received_from} onChange={(e) => setRefundForm(f => ({...f,received_from:e.target.value}))} className="form-input mt-1" placeholder="Member / Vendor" /></label>
-                <label className="text-xs font-semibold text-[#666]">Date Received *<input required type="date" value={refundForm.refund_date} onChange={(e) => setRefundForm(f => ({...f,refund_date:e.target.value}))} className="form-input mt-1" /></label>
-                <label className="text-xs font-semibold text-[#666]">Payment Mode<select value={refundForm.payment_mode} onChange={(e) => setRefundForm(f => ({...f,payment_mode:e.target.value}))} className="form-input mt-1"><option>UPI</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option></select></label>
-                <label className="text-xs font-semibold text-[#666]">Reference No.<input value={refundForm.reference_no} onChange={(e) => setRefundForm(f => ({...f,reference_no:e.target.value}))} className="form-input mt-1" /></label>
-                <label className="text-xs font-semibold text-[#666] sm:col-span-2 lg:col-span-4">Notes<textarea rows={2} value={refundForm.notes} onChange={(e) => setRefundForm(f => ({...f,notes:e.target.value}))} className="form-input mt-1" /></label>
-                <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
-                  <button disabled={refundSaving} className="rounded-lg bg-[#a70e18] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{refundSaving ? "Saving..." : editingCommitteeRefund ? "Update Refund" : "Add Refund"}</button>
-                  {editingCommitteeRefund && <button type="button" onClick={resetCommitteeRefundForm} className="rounded-lg border px-4 py-2.5 text-sm">Cancel</button>}
+              <form
+                onSubmit={saveCommitteeRefund}
+                className="border-b border-[#eee5db] bg-gradient-to-br from-[#fffaf3] to-white p-5 sm:p-7"
+              >
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#a77a2b]">
+                      {editingCommitteeRefund ? "Update record" : "New record"}
+                    </p>
+                    <h3 className="mt-1 text-lg font-bold text-[#761019]">
+                      {editingCommitteeRefund ? "Edit refund details" : "Record money returned to the committee"}
+                    </h3>
+                    <p className="mt-1 text-sm text-[#817064]">Enter the details below. Fields marked * are required.</p>
+                  </div>
+                  <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#ead9c7] bg-white px-3 py-2 text-xs font-semibold text-[#806b5c]">
+                    <i className="fa-solid fa-shield-halved text-[#a77a2b]" /> Committee finance record
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-x-5 gap-y-5 md:grid-cols-2 xl:grid-cols-4">
+                  <label className="block text-sm font-semibold text-[#514239]">
+                    Title <span className="text-[#a70e18]">*</span>
+                    <input required value={refundForm.title} onChange={(e) => setRefundForm(f => ({...f,title:e.target.value}))} className="mt-2 block w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none transition placeholder:text-[#b3a69a] focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20" placeholder="e.g. Grocery items returned" />
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239]">
+                    Category <span className="text-[#a70e18]">*</span>
+                    <select required value={refundForm.refund_type} onChange={(e) => setRefundForm(f => ({...f,refund_type:e.target.value as CommitteeRefund["refund_type"]}))} className="mt-2 block min-h-[46px] w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20">
+                      <option>Leftover Grocery</option><option>Wrong Payment Refund</option><option>Other Refund</option>
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239]">
+                    Amount (₹) <span className="text-[#a70e18]">*</span>
+                    <input required type="number" min="0.01" step="0.01" value={refundForm.amount} onChange={(e) => setRefundForm(f => ({...f,amount:e.target.value}))} className="mt-2 block min-h-[46px] w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20" placeholder="0.00" />
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239]">
+                    Received From <span className="text-[#a70e18]">*</span>
+                    <input required value={refundForm.received_from} onChange={(e) => setRefundForm(f => ({...f,received_from:e.target.value}))} className="mt-2 block min-h-[46px] w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none placeholder:text-[#b3a69a] focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20" placeholder="Member or vendor name" />
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239]">
+                    Date Received <span className="text-[#a70e18]">*</span>
+                    <input required type="date" value={refundForm.refund_date} onChange={(e) => setRefundForm(f => ({...f,refund_date:e.target.value}))} className="mt-2 block min-h-[46px] w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20" />
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239]">
+                    Payment Mode
+                    <select value={refundForm.payment_mode} onChange={(e) => setRefundForm(f => ({...f,payment_mode:e.target.value}))} className="mt-2 block min-h-[46px] w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20">
+                      <option>UPI</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option>
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239] md:col-span-2">
+                    Reference Number <span className="font-normal text-[#9a8c80]">(optional)</span>
+                    <input value={refundForm.reference_no} onChange={(e) => setRefundForm(f => ({...f,reference_no:e.target.value}))} className="mt-2 block min-h-[46px] w-full rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none placeholder:text-[#b3a69a] focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20" placeholder="UPI transaction / bank reference" />
+                  </label>
+                  <label className="block text-sm font-semibold text-[#514239] md:col-span-2 xl:col-span-4">
+                    Notes <span className="font-normal text-[#9a8c80]">(optional)</span>
+                    <textarea rows={3} value={refundForm.notes} onChange={(e) => setRefundForm(f => ({...f,notes:e.target.value}))} className="mt-2 block w-full resize-y rounded-xl border border-[#e5d8ca] bg-white px-4 py-3 text-sm font-normal text-[#392823] shadow-sm outline-none placeholder:text-[#b3a69a] focus:border-[#a77a2b] focus:ring-2 focus:ring-[#d09a32]/20" placeholder="Add any additional details about this refund..." />
+                  </label>
+                </div>
+
+                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[#eee5db] pt-5 sm:flex-row sm:items-center">
+                  <button type="submit" disabled={refundSaving} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-[#a70e18] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#861019] disabled:cursor-not-allowed disabled:opacity-50">
+                    <i className={`fa-solid ${refundSaving ? "fa-spinner fa-spin" : "fa-plus"}`} />
+                    {refundSaving ? "Saving refund..." : editingCommitteeRefund ? "Update Refund" : "Add Refund"}
+                  </button>
+                  {editingCommitteeRefund && <button type="button" onClick={resetCommitteeRefundForm} className="min-h-[46px] rounded-xl border border-[#e5d8ca] bg-white px-5 py-3 text-sm font-semibold text-[#65564b] transition hover:bg-[#fffaf3]">Cancel</button>}
+                  <p className="text-xs text-[#9a8c80] sm:ml-auto">Refunds will be added to the available committee balance.</p>
                 </div>
               </form>
             )}
