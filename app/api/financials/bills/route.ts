@@ -307,7 +307,7 @@ export async function POST(request: Request) {
     });
 
     // Return ZIP to browser.
-    return new Response(zipBuffer, {
+    return new Response(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
