@@ -219,8 +219,15 @@ export default async function PublicFinancialsPage() {
   }
 
   const memberContributions = (contributions ?? []) as Contribution[];
-  const externalContributions = (donations ?? []) as Donation[];
+  const externalContributions = ((donations ?? []) as Donation[]).sort(
+    (a, b) => Number(b.amount || 0) - Number(a.amount || 0)
+  );
   const sevaList = (sevaRegistrations ?? []) as Seva[];
+  // Show only Seva registrations with a positive sponsorship contribution.
+  // Keep sevaList unchanged for the existing financial calculations.
+  const sevaListWithContribution = sevaList.filter(
+    (item) => Number(item.amount || 0) > 0
+  );
   const refundList = (committeeRefunds ?? []) as CommitteeRefund[];
 
   const documentsByExpense = new Map<string, ExpenseDocument[]>();
@@ -996,12 +1003,12 @@ const materialSevaTotal = materialSevaList.reduce<number>(
 
               <div className="rounded-xl bg-[#fff8ee] px-4 py-2 text-right">
                 <p className="text-[10px] text-[#8c7868]">Confirmed</p>
-                <p className="font-bold text-[#761019]">{sevaList.length}</p>
+                <p className="font-bold text-[#761019]">{sevaListWithContribution.length}</p>
               </div>
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              {sevaList.map((item) => (
+              {sevaListWithContribution.map((item) => (
                 <div
                   key={item.id}
                   className="rounded-2xl border border-[#ead9c7] bg-[#fffaf2] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm"
@@ -1035,7 +1042,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
                 </div>
               ))}
 
-              {!sevaList.length && (
+              {!sevaListWithContribution.length && (
                 <div className="rounded-2xl bg-[#fffaf2] px-4 py-10 text-center text-sm text-[#8c7868] md:col-span-2">
                   No confirmed Seva registrations yet.
                 </div>
