@@ -452,11 +452,6 @@ const materialSevaTotal = materialSevaList.reduce<number>(
               </span>
 
               <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-white/80">
-                <i className="fa-solid fa-lock mr-1.5 text-[#f2d77f]" />
-                Read Only
-              </span>
-
-              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-semibold text-white/80">
                 <i className="fa-solid fa-clock mr-1.5 text-[#f2d77f]" />
                 Updated {lastUpdated}
               </span>
@@ -1116,18 +1111,28 @@ const materialSevaTotal = materialSevaList.reduce<number>(
               <i className="fa-solid fa-lock mt-0.5 text-[11px] text-[#a77a2b]" />
               <div>
                 <p className="text-xs font-semibold text-[#5e5047]">
-                  Verified & Read-only financial records
+                  Verified Records
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[#8c7868]">
                   This page provides a transparent view of verified
-                  contributions, Seva, refunds received and recorded expenses. Visitors cannot
-                  add, edit, verify or delete financial records.
+                  contributions, Seva, refunds received and recorded expenses.
                 </p>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* STICKY BANK STATEMENT DOWNLOAD */}
+      <a
+        href="/slice_statement_14Sep26_19Nov26.pdf"
+        download="slice_statement_14Sep26_19Nov26.pdf"
+        aria-label="Download bank statement"
+        className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full bg-[#761019] px-4 py-3 text-sm font-semibold text-white shadow-xl ring-1 ring-white/20 transition-all duration-200 hover:-translate-y-1 hover:bg-[#5f0c14] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d09a32] sm:bottom-7 sm:right-7 sm:px-5"
+      >
+        <i className="fa-solid fa-file-pdf text-base text-[#f2d77f]" />
+        <span>Download Bank Statement</span>
+      </a>
     </>
   );
 }
