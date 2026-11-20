@@ -1130,16 +1130,28 @@ const materialSevaTotal = materialSevaList.reduce<number>(
         </div>
       </main>
 
-      {/* STICKY BANK STATEMENT DOWNLOAD */}
-      <a
-        href="/slice_statement_14Sep26_19Nov26.pdf"
-        download="slice_statement_14Sep26_19Nov26.pdf"
-        aria-label="Download bank statement"
-        className="fixed bottom-5 right-5 z-50 inline-flex items-center gap-2 rounded-full bg-[#761019] px-4 py-3 text-sm font-semibold text-white shadow-xl ring-1 ring-white/20 transition-all duration-200 hover:-translate-y-1 hover:bg-[#5f0c14] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d09a32] sm:bottom-7 sm:right-7 sm:px-5"
-      >
-        <i className="fa-solid fa-file-pdf text-base text-[#f2d77f]" />
-        <span>Download Bank Statement</span>
-      </a>
+      {/* STICKY DOWNLOAD ACTIONS */}
+      <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-7 sm:right-7">
+        <a
+          href="/api/financials/bills"
+          download="all-expense-bills.zip"
+          aria-label="Download all bills"
+          className="inline-flex items-center gap-2 rounded-full border border-[#e5c878] bg-white px-4 py-3 text-sm font-semibold text-[#761019] shadow-xl transition-all duration-200 hover:-translate-y-1 hover:bg-[#fff8ee] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d09a32] sm:px-5"
+        >
+          <i className="fa-solid fa-file-zipper text-base text-[#a77a2b]" />
+          <span>Download All Bills</span>
+        </a>
+
+        <a
+          href="/slice_statement_14Sep26_19Nov26.pdf"
+          download="slice_statement_14Sep26_19Nov26.pdf"
+          aria-label="Download bank statement"
+          className="inline-flex items-center gap-2 rounded-full bg-[#761019] px-4 py-3 text-sm font-semibold text-white shadow-xl ring-1 ring-white/20 transition-all duration-200 hover:-translate-y-1 hover:bg-[#5f0c14] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d09a32] sm:px-5"
+        >
+          <i className="fa-solid fa-file-pdf text-base text-[#f2d77f]" />
+          <span>Download Bank Statement</span>
+        </a>
+      </div>
     </>
   );
 }
