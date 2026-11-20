@@ -1133,8 +1133,7 @@ const materialSevaTotal = materialSevaList.reduce<number>(
       {/* STICKY DOWNLOAD ACTIONS */}
       <div className="fixed bottom-5 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-7 sm:right-7">
         <a
-          href="/api/financials/bills"
-          download="all-expense-bills.zip"
+          href="/api/financials/bills/download"
           aria-label="Download all bills"
           className="inline-flex items-center gap-2 rounded-full border border-[#e5c878] bg-white px-4 py-3 text-sm font-semibold text-[#761019] shadow-xl transition-all duration-200 hover:-translate-y-1 hover:bg-[#fff8ee] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#d09a32] sm:px-5"
         >
